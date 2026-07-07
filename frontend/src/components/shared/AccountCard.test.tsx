@@ -6,10 +6,8 @@ import type { Account } from '@/types/api'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    // CurrencyDisplay (rendered for the balance) resolves the locale/currency via i18n;
-    // return the real values so Intl.NumberFormat gets a valid tag instead of the raw key.
-    t: (key: string) =>
-      key === 'common.locale' ? 'fr-FR' : key === 'common.currency' ? 'EUR' : key,
+    t: (key: string) => key,
+    i18n: { language: 'en', resolvedLanguage: 'en' },
   }),
 }))
 
@@ -21,6 +19,8 @@ vi.mock('react-i18next', () => ({
 class MockImage {
   onload: (() => void) | null = null
   onerror: (() => void) | null = null
+  complete = false
+  naturalWidth = 0
   private _src = ''
   private handlers: Record<string, Set<() => void>> = { load: new Set(), error: new Set() }
 

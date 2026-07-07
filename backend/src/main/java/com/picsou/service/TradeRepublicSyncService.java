@@ -156,7 +156,7 @@ public class TradeRepublicSyncService {
         try {
             List<TrAccountData> accounts = trPort.fetchAccounts(sessionToken);
             List<AccountResponse> responses = accounts.stream()
-                .map(data -> upsertAccount(data, memberId))
+                .map(data -> upsertAccount(data, memberId, true))
                 .flatMap(Optional::stream)
                 .toList();
             log.info("Trade Republic sync complete: {} accounts updated", responses.size());
@@ -259,7 +259,7 @@ public class TradeRepublicSyncService {
                     .replaceAll("[^a-z0-9]", "_")
                     .replaceAll("_+", "_");
 
-                upsertAccount(new TrAccountData(externalId, name, type, balance, List.of()), memberId)
+                upsertAccount(new TrAccountData(externalId, name, type, balance, List.of()), memberId, false)
                     .ifPresent(responses::add);
             }
 
@@ -311,7 +311,7 @@ public class TradeRepublicSyncService {
 
     // --- Private ---
 
-    private Optional<AccountResponse> upsertAccount(TrAccountData data, Long memberId) {
+    private Optional<AccountResponse> upsertAccount(TrAccountData data, Long memberId, boolean replaceHoldings) {
         log.debug("TR upsertAccount: looking for externalId={} memberId={}", data.externalId(), memberId);
         Optional<Account> existing = accountRepository.findByExternalAccountIdAndMemberId(data.externalId(), memberId);
         log.debug("TR upsertAccount: found existing={}", existing.isPresent());
@@ -358,9 +358,14 @@ public class TradeRepublicSyncService {
         }
         accountService.upsertSnapshot(account, data.balanceEur(), LocalDate.now());
 
-        if (!data.positions().isEmpty()) {
+        if (replaceHoldings) {
             holdingRepository.deleteByAccountId(account.getId());
             holdingRepository.flush();
+
+            if (data.positions().isEmpty()) {
+                return Optional.of(accountService.toResponse(account));
+            }
+
             // Deduplicate by ticker: when multiple ISINs convert to the same ticker,
             // aggregate them via VWAP to avoid unique constraint violations and
             // preserve a meaningful weighted average buy-in.

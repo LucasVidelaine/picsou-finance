@@ -17,9 +17,9 @@ export function AppLayout() {
       </a>
       <AppSidebar />
       <main id="main-content" tabIndex={-1}
-        className="flex-1 overflow-auto flex flex-col pb-20 outline-none md:pb-0">
+        className="flex min-w-0 flex-1 flex-col overflow-hidden pb-20 outline-none md:pb-0">
         <DegradedModeBanner />
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto px-1 pb-1">
           <Outlet />
         </div>
       </main>

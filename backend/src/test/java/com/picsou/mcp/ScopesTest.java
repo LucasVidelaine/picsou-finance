@@ -17,7 +17,7 @@ class ScopesTest {
             "oauth2:discover", "oauth2:session-status",
             "accounts:write", "transactions:write", "goals:write", "sync:trigger",
             "budget:categories-write", "budget:rules-write", "budget:transactions-write",
-            "budget:envelopes-write", "oauth2:token"
+            "budget:envelopes-write"
         );
     }
 
