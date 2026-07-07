@@ -558,6 +558,7 @@ async def _harvest_from_profile(member_id: str) -> Optional[Dict[str, Any]]:
     lifetime need no mobile approval, and lets a future keep-alive make daily sync free."""
     if not _has_profile(member_id):
         return None
+    log.info("member %s: launching headless browser (session reuse attempt)", member_id)
     async with _camoufox(member_id, headless=True) as ctx:
         page = await ctx.new_page()
         await _settle(page)
@@ -592,13 +593,27 @@ async def sync(req: SyncRequest):
 
     async with lock:
         _set_progress(req.memberId, "CHECKING_SESSION")
-        reused = await _harvest_from_profile(req.memberId)
+        log.info("member %s: checking for a reusable session", req.memberId)
+        t0 = time.monotonic()
+        try:
+            reused = await _harvest_from_profile(req.memberId)
+        except Exception:
+            # Headless launch/harvest can fail for reasons unrelated to the session itself
+            # (e.g. a broken browser environment) -- don't let that take down the whole
+            # /sync call, fall back to the fresh (headful) login below just like an
+            # absent/dead session would.
+            log.exception("member %s: headless session-reuse attempt failed, "
+                           "falling back to fresh login", req.memberId)
+            reused = None
         if reused is not None:
-            log.info("synced %d accounts (reused session) for member %s",
-                     len(reused["accounts"]), req.memberId)
+            log.info("synced %d accounts (reused session) for member %s in %.1fs",
+                     len(reused["accounts"]), req.memberId, time.monotonic() - t0)
             return reused
+        log.info("member %s: no reusable session (%.1fs), starting fresh login",
+                  req.memberId, time.monotonic() - t0)
 
         _set_progress(req.memberId, "LOGGING_IN")
+        t0 = time.monotonic()
         async with _camoufox(req.memberId, headless=False) as ctx:  # headful login (Xvfb in the image)
             page = await ctx.new_page()
             await page.goto(APP_URL, wait_until="domcontentloaded", timeout=45000)
@@ -608,7 +623,9 @@ async def sync(req: SyncRequest):
             if "passcode" in page.url or await page.get_by_role("textbox").count() >= 6:
                 await _fill_passcode(page, req.passcode)
 
-            log.info("login: waiting up to %ss for mobile approval", ENROLMENT_APPROVE_WAIT_S)
+            log.info("member %s: login form submitted in %.1fs, waiting up to %ss for mobile approval",
+                      req.memberId, time.monotonic() - t0, ENROLMENT_APPROVE_WAIT_S)
+            t0 = time.monotonic()
             approved = False
             for i in range(ENROLMENT_APPROVE_WAIT_S * 1000 // POLL_MS):
                 _set_progress(req.memberId, "AWAITING_APPROVAL",
@@ -619,16 +636,21 @@ async def sync(req: SyncRequest):
                     break
                 await page.wait_for_timeout(POLL_MS)
             if not approved:
+                log.warning("member %s: mobile approval timed out after %.1fs",
+                             req.memberId, time.monotonic() - t0)
                 return JSONResponse(status_code=408, content={"error": "APPROVAL_TIMEOUT"})
+            log.info("member %s: mobile approval received after %.1fs",
+                      req.memberId, time.monotonic() - t0)
 
             device_id = await _device_id(ctx)
             await _settle(page)
             _set_progress(req.memberId, "HARVESTING")
+            t0 = time.monotonic()
             result = await harvest_accounts(
                 page, device_id,
                 on_progress=lambda n: _set_progress(req.memberId, "HARVESTING", accountsFound=n))
-            log.info("synced %d accounts (fresh login) for member %s",
-                     len(result["accounts"]), req.memberId)
+            log.info("synced %d accounts (fresh login) for member %s in %.1fs",
+                     len(result["accounts"]), req.memberId, time.monotonic() - t0)
             return result
 
 

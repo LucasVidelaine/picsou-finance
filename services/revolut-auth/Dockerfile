@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libxcursor1 libxdamage1 libxi6 libxtst6 libxrandr2 libxt6 libxext6 \
         libasound2 libpangocairo-1.0-0 libpango-1.0-0 libcairo2 libgdk-pixbuf-2.0-0 \
         libnss3 libnspr4 libfontconfig1 fonts-liberation ca-certificates \
+        libgl1 libegl1 libgbm1 \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

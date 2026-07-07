@@ -137,6 +137,18 @@ everything; only if creds remembered; reuses live session or no-ops).
 - **The sidecar login runs headful under Xvfb** (Camoufox `headless=False`), so the image installs
   `xvfb` and runs uvicorn under `xvfb-run`. Profiles persist on the `revolut_profiles` docker volume.
 - **Camoufox needs Firefox system libs** (gtk/dbus-glib/xtst/…), different from Chromium.
+- **Headless launches silently fail without GL/Mesa libs.** `_harvest_from_profile` (the
+  session-reuse path tried on *every* `/sync`, before falling back to a fresh login) launches
+  Camoufox with `headless=True` — no Xvfb, no `DISPLAY`. Firefox still spawns a `glxtest`
+  child process to probe GPU capabilities even in that mode, and without `libgl1`/`libegl1`/
+  `libgbm1` in the image, the dynamic linker fails to resolve it — surfacing as a misleading
+  `Failed to spawn child process ".../glxtest": No such file or directory` rather than a "missing
+  shared library" error. `BrowserType.launch_persistent_context` then hangs the full
+  180s Playwright launch timeout before raising. `sync()` now wraps that call in a
+  `try/except` and falls back to the headful login on any exception, but the wasted 180s (and,
+  without the fix below, a **hard failure on every single sync** since headless is always tried
+  first) is why this is an image dependency to keep, not just an error to catch: install
+  `libgl1 libegl1 libgbm1` alongside the other Firefox system libs.
 - **Future phases (Invest / Revolut X)** are separate surfaces with stricter auth: `invest.revolut.com`
   (`/api/retail/trading/accounts`, `/trading-access/portfolios/<id>`, `/trading/v2/users/<id>/SECURITY/allocation`,
   `/trading/transactions`) and `exchange.revolut.com` (Revolut X crypto). Both need extra in-memory headers

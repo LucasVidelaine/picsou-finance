@@ -21,4 +21,4 @@ while [ ! -S /tmp/.X11-unix/X99 ] && [ "$i" -lt 25 ]; do
     sleep 0.2
 done
 
-exec uvicorn main:app --host 0.0.0.0 --port 8002
+exec uvicorn main:app --host 0.0.0.0 --port 8002 --timeout-keep-alive 65

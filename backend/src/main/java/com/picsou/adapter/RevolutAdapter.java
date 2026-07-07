@@ -134,10 +134,11 @@ public class RevolutAdapter implements RevolutPort {
      */
     private Disposable startProgressPolling(Long memberId) {
         return Flux.interval(Duration.ofSeconds(1), Duration.ofSeconds(2))
-            .flatMap(tick -> sidecarClient.get()
+            .concatMap(tick -> sidecarClient.get()
                 .uri("/progress/{member}", memberId)
                 .retrieve()
                 .bodyToMono(JsonNode.class)
+                .timeout(Duration.ofSeconds(5))
                 .onErrorResume(e -> Mono.empty()))
             .doOnNext(node -> forwardProgress(memberId, node))
             .subscribe();
