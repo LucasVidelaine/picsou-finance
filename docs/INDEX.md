@@ -100,6 +100,7 @@
 | Demo-mode data resilience — truthy `{}` objects and stale TanStack Query references | 2026-06-28 | [demo-mode-data-resilience.md](./lessons/demo-mode-data-resilience.md) |
 | The savings-livrets integration seam — defects survive where two green streams meet | 2026-06-28 | [savings-livrets-integration-seam.md](./lessons/savings-livrets-integration-seam.md) |
 | Stop protocol surfaces false brief hypotheses before cargo-cult code | 2026-07-06 | [stop-protocol-discovers-false-hypotheses.md](./lessons/stop-protocol-discovers-false-hypotheses.md) |
+| Demo data must include all required interface properties | 2026-07-06 | [demo-data-interface-completeness.md](./lessons/demo-data-interface-completeness.md) |
 
 ## Conventions
 
