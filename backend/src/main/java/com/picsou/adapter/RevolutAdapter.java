@@ -134,6 +134,11 @@ public class RevolutAdapter implements RevolutPort {
      */
     private Disposable startProgressPolling(Long memberId) {
         return Flux.interval(Duration.ofSeconds(1), Duration.ofSeconds(2))
+            // A poll can take up to 5s (timeout) while the interval ticks every 2s. Flux.interval
+            // has no backpressure support and errors with an OverflowException when ticks outrun
+            // downstream demand. Drop ticks that arrive while the previous poll is still in flight —
+            // a poller tolerates missed ticks, it just picks up the latest progress on the next one.
+            .onBackpressureDrop()
             .concatMap(tick -> sidecarClient.get()
                 .uri("/progress/{member}", memberId)
                 .retrieve()
@@ -141,7 +146,9 @@ public class RevolutAdapter implements RevolutPort {
                 .timeout(Duration.ofSeconds(5))
                 .onErrorResume(e -> Mono.empty()))
             .doOnNext(node -> forwardProgress(memberId, node))
-            .subscribe();
+            .subscribe(
+                node -> { },
+                err -> log.warn("Revolut progress polling for member {} stopped unexpectedly", memberId, err));
     }
 
     private void forwardProgress(Long memberId, JsonNode node) {
