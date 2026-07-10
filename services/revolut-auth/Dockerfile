@@ -25,7 +25,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # camoufox[geoip] writes GeoLite2-City.mmdb INTO its own package dir at fetch time, so that
 # dir must be owned by the runtime user too — otherwise `camoufox fetch` below (run as
 # revoauth) hits PermissionError writing into the root-owned site-packages.
-RUN mkdir -p /data/revolut-profiles \
+RUN mkdir -p /data/revolut-profiles /tmp/.X11-unix \
+    && chmod 1777 /tmp/.X11-unix \
     && chown -R revoauth:revoauth /app /data/revolut-profiles \
        "$(python -c 'import camoufox, os; print(os.path.dirname(os.path.abspath(camoufox.__file__)))')"
 USER revoauth

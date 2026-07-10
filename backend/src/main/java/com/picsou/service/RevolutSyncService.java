@@ -62,8 +62,8 @@ import java.util.stream.Collectors;
  * the member selected -- see {@link SyncProgressService} for the in-memory hand-off between the
  * two. Both routes funnel through {@link #harvest} (sidecar call) and {@link #persistSelected}
  * (the actual upsert loop, scoped to a short {@link TransactionTemplate} transaction instead of
- * the previous class-level one, which used to hold a DB connection open for the sidecar's whole
- * up-to-330s call).
+ * the previous class-level one, which used to hold a DB connection open for the whole long-running
+ * sidecar call).
  */
 @Service
 public class RevolutSyncService {
@@ -122,19 +122,24 @@ public class RevolutSyncService {
      * remembered credentials for this member are forgotten.
      */
     public List<AccountResponse> sync(Long memberId, String phoneNumber, String passcode, boolean remember) {
+        return sync(memberId, phoneNumber, passcode, remember, true);
+    }
+
+    private List<AccountResponse> sync(
+            Long memberId, String phoneNumber, String passcode, boolean remember, boolean allowLogin) {
         boolean explicitCredentials = !isBlank(phoneNumber) && !isBlank(passcode);
         Credentials creds = resolveCredentials(memberId, phoneNumber, passcode);
 
         List<RevolutAccountData> harvested;
         try {
-            harvested = harvest(creds.phone(), creds.passcode(), memberId);
+            harvested = harvest(creds.phone(), creds.passcode(), memberId, allowLogin);
         } catch (SyncException e) {
             throw new SyncException(friendly(e.getMessage()));
         }
 
         // Persist ALL harvested accounts (unattended/scheduler path keeps its auto-import-everything
         // behavior). The DB writes run in a short transaction rather than the previous class-level
-        // one, which used to hold a connection open for the sidecar's whole up-to-330s call.
+        // one, which used to hold a connection open for the whole long-running sidecar call.
         Set<String> all = harvested.stream().map(RevolutAccountData::externalId).collect(Collectors.toSet());
         List<AccountResponse> responses = new ArrayList<>();
         txTemplate.executeWithoutResult(status -> {
@@ -164,7 +169,7 @@ public class RevolutSyncService {
     public void discover(Long memberId, String phoneNumber, String passcode) {
         try {
             Credentials creds = resolveCredentials(memberId, phoneNumber, passcode);
-            List<RevolutAccountData> harvested = harvest(creds.phone(), creds.passcode(), memberId);
+            List<RevolutAccountData> harvested = harvest(creds.phone(), creds.passcode(), memberId, true);
             pendingCredentials.put(memberId, creds);
             progressService.setDiscovered(memberId, SyncProvider.REVOLUT,
                 buildPreview(harvested, memberId), harvested);
@@ -226,6 +231,14 @@ public class RevolutSyncService {
     /** Sidecar call only -- no DB writes. Live phases are streamed by the adapter's poll side-channel. */
     private List<RevolutAccountData> harvest(String phone, String passcode, Long memberId) {
         return revolutPort.sync(phone, passcode, memberId);
+    }
+
+    private List<RevolutAccountData> harvest(
+            String phone, String passcode, Long memberId, boolean allowLogin) {
+        if (allowLogin) {
+            return harvest(phone, passcode, memberId);
+        }
+        return revolutPort.sync(phone, passcode, memberId, false);
     }
 
     /**
@@ -309,6 +322,11 @@ public class RevolutSyncService {
             case "SYNC_IN_PROGRESS" ->
                 "A Revolut sync is already running for this account. Please wait for it to finish " +
                     "before starting another.";
+            case "BROWSER_LAUNCH_FAILED" ->
+                "The Revolut browser service could not start. Please try again after restarting " +
+                    "the connector.";
+            case "REVOLUT_TIMEOUT" ->
+                "The Revolut sync took too long. Please try again later.";
             default -> code;
         };
     }
@@ -357,7 +375,7 @@ public class RevolutSyncService {
         }
 
         try {
-            sync(memberId, null, null, true);
+            sync(memberId, null, null, true, false);
         } catch (Exception ex) {
             log.warn("Revolut auto-sync failed for member {}: {}", memberId, ex.getMessage());
         }

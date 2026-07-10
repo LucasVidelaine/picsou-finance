@@ -136,6 +136,8 @@ app:
     url: ${BOURSO_AUTH_URL:http://bourso-auth:8001}
   revolut-auth:
     url: ${REVOLUT_AUTH_URL:http://revolut-auth:8002}
+  startup-sync:
+    enabled: ${APP_STARTUP_SYNC_ENABLED:true}
   enablebanking:
     application-id: ${ENABLEBANKING_APPLICATION_ID:}
     key-id: ${ENABLEBANKING_KEY_ID:}

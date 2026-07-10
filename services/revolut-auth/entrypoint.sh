@@ -6,8 +6,8 @@
 # `xvfb-run` wrapper: on this slim/trixie base xvfb-run hangs on its X-readiness
 # handshake and never exec's the wrapped command, so the sidecar never comes up.
 #
-# Xvfb refuses to create /tmp/.X11-unix when euid != 0, so (running as the non-root
-# revoauth user) we must ensure the socket dir exists before starting it.
+# The image pre-creates /tmp/.X11-unix as root-owned 1777 before switching to the
+# non-root revoauth user. Keep mkdir as a harmless fallback for derived images.
 set -e
 
 mkdir -p /tmp/.X11-unix

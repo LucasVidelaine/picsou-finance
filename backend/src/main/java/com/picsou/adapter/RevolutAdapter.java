@@ -23,6 +23,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Adapter for the revolut-auth Python sidecar (see docs/features/revolut-sidecar.md).
@@ -36,7 +37,7 @@ public class RevolutAdapter implements RevolutPort {
 
     private static final Logger log = LoggerFactory.getLogger(RevolutAdapter.class);
 
-    private static final Duration SYNC_TIMEOUT = Duration.ofSeconds(330);
+    private static final Duration SYNC_TIMEOUT = Duration.ofSeconds(480);
 
     private final WebClient sidecarClient;
     private final SyncProgressService progressService;
@@ -53,6 +54,12 @@ public class RevolutAdapter implements RevolutPort {
 
     @Override
     public List<RevolutAccountData> sync(String phoneNumber, String passcode, Long memberId) {
+        return sync(phoneNumber, passcode, memberId, true);
+    }
+
+    @Override
+    public List<RevolutAccountData> sync(
+            String phoneNumber, String passcode, Long memberId, boolean allowLogin) {
         log.info("Requesting Revolut sync via revolut-auth sidecar for member {}", memberId);
 
         // Best-effort side-channel: poll the sidecar's phase while the blocking /sync call is in
@@ -67,7 +74,8 @@ public class RevolutAdapter implements RevolutPort {
                 .bodyValue(Map.of(
                     "phoneNumber", phoneNumber,
                     "passcode", passcode,
-                    "memberId", String.valueOf(memberId)))
+                    "memberId", String.valueOf(memberId),
+                    "allowLogin", allowLogin))
                 .retrieve()
                 .bodyToMono(JsonNode.class)
                 .onErrorResume(WebClientResponseException.class, ex -> {
@@ -83,12 +91,18 @@ public class RevolutAdapter implements RevolutPort {
                         log.warn("revolut-auth sidecar reports a sync already in progress (409) for member {}", memberId);
                         return Mono.error(new SyncException("SYNC_IN_PROGRESS"));
                     }
+                    if (ex.getStatusCode().value() == 503) {
+                        log.warn("revolut-auth sidecar could not launch the browser for member {}", memberId);
+                        return Mono.error(new SyncException("BROWSER_LAUNCH_FAILED"));
+                    }
                     log.error("revolut-auth sidecar /sync failed ({}) : {}",
                         ex.getStatusCode(), ex.getResponseBodyAsString());
                     return Mono.error(new SyncException(
                         "Failed to sync Revolut accounts. Please try again later."));
                 })
                 .timeout(SYNC_TIMEOUT)
+                .onErrorMap(TimeoutException.class,
+                    ex -> new SyncException("REVOLUT_TIMEOUT", ex))
                 .blockOptional()
                 .orElseThrow(() -> new SyncException("No response from the Revolut service. Please try again later."));
         } finally {

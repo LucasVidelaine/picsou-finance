@@ -423,11 +423,11 @@ class RevolutSyncServiceTest {
         when(sessionRepository.findByMemberId(MEMBER_ID)).thenReturn(Optional.of(stored));
         String storedCredentialsJson = objectMapper.writeValueAsString(Map.of("phone", PHONE, "passcode", PASSCODE));
         when(encryption.decrypt("enc-blob")).thenReturn(storedCredentialsJson);
-        when(revolutPort.sync(PHONE, PASSCODE, MEMBER_ID)).thenReturn(List.of());
+        when(revolutPort.sync(PHONE, PASSCODE, MEMBER_ID, false)).thenReturn(List.of());
 
         service.resyncIfSessionActive(MEMBER_ID);
 
-        verify(revolutPort).sync(PHONE, PASSCODE, MEMBER_ID);
+        verify(revolutPort).sync(PHONE, PASSCODE, MEMBER_ID, false);
         verify(accountRepository, never()).restoreSoftDeletedRevolutAccounts(MEMBER_ID);
     }
 
@@ -439,6 +439,7 @@ class RevolutSyncServiceTest {
         service.resyncIfSessionActive(MEMBER_ID);
 
         verify(revolutPort, never()).sync(anyString(), anyString(), anyLong());
+        verify(revolutPort, never()).sync(anyString(), anyString(), anyLong(), any(Boolean.class));
     }
 
     /** Never loops or retries -- a sidecar failure (e.g. a dead profile) is swallowed and logged. */
@@ -449,7 +450,8 @@ class RevolutSyncServiceTest {
         when(sessionRepository.findByMemberId(MEMBER_ID)).thenReturn(Optional.of(stored));
         String storedCredentialsJson = objectMapper.writeValueAsString(Map.of("phone", PHONE, "passcode", PASSCODE));
         when(encryption.decrypt("enc-blob")).thenReturn(storedCredentialsJson);
-        when(revolutPort.sync(PHONE, PASSCODE, MEMBER_ID)).thenThrow(new SyncException("APPROVAL_TIMEOUT"));
+        when(revolutPort.sync(PHONE, PASSCODE, MEMBER_ID, false))
+            .thenThrow(new SyncException("SESSION_EXPIRED"));
 
         assertThatCode(() -> service.resyncIfSessionActive(MEMBER_ID)).doesNotThrowAnyException();
     }
