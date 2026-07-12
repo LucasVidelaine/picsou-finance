@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { type Theme, applyTheme, getStoredTheme } from '@/lib/theme'
 import { useTranslation } from 'react-i18next'
+import { SUPPORTED_LOCALES, resolveLocale } from '@/i18n/locales'
 import { useNavigate } from 'react-router'
 import { useAuthStore } from '@/stores/auth-store'
 import { useAppStore, type DateFormat } from '@/stores/app-store'
@@ -34,6 +35,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { api } from '@/lib/api-client'
+import { APP_VERSION } from '@/lib/app-version'
 import { SecuritySection } from './security/SecuritySection'
 import { AccessKeysSection } from './sections/AccessKeysSection'
 import { ConnectedAppsSection } from './sections/ConnectedAppsSection'
@@ -162,9 +164,9 @@ export function SettingsPage() {
   // Language --------------------------------------------------------------
   const [locale, setLocale] = useState(i18n.language)
 
+  // i18next persists the choice itself (localStorage key "picsou-locale").
   const handleLocaleChange = (lng: string) => {
     i18n.changeLanguage(lng)
-    localStorage.setItem('locale', lng)
     setLocale(lng)
   }
 
@@ -185,10 +187,10 @@ export function SettingsPage() {
     { value: 'system', label: t('settings.themeSystem') },
   ]
 
-  const localeOptions: ToggleOption[] = [
-    { value: 'fr', label: 'FR' },
-    { value: 'en', label: 'EN' },
-  ]
+  const localeOptions: ToggleOption[] = SUPPORTED_LOCALES.map((l) => ({
+    value: l.code,
+    label: l.label,
+  }))
 
   const dateFormatOptions: ToggleOption[] = [
     { value: 'locale', label: t('settings.dateFormatLocale') },
@@ -221,7 +223,7 @@ export function SettingsPage() {
             <Label className="text-sm font-medium">{t('settings.language')}</Label>
             <ToggleGroup
               options={localeOptions}
-              value={locale.startsWith('fr') ? 'fr' : 'en'}
+              value={resolveLocale(locale).code}
               onChange={handleLocaleChange}
             />
           </div>
@@ -363,7 +365,7 @@ export function SettingsPage() {
             <p className="text-muted-foreground">
               {t('settings.version')}
             </p>
-            <p className="font-medium text-foreground">1.0.8</p>
+            <p className="font-medium text-foreground">{APP_VERSION}</p>
           </div>
           <div className="space-y-1 sm:justify-self-end sm:text-right">
             <p className="text-muted-foreground">GitHub</p>

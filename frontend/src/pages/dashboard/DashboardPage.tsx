@@ -251,7 +251,9 @@ export function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="h-[420px]">
           <CardHeader>
-            <CardTitle>{t('dashboard.gainLoss')}</CardTitle>
+            {/* Titled by wealth mode — the curve plots (net/gross/financial) wealth,
+                not gain/loss (issue #18). */}
+            <CardTitle>{t(`dashboard.evolution.${wealthMode}`)}</CardTitle>
           </CardHeader>
           <CardContent className="min-h-0 flex-1">
             <NetWorthChart data={history ?? []} intraday={intraday ?? []} range={range} onRangeChange={setRange} />

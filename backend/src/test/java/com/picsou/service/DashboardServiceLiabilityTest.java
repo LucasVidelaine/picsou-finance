@@ -30,6 +30,7 @@ class DashboardServiceLiabilityTest {
     @Mock HistoryService historyService;
     @Mock DebtRepository debtRepository;
     @Mock LoanAmortizationService loanAmortizationService;
+    @Mock AccountService accountService;
 
     DashboardService dashboardService;
 
@@ -38,7 +39,7 @@ class DashboardServiceLiabilityTest {
         dashboardService = new DashboardService(
             accountRepository, goalService, goalRepository,
             priceService, holdingRepository, historyService,
-            debtRepository, loanAmortizationService
+            debtRepository, loanAmortizationService, accountService
         );
     }
 
@@ -65,7 +66,8 @@ class DashboardServiceLiabilityTest {
 
         when(accountRepository.findAllByMemberIdOrderByCreatedAtAsc(1L)).thenReturn(List.of(loan));
         when(holdingRepository.findByAccount_Id(10L)).thenReturn(List.of());
-        when(priceService.toEur(any(), any(), any())).thenAnswer(inv -> inv.getArgument(0));
+        // Loans are valued through AccountService.liveBalanceEur (positive remaining balance).
+        when(accountService.liveBalanceEur(loan)).thenReturn(new BigDecimal("80000"));
         when(debtRepository.findByAccountIdIn(List.of(10L))).thenReturn(List.of(debt));
         when(loanAmortizationService.resolveMonthlyPayment(debt)).thenReturn(new BigDecimal("800.00"));
         when(historyService.buildHistory(any(), any(Integer.class), any())).thenReturn(List.of());
@@ -97,7 +99,7 @@ class DashboardServiceLiabilityTest {
 
         when(accountRepository.findAllByMemberIdOrderByCreatedAtAsc(1L)).thenReturn(List.of(loan));
         when(holdingRepository.findByAccount_Id(11L)).thenReturn(List.of());
-        when(priceService.toEur(any(), any(), any())).thenAnswer(inv -> inv.getArgument(0));
+        when(accountService.liveBalanceEur(loan)).thenReturn(new BigDecimal("15000"));
         when(debtRepository.findByAccountIdIn(List.of(11L))).thenReturn(List.of());
         when(historyService.buildHistory(any(), any(Integer.class), any())).thenReturn(List.of());
         when(goalRepository.findAllByMemberIdOrderByCreatedAtAsc(1L)).thenReturn(List.of());
@@ -128,7 +130,7 @@ class DashboardServiceLiabilityTest {
 
         when(accountRepository.findAllByMemberIdOrderByCreatedAtAsc(1L)).thenReturn(List.of(loan));
         when(holdingRepository.findByAccount_Id(12L)).thenReturn(List.of());
-        when(priceService.toEur(any(), any(), any())).thenAnswer(inv -> inv.getArgument(0));
+        when(accountService.liveBalanceEur(loan)).thenReturn(new BigDecimal("5000"));
         when(debtRepository.findByAccountIdIn(List.of(12L))).thenReturn(List.of(debt));
         when(loanAmortizationService.resolveMonthlyPayment(debt)).thenReturn(null);
         when(historyService.buildHistory(any(), any(Integer.class), any())).thenReturn(List.of());

@@ -31,7 +31,8 @@
     "today": "Aujourd'hui",
     "currency": "EUR",
     "locale": "fr-FR",
-    "category": "Catégorie"
+    "category": "Catégorie",
+    "done": "Terminé"
   },
   "nav": {
     "dashboard": "Tableau de bord",
@@ -138,7 +139,14 @@
     "totalAssets": "Total des actifs",
     "liabilities": "Dettes",
     "monthlyPayment": "Mensualité totale",
-    "loanParamsUnconfigured": "Paramètres non renseignés"
+    "loanParamsUnconfigured": "Paramètres non renseignés",
+    "evolution": {
+      "net": "Évolution du patrimoine net",
+      "gross": "Évolution du patrimoine brut",
+      "financial": "Évolution du patrimoine financier"
+    },
+    "liabilitiesTitle": "Passifs",
+    "liabilitiesDescription": "Dette restante par compte"
   },
   "transactions": {
     "detail": "Détail de la transaction",
@@ -211,7 +219,8 @@
       "CRYPTO": "Crypto",
       "REAL_ESTATE": "Immobilier",
       "DEBTS": "Dettes"
-    }
+    },
+    "fees": "Frais"
   },
   "accountTypes": {
     "checking": "Compte courant",
@@ -1538,5 +1547,45 @@
     "suggestionsBanner_other": "{{count}} livrets à configurer",
     "configureSavings": "Configurer",
     "uncertain": "Classification incertaine — à vérifier"
+  },
+  "import": {
+    "importCsv": "Importer CSV",
+    "title": "Importer des transactions depuis un CSV",
+    "uploadHint": "Glissez-déposez un fichier CSV ici, ou choisissez-en un",
+    "chooseFile": "Choisir un fichier",
+    "mapColumns": "Associer les colonnes",
+    "delimiter": "Séparateur",
+    "delimiterComma": "Virgule (,)",
+    "delimiterSemicolon": "Point-virgule (;)",
+    "delimiterTab": "Tabulation",
+    "decimal": "Séparateur décimal",
+    "dateFormat": "Format de date",
+    "feesIncluded": "Les frais sont déjà inclus dans le montant",
+    "preview": "Aperçu",
+    "rowsTotal": "{{count}} lignes",
+    "none": "— aucune —",
+    "back": "Retour",
+    "import": "Importer",
+    "rowsImported": "{{count}} transactions importées",
+    "rowsSkipped": "{{count}} lignes ignorées",
+    "rowLabel": "Ligne {{row}}",
+    "field": {
+      "date": "Date",
+      "side": "Achat / Vente",
+      "tickerOrIsin": "Ticker / ISIN",
+      "name": "Nom",
+      "quantity": "Quantité",
+      "unitPrice": "Prix unitaire",
+      "fees": "Frais",
+      "currency": "Devise",
+      "amount": "Montant"
+    }
+  },
+  "realized": {
+    "title": "Plus-values réalisées",
+    "realizedGains": "Réalisé",
+    "proceeds": "Produit",
+    "avgCost": "PMP",
+    "qtySold": "Qté vendue"
   }
 }

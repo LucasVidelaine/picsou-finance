@@ -31,7 +31,8 @@
     "today": "Today",
     "currency": "EUR",
     "locale": "en-US",
-    "category": "Category"
+    "category": "Category",
+    "done": "Done"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -138,7 +139,14 @@
     "totalAssets": "Total assets",
     "liabilities": "Liabilities",
     "monthlyPayment": "Monthly payment",
-    "loanParamsUnconfigured": "Parameters not configured"
+    "loanParamsUnconfigured": "Parameters not configured",
+    "evolution": {
+      "net": "Net worth evolution",
+      "gross": "Gross assets evolution",
+      "financial": "Financial assets evolution"
+    },
+    "liabilitiesTitle": "Liabilities",
+    "liabilitiesDescription": "Outstanding debt by account"
   },
   "transactions": {
     "detail": "Transaction detail",
@@ -211,7 +219,8 @@
       "CRYPTO": "Crypto",
       "REAL_ESTATE": "Real estate",
       "DEBTS": "Debts"
-    }
+    },
+    "fees": "Fees"
   },
   "accountTypes": {
     "checking": "Checking",
@@ -1538,5 +1547,45 @@
     "suggestionsBanner_other": "{{count}} savings accounts to configure",
     "configureSavings": "Configure",
     "uncertain": "Uncertain classification — please verify"
+  },
+  "import": {
+    "importCsv": "Import CSV",
+    "title": "Import transactions from CSV",
+    "uploadHint": "Drag & drop a CSV file here, or choose one",
+    "chooseFile": "Choose a file",
+    "mapColumns": "Map columns",
+    "delimiter": "Delimiter",
+    "delimiterComma": "Comma (,)",
+    "delimiterSemicolon": "Semicolon (;)",
+    "delimiterTab": "Tab",
+    "decimal": "Decimal separator",
+    "dateFormat": "Date format",
+    "feesIncluded": "Fees are already included in the amount",
+    "preview": "Preview",
+    "rowsTotal": "{{count}} rows",
+    "none": "— none —",
+    "back": "Back",
+    "import": "Import",
+    "rowsImported": "{{count}} transactions imported",
+    "rowsSkipped": "{{count}} rows skipped",
+    "rowLabel": "Row {{row}}",
+    "field": {
+      "date": "Date",
+      "side": "Buy / Sell",
+      "tickerOrIsin": "Ticker / ISIN",
+      "name": "Name",
+      "quantity": "Quantity",
+      "unitPrice": "Unit price",
+      "fees": "Fees",
+      "currency": "Currency",
+      "amount": "Amount"
+    }
+  },
+  "realized": {
+    "title": "Realized gains",
+    "realizedGains": "Realized",
+    "proceeds": "Proceeds",
+    "avgCost": "Avg cost",
+    "qtySold": "Qty sold"
   }
 }
