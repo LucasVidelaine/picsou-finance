@@ -199,7 +199,7 @@
 **Files:**
 - Create: `frontend/src/pages/oauth/ConsentPage.tsx`
 - Create: `frontend/src/features/oauthConsent/api.ts`
-- Modify: `frontend/src/App.tsx` (or the router) — add route `/oauth2/consent`
+- Modify: `frontend/src/app/routes.tsx` — add route `/consent` (NOT under `/oauth2`, which nginx routes to the backend; `/consent` is served as the SPA)
 - Modify: `frontend/src/i18n/locales/en.json`, `fr.json` (`oauthConsent.*`)
 - Test: `frontend/src/pages/oauth/ConsentPage.test.tsx` (new)
 

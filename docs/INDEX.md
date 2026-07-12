@@ -45,6 +45,7 @@
 | 2026-06-28 | [Reconstruct Revolut pockets from PSD2 internal-transfer rows](./decisions/2026-06-28-revolut-pockets-reconstruction.md) | Active |
 | 2026-06-28 | [Savings livrets: classify accounts and project interest (not written to balance)](./decisions/2026-06-28-savings-livrets-interest-projection.md) | Active |
 | 2026-07-06 | [Drop oauth2:token scope from MCP allowlist](./decisions/2026-07-06-drop-oauth2-token-scope.md) | Active |
+| 2026-07-12 | [Remote-MCP OAuth authorization for third-party clients (claude.ai)](./decisions/2026-07-12-remote-mcp-oauth-authorization.md) | Active |
 
 ## Feature notes
 
@@ -52,6 +53,7 @@
 |---------|-------------|------|
 | MCP server + scoped access-keys | 2026-06-26 | [mcp-server.md](./features/mcp-server.md) |
 | Budget + OAuth2 tools in MCP | 2026-07-06 | [mcp-budget-oauth2.md](./features/mcp-budget-oauth2.md) |
+| Remote-MCP OAuth (claude.ai connector) | 2026-07-12 | [mcp-oauth-remote.md](./features/mcp-oauth-remote.md) |
 | Frontend utilities (lib/utils.ts) | 2026-05-31 | [frontend-utils.md](./features/frontend-utils.md) |
 | Demo mode | 2026-04-08 | [demo-mode.md](./features/demo-mode.md) |
 | Theme (dark / light / system) + theme-adaptive rendering | 2026-06-02 | [theme-persistence.md](./features/theme-persistence.md) |
