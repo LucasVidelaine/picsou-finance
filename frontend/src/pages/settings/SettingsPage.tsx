@@ -29,12 +29,14 @@ import {
   Pencil,
   Shield,
   KeyRound,
+  Link2,
   ExternalLink,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { api } from '@/lib/api-client'
 import { SecuritySection } from './security/SecuritySection'
 import { AccessKeysSection } from './sections/AccessKeysSection'
+import { ConnectedAppsSection } from './sections/ConnectedAppsSection'
 
 // ---------------------------------------------------------------------------
 // Toggle group button (theme / language)
@@ -301,6 +303,15 @@ export function SettingsPage() {
         description={t('accessKeys.sectionDescription')}
       >
         <AccessKeysSection />
+      </SectionCard>
+
+      {/* Connected apps (OAuth) -------------------------------------------- */}
+      <SectionCard
+        icon={Link2}
+        title={t('connectedApps.sectionTitle')}
+        description={t('connectedApps.sectionDescription')}
+      >
+        <ConnectedAppsSection />
       </SectionCard>
 
       {/* Family ----------------------------------------------------------- */}

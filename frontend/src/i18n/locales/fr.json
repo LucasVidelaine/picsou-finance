@@ -1039,6 +1039,31 @@
       }
     }
   },
+  "oauthConsent": {
+    "title": "Autoriser {{app}} à accéder à tes données Picsou ?",
+    "titleGeneric": "Connecter une application",
+    "description": "Vérifie les permissions ci-dessous avant d'autoriser cette application à se connecter. Tu peux révoquer l'accès à tout moment depuis les Réglages.",
+    "loading": "Chargement de la demande…",
+    "scopesIntro": "Cette application demande les permissions suivantes :",
+    "noScopes": "Cette application ne demande aucune permission.",
+    "missingParams": "Ce lien ne contient pas les informations nécessaires. Relance la connexion depuis l'application.",
+    "error": "Impossible de charger cette demande de connexion. Elle a peut-être expiré — relance-la depuis l'application.",
+    "approve": "Autoriser",
+    "deny": "Refuser"
+  },
+  "connectedApps": {
+    "sectionTitle": "Applications connectées",
+    "sectionDescription": "Applications tierces autorisées à accéder à tes données via MCP par OAuth",
+    "loading": "Chargement…",
+    "empty": "Aucune application connectée.",
+    "issued": "Connectée {{value}}",
+    "lastUsed": "Dernière utilisation {{value}}",
+    "lastUsedNever": "Jamais utilisée",
+    "revoke": "Révoquer",
+    "revokeTitle": "Révoquer l'accès de cette application ?",
+    "revokeDescription": "Cette application perd immédiatement l'accès à tes données. Tu pourras la reconnecter plus tard depuis l'application.",
+    "error": "Impossible de révoquer l'accès. Réessaye."
+  },
   "admin": {
     "title": "Administration",
     "ai": {

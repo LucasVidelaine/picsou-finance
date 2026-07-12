@@ -131,6 +131,10 @@ export const SetupStepCrypto = lazy(() =>
   }))
 )
 
+export const ConsentPage = lazy(() =>
+  import('@/pages/oauth/ConsentPage').then((m) => ({ default: m.ConsentPage }))
+)
+
 export const NotFoundPage = lazy(() =>
   import('@/pages/error/NotFoundPage').then((m) => ({ default: m.NotFoundPage }))
 )

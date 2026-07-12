@@ -1039,6 +1039,31 @@
       }
     }
   },
+  "oauthConsent": {
+    "title": "Allow {{app}} to access your Picsou data?",
+    "titleGeneric": "Connect an app",
+    "description": "Review the permissions below before allowing this app to connect. You can revoke access at any time from Settings.",
+    "loading": "Loading request…",
+    "scopesIntro": "This app is requesting the following permissions:",
+    "noScopes": "This app is not requesting any permissions.",
+    "missingParams": "This link is missing required information. Please restart the connection from the app.",
+    "error": "Could not load this connection request. It may have expired — please restart it from the app.",
+    "approve": "Approve",
+    "deny": "Deny"
+  },
+  "connectedApps": {
+    "sectionTitle": "Connected apps",
+    "sectionDescription": "Third-party apps you've approved to access your data over MCP via OAuth",
+    "loading": "Loading…",
+    "empty": "No connected apps yet.",
+    "issued": "Connected {{value}}",
+    "lastUsed": "Last used {{value}}",
+    "lastUsedNever": "Never used",
+    "revoke": "Revoke",
+    "revokeTitle": "Revoke access for this app?",
+    "revokeDescription": "This app immediately loses access to your data. You can reconnect it later from the app.",
+    "error": "Could not revoke access. Please try again."
+  },
   "admin": {
     "title": "Administration",
     "ai": {

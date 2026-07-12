@@ -41,6 +41,7 @@ import {
   NotFoundPage,
   ForbiddenPage,
   ServerErrorPage,
+  ConsentPage,
   SuspensePage,
 } from './lazy-pages'
 
@@ -80,6 +81,22 @@ export const router = createBrowserRouter([
     element: (
       <SuspensePage>
         <ServerErrorPage />
+      </SuspensePage>
+    ),
+  },
+  {
+    // Spring Authorization Server redirects here (`consentPage("/consent")`) when an
+    // interactive-consent OAuth2 client (every DCR-registered remote-MCP client) reaches
+    // /oauth2/authorize. Deliberately NOT nested under the `/` + RequireAuth tree: the page
+    // calls the cookie-authed `/api/oauth2/consent-info` itself and relies on the shared
+    // api-client's 401 interceptor to bounce to /login?redirect=/consent?... (preserving
+    // client_id/scope/state) when there is no session, exactly like any other API 401 — no
+    // separate guard needed here. Also NOT under /oauth2 — nginx routes that prefix straight
+    // to the backend, so a `/oauth2/*` SPA route would never be reached.
+    path: '/consent',
+    element: (
+      <SuspensePage>
+        <ConsentPage />
       </SuspensePage>
     ),
   },
