@@ -6,6 +6,10 @@
 > This file is the entry point for technical documentation.
 > Read it first to know where to find information.
 
+## Coding rules
+
+- [CODING_RULES.md](./CODING_RULES.md) -- Non-negotiable charter (convention integrity, theme, layers). Read before a large refactor or review.
+
 ## Architecture
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md) -- Overview, modules, data flows
@@ -88,7 +92,8 @@
 | Savings livrets (classification + projected interest) | 2026-06-28 | [savings-livrets.md](./features/savings-livrets.md) |
 | Add Account modal (unified sync + manual) | 2026-07-07 | [add-account-modal.md](./features/add-account-modal.md) |
 | Docker deployment | 2026-05-18 | [docker-deployment.md](./features/docker-deployment.md) |
-| Navigation (sidebar + mobile bottom nav) | 2026-07-07 | [sidebar-navigation.md](./features/sidebar-navigation.md) |
+| Navigation (sidebar + mobile bottom nav) | 2026-07-12 | [sidebar-navigation.md](./features/sidebar-navigation.md) |
+| UI control shape (shadcn theme radius) | 2026-07-12 | [ui-control-shape-system.md](./features/ui-control-shape-system.md) |
 | Multi-account family system | 2026-07-07 | [multi-account-family.md](./features/multi-account-family.md) |
 | CORS & cookie security | 2026-06-02 | [security-cors-cookies.md](./features/security-cors-cookies.md) |
 | 24H Intraday net worth chart | 2026-04-18 | [intraday-chart.md](./features/intraday-chart.md) |
