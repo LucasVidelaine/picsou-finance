@@ -154,7 +154,7 @@ export function DashboardPage() {
           <Button
             variant="outline"
             size="default"
-            className="h-10 min-w-44 rounded-full px-6 text-sm"
+            className="h-10 min-w-44 px-6 text-sm"
             onClick={() => setShowSyncModal(true)}
           >
             <RefreshCw className="mr-2 size-4" />
