@@ -101,7 +101,16 @@ public class AuthorizationServerConfig {
             .securityMatcher(authorizationServer.getEndpointsMatcher())
             .with(authorizationServer, configurer -> configurer
                 .authorizationServerMetadataEndpoint(metadata -> metadata
-                    .authorizationServerMetadataCustomizer(this::advertiseRegistrationEndpoint)))
+                    .authorizationServerMetadataCustomizer(this::advertiseRegistrationEndpoint))
+                // Task 10: send the browser to the SPA's consent screen instead of Spring AS's
+                // built-in generated page. MUST be "/consent" (not under /oauth2, /api, /mcp,
+                // /actuator) — nginx routes those prefixes to the backend, so only a path outside
+                // all of them falls through to the SPA's index.html (client-side routing). Spring
+                // AS appends "?scope=<space-delimited>&client_id=&state=" itself
+                // (OAuth2AuthorizationEndpointFilter#sendAuthorizationConsent); the SPA calls
+                // OAuthConsentController with those same params to resolve what to render.
+                .authorizationEndpoint(authorizationEndpoint -> authorizationEndpoint
+                    .consentPage("/consent")))
             .authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated())
             // The token endpoint is called by the native app with PKCE (no browser session);
             // the authorize endpoint is a GET. CSRF protection is not applicable to this chain.

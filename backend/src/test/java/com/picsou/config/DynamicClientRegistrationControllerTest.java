@@ -21,6 +21,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.time.Instant;
 import java.util.Base64;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -70,6 +71,7 @@ class DynamicClientRegistrationControllerTest {
              "scope":"accounts:read goals:read"}
             """;
 
+        Instant before = Instant.now();
         String response = mockMvc.perform(post("/oauth2/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
@@ -79,7 +81,16 @@ class DynamicClientRegistrationControllerTest {
             .andExpect(jsonPath("$.redirect_uris[0]").value("https://claude.ai/api/mcp/auth_callback"))
             .andExpect(jsonPath("$.grant_types", org.hamcrest.Matchers.containsInAnyOrder(
                 "authorization_code", "refresh_token")))
+            // RFC 7591 §3.2.1: client_id_issued_at is a JSON number of epoch seconds, not an
+            // ISO-8601 string — assert both the JSON type and that it's a sane recent timestamp.
+            .andExpect(jsonPath("$.client_id_issued_at").isNumber())
             .andReturn().getResponse().getContentAsString();
+        Instant after = Instant.now();
+
+        Number issuedAtEpochSecond = com.jayway.jsonpath.JsonPath.read(response, "$.client_id_issued_at");
+        assertThat(issuedAtEpochSecond.longValue())
+            .isGreaterThanOrEqualTo(before.getEpochSecond())
+            .isLessThanOrEqualTo(after.getEpochSecond());
 
         String clientId = com.jayway.jsonpath.JsonPath.read(response, "$.client_id");
         RegisteredClient persisted = registeredClientRepository.findByClientId(clientId);

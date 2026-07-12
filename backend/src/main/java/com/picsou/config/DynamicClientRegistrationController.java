@@ -89,7 +89,7 @@ public class DynamicClientRegistrationController {
 
         return new ClientRegistrationResponse(
             clientId,
-            issuedAt,
+            issuedAt.getEpochSecond(),
             redirectUris,
             "none",
             GRANT_TYPES,
