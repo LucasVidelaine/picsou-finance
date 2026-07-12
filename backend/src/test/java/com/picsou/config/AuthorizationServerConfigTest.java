@@ -27,6 +27,7 @@ import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
+import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -36,7 +37,9 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.Instant;
 import java.util.Base64;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -161,7 +164,100 @@ class AuthorizationServerConfigTest {
         assertThat(authenticator.authenticate(tokenValue)).isPresent();
     }
 
+    // ─── Task 3: MCP token claim shape ─────────────────────────────────────
+
+    @Test
+    void customizerStampsMcpClaimShape_forMcpFlaggedClient() {
+        Set<String> scopes = new LinkedHashSet<>(List.of("accounts:read", "goals:read"));
+        JwtEncodingContext context = mcpClientAccessTokenContext(user, scopes);
+
+        config.jwtTokenCustomizer().customize(context);
+
+        JwsHeader header = context.getJwsHeader().build();
+        assertThat(header.getAlgorithm()).isEqualTo(MacAlgorithm.HS256);
+
+        JwtClaimsSet claims = context.getClaims().build();
+        String type = claims.getClaim("type");
+        Long uid = claims.getClaim("uid");
+        Long tv = claims.getClaim("tv");
+        String scope = claims.getClaim("scope");
+        assertThat(type).isEqualTo("mcp");
+        assertThat(uid).isEqualTo(42L);
+        assertThat(tv).isEqualTo(3L);
+        assertThat(claims.getAudience()).containsExactly("picsou-mcp");
+        assertThat(scope).isEqualTo("accounts:read goals:read");
+        assertThat(claims.getSubject()).isEqualTo("alice");
+        assertThat((Object) claims.getClaim("role")).isNull();
+    }
+
+    @Test
+    void mintedMcpToken_isAcceptedOnlyByMcpValidation_notTheAccessPath() {
+        Set<String> scopes = Set.of("accounts:read");
+        JwtEncodingContext context = mcpClientAccessTokenContext(user, scopes);
+        config.jwtTokenCustomizer().customize(context);
+
+        String tokenValue = sign(context);
+
+        JwtUtil jwtUtil = new JwtUtil(SECRET, 15, 7, 5);
+        Claims parsed = jwtUtil.validateAndParse(tokenValue);
+        assertThat(parsed.get("type", String.class)).isEqualTo("mcp");
+        assertThat(parsed.getAudience()).containsExactly("picsou-mcp");
+        assertThat(parsed.get("scope", String.class)).isEqualTo("accounts:read");
+
+        // The existing web/API access-token path must reject it (only type=access authenticates there).
+        AppUserRepository repo = mock(AppUserRepository.class);
+        JwtTokenAuthenticator authenticator = new JwtTokenAuthenticator(jwtUtil, repo);
+        assertThat(authenticator.authenticate(tokenValue)).isEmpty();
+    }
+
+    @Test
+    void picsouIosClient_isUnaffectedByTheMcpBranch() {
+        // Regression guard: a client without the MCP setting keeps the exact pre-existing shape.
+        JwtEncodingContext context = accessTokenContext(user);
+
+        config.jwtTokenCustomizer().customize(context);
+
+        JwtClaimsSet claims = context.getClaims().build();
+        assertThat((String) claims.getClaim("type")).isEqualTo("access");
+        assertThat((String) claims.getClaim("role")).isEqualTo("ADMIN");
+        assertThat(claims.getAudience()).isNullOrEmpty();
+        assertThat((Object) claims.getClaim("scope")).isNull();
+    }
+
     // ─── helpers ──────────────────────────────────────────────────────────
+
+    private JwtEncodingContext mcpClientAccessTokenContext(AppUser principalUser, Set<String> authorizedScopes) {
+        RegisteredClient client = RegisteredClient.withId("test-mcp")
+            .clientId("mcp-claude-1")
+            .clientAuthenticationMethod(ClientAuthenticationMethod.NONE)
+            .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+            .redirectUri("https://claude.ai/api/mcp/auth_callback")
+            .scopes(s -> s.addAll(authorizedScopes))
+            .clientSettings(ClientSettings.builder()
+                .requireProofKey(true)
+                .requireAuthorizationConsent(true)
+                .setting(AuthorizationServerConfig.MCP_CLIENT_SETTING, true)
+                .build())
+            .build();
+
+        Authentication principal = new UsernamePasswordAuthenticationToken(
+            principalUser, null, List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
+
+        JwsHeader.Builder headers = JwsHeader.with(SignatureAlgorithm.RS256); // default; customizer overrides
+        JwtClaimsSet.Builder claims = JwtClaimsSet.builder()
+            .issuer("https://picsou.local")
+            .subject("placeholder")
+            .issuedAt(Instant.now())
+            .expiresAt(Instant.now().plusSeconds(900));
+
+        return JwtEncodingContext.with(headers, claims)
+            .registeredClient(client)
+            .principal(principal)
+            .tokenType(OAuth2TokenType.ACCESS_TOKEN)
+            .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+            .authorizedScopes(authorizedScopes)
+            .build();
+    }
 
     private JwtEncodingContext accessTokenContext(AppUser principalUser) {
         RegisteredClient client = RegisteredClient.withId("test")

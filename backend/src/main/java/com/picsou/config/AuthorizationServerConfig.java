@@ -46,6 +46,7 @@ import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -73,6 +74,17 @@ import java.util.UUID;
  */
 @Configuration
 public class AuthorizationServerConfig {
+
+    /**
+     * {@link ClientSettings} custom-setting key marking a registered client as a remote-MCP
+     * consumer (e.g. a claude.ai connector registered via Dynamic Client Registration). Read by
+     * {@link #jwtTokenCustomizer()} to pick the MCP claim shape instead of the iOS one; set at
+     * DCR time by the client-registration endpoint (not part of this file).
+     */
+    public static final String MCP_CLIENT_SETTING = "settings.client.picsou-mcp";
+
+    /** The {@code aud} claim stamped on every MCP access token; also the RFC 9728 {@code resource}. */
+    public static final String MCP_AUDIENCE = "picsou-mcp";
 
     @Bean
     @Order(1)
@@ -203,6 +215,16 @@ public class AuthorizationServerConfig {
      * authorization time). Reading {@code tv} from that snapshot — not from a fresh DB load — is
      * intentional: a later password change bumps {@code AppUser.tokenVersion}, so refreshed tokens
      * still carry the old {@code tv} and are rejected by the API, logging the device out.
+     *
+     * <p>Two claim shapes branch on the {@link #MCP_CLIENT_SETTING} flag on the registered client:
+     * <ul>
+     *   <li><b>iOS / first-party</b> (flag absent) — {@code type=access}, {@code uid}, {@code tv},
+     *       {@code role}, default audience. Unchanged from before this MCP branch existed.</li>
+     *   <li><b>Remote-MCP client</b> (flag {@code true}) — {@code type=mcp}, {@code aud=picsou-mcp},
+     *       {@code uid}, {@code tv}, {@code scope} (space-delimited granted scopes), and
+     *       deliberately <em>no</em> {@code role} — an MCP token authorizes {@code /mcp} purely by
+     *       scope (Property C), never by role.</li>
+     * </ul>
      */
     @Bean
     public OAuth2TokenCustomizer<JwtEncodingContext> jwtTokenCustomizer() {
@@ -210,12 +232,24 @@ public class AuthorizationServerConfig {
             if (OAuth2TokenType.ACCESS_TOKEN.equals(context.getTokenType())) {
                 context.getJwsHeader().algorithm(MacAlgorithm.HS256);
                 if (context.getPrincipal().getPrincipal() instanceof AppUser user) {
-                    context.getClaims()
-                        .subject(user.getUsername())
-                        .claim("type", "access")
-                        .claim("uid", user.getId())
-                        .claim("tv", user.getTokenVersion())
-                        .claim("role", user.getRole().name());
+                    boolean isMcpClient = Boolean.TRUE.equals(
+                        context.getRegisteredClient().getClientSettings().getSetting(MCP_CLIENT_SETTING));
+                    if (isMcpClient) {
+                        context.getClaims()
+                            .subject(user.getUsername())
+                            .claim("type", "mcp")
+                            .audience(List.of(MCP_AUDIENCE))
+                            .claim("uid", user.getId())
+                            .claim("tv", user.getTokenVersion())
+                            .claim("scope", String.join(" ", context.getAuthorizedScopes()));
+                    } else {
+                        context.getClaims()
+                            .subject(user.getUsername())
+                            .claim("type", "access")
+                            .claim("uid", user.getId())
+                            .claim("tv", user.getTokenVersion())
+                            .claim("role", user.getRole().name());
+                    }
                 }
             }
         };

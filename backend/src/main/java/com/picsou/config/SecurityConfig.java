@@ -20,6 +20,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.util.matcher.AnyRequestMatcher;
 import org.springframework.security.config.Customizer;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
@@ -91,19 +93,33 @@ public class SecurityConfig {
                 UsernamePasswordAuthenticationFilter.class
             )
             // Last of the same-anchor filters: only acts on /mcp/** (shouldNotFilter), validates the
-            // Bearer access-key, and sets an AccessKeyAuthentication carrying scope authorities only.
+            // Bearer access-key or MCP JWT, and sets an AccessKeyAuthentication carrying scope
+            // authorities only.
             .addFilterBefore(
-                new AccessKeyAuthFilter(accessKeyService, mcpKeyBuckets),
+                new AccessKeyAuthFilter(accessKeyService, mcpKeyBuckets, jwtTokenAuthenticator, appUserRepository),
                 UsernamePasswordAuthenticationFilter.class
             )
+            // Two "default" entry points rather than one plain authenticationEntryPoint(...):
+            // ExceptionHandlingConfigurer ignores defaultAuthenticationEntryPointFor(...) mappings
+            // entirely once a plain authenticationEntryPoint(...) is set, so /mcp/** gets its own
+            // RFC 9728 challenge (McpAuthenticationEntryPoint) while every other path falls through
+            // to the catch-all matcher below, which reproduces the original problem+json body
+            // unchanged.
             .exceptionHandling(ex -> ex
-                .authenticationEntryPoint((req, res, authEx) -> {
-                    res.setStatus(401);
-                    res.setContentType("application/problem+json");
-                    res.getWriter().write("""
-                        {"status":401,"title":"Unauthorized","detail":"Authentication required"}
-                        """);
-                })
+                .defaultAuthenticationEntryPointFor(
+                    new McpAuthenticationEntryPoint(),
+                    new AntPathRequestMatcher("/mcp/**")
+                )
+                .defaultAuthenticationEntryPointFor(
+                    (req, res, authEx) -> {
+                        res.setStatus(401);
+                        res.setContentType("application/problem+json");
+                        res.getWriter().write("""
+                            {"status":401,"title":"Unauthorized","detail":"Authentication required"}
+                            """);
+                    },
+                    AnyRequestMatcher.INSTANCE
+                )
             );
 
         return http.build();
