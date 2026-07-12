@@ -8,6 +8,9 @@ import com.picsou.repository.AppUserRepository;
 import io.jsonwebtoken.Claims;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -21,10 +24,18 @@ import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
+import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
+import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.Instant;
+import java.util.Base64;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -38,10 +49,32 @@ import static org.mockito.Mockito.when;
  * and {@link AuthorizationServerConfig#jwtTokenCustomizer()} against a {@link JwtEncodingContext},
  * signs the JWT with the same {@link NimbusJwtEncoder} the server uses at runtime, and feeds the
  * result to the resource server.
+ *
+ * <p>Also boots the full application context against a real Postgres 16 via Testcontainers
+ * (mirroring {@code OAuth2SchemaMigrationTest} / {@code BudgetSeedWriteOnReadPostgresTest}) to
+ * cover the JDBC-backed {@code RegisteredClientRepository} wiring and the {@code picsou-ios}
+ * seeding-on-startup behaviour, since {@code JdbcRegisteredClientRepository} needs the real V54
+ * schema (the {@code text}-typed columns) rather than an in-memory stand-in.
+ * {@code disabledWithoutDocker = true} self-skips on machines/CI without a Docker daemon.
  */
+@SpringBootTest
+@Testcontainers(disabledWithoutDocker = true)
 class AuthorizationServerConfigTest {
 
     private static final String SECRET = "0123456789abcdef0123456789abcdef-test";
+
+    @Container
+    @ServiceConnection
+    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
+
+    @DynamicPropertySource
+    static void secrets(DynamicPropertyRegistry registry) {
+        registry.add("app.jwt.secret", () -> "test-jwt-secret-test-jwt-secret-0123456789");
+        registry.add("app.crypto.encryption-key", () -> Base64.getEncoder().encodeToString(new byte[32]));
+    }
+
+    @Autowired RegisteredClientRepository registeredClientRepository;
+    @Autowired OAuthClientProperties oAuthClientProperties;
 
     AuthorizationServerConfig config;
     AppUser user;
@@ -57,6 +90,30 @@ class AuthorizationServerConfigTest {
             .activated(true)
             .tokenVersion(3L)
             .build();
+    }
+
+    @Test
+    void registeredClientRepositoryBeanIsJdbcBacked() {
+        assertThat(registeredClientRepository).isInstanceOf(JdbcRegisteredClientRepository.class);
+    }
+
+    @Test
+    void iosClientIsSeededOnStartupWithPreservedSettings() {
+        RegisteredClient client = registeredClientRepository.findByClientId(oAuthClientProperties.getClientId());
+
+        assertThat(client).isNotNull();
+        assertThat(client.getClientAuthenticationMethods()).containsExactly(ClientAuthenticationMethod.NONE);
+        assertThat(client.getAuthorizationGrantTypes()).containsExactlyInAnyOrder(
+            AuthorizationGrantType.AUTHORIZATION_CODE, AuthorizationGrantType.REFRESH_TOKEN);
+        assertThat(client.getRedirectUris()).containsExactly("picsou://callback");
+        assertThat(client.getScopes()).containsExactlyInAnyOrder("read", "write");
+        assertThat(client.getClientSettings().isRequireProofKey()).isTrue();
+        assertThat(client.getClientSettings().isRequireAuthorizationConsent()).isFalse();
+        assertThat(client.getTokenSettings().isReuseRefreshTokens()).isFalse();
+        assertThat(client.getTokenSettings().getAccessTokenTimeToLive())
+            .isEqualTo(java.time.Duration.ofMinutes(oAuthClientProperties.getAccessTokenTtlMinutes()));
+        assertThat(client.getTokenSettings().getRefreshTokenTimeToLive())
+            .isEqualTo(java.time.Duration.ofDays(oAuthClientProperties.getRefreshTokenTtlDays()));
     }
 
     @Test

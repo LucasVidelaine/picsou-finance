@@ -10,9 +10,12 @@ import com.picsou.model.AppUser;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -20,8 +23,12 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationConsentService;
+import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationService;
+import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsentService;
+import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
-import org.springframework.security.oauth2.server.authorization.client.InMemoryRegisteredClientRepository;
+import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationServerConfigurer;
@@ -96,12 +103,64 @@ public class AuthorizationServerConfig {
     }
 
     /**
-     * The single first-party public client. PKCE is mandatory; there is no client secret.
-     * Consent is skipped (the app and server are operated by the same person).
+     * JDBC-persistent client registry (V54 migration: {@code oauth2_registered_client}), so both
+     * the first-party {@code picsou-ios} client and any client dynamically registered by a
+     * remote-MCP consumer (claude.ai) survive redeploys. The {@code picsou-ios} row itself is
+     * seeded once at startup by {@link #seedIosClientRunner}, not built here.
      */
     @Bean
-    public RegisteredClientRepository registeredClientRepository(OAuthClientProperties props) {
-        RegisteredClient iosClient = RegisteredClient.withId(UUID.randomUUID().toString())
+    public RegisteredClientRepository registeredClientRepository(JdbcOperations jdbcOperations) {
+        return new JdbcRegisteredClientRepository(jdbcOperations);
+    }
+
+    /**
+     * JDBC-persistent authorization/token store (V54 migration: {@code oauth2_authorization}).
+     * The {@code text}-typed blob columns work with the plain {@code (JdbcOperations,
+     * RegisteredClientRepository)} constructor's default column-type detection — no
+     * {@code LobHandler} needed (see the migration's header comment for why).
+     */
+    @Bean
+    public OAuth2AuthorizationService authorizationService(
+        JdbcOperations jdbcOperations,
+        RegisteredClientRepository registeredClientRepository
+    ) {
+        return new JdbcOAuth2AuthorizationService(jdbcOperations, registeredClientRepository);
+    }
+
+    /**
+     * JDBC-persistent consent store (V54 migration: {@code oauth2_authorization_consent}). Unused
+     * by {@code picsou-ios} today ({@code requireAuthorizationConsent(false)}), but required so a
+     * future consenting client (e.g. the remote-MCP client) has somewhere to persist grants.
+     */
+    @Bean
+    public OAuth2AuthorizationConsentService authorizationConsentService(
+        JdbcOperations jdbcOperations,
+        RegisteredClientRepository registeredClientRepository
+    ) {
+        return new JdbcOAuth2AuthorizationConsentService(jdbcOperations, registeredClientRepository);
+    }
+
+    /**
+     * Seeds the single first-party public client on first boot only. PKCE is mandatory; there is
+     * no client secret. Consent is skipped (the app and server are operated by the same person).
+     * Runs after the {@link RegisteredClientRepository} bean exists; idempotent across restarts —
+     * {@code findByClientId} returns non-null on every boot after the first, so the row is never
+     * re-inserted (and therefore never duplicated or reset).
+     */
+    @Bean
+    public ApplicationRunner seedIosClientRunner(
+        RegisteredClientRepository registeredClientRepository,
+        OAuthClientProperties props
+    ) {
+        return (ApplicationArguments args) -> {
+            if (registeredClientRepository.findByClientId(props.getClientId()) == null) {
+                registeredClientRepository.save(buildIosClient(props));
+            }
+        };
+    }
+
+    private RegisteredClient buildIosClient(OAuthClientProperties props) {
+        return RegisteredClient.withId(UUID.randomUUID().toString())
             .clientId(props.getClientId())
             .clientAuthenticationMethod(ClientAuthenticationMethod.NONE)
             .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
@@ -120,7 +179,6 @@ public class AuthorizationServerConfig {
                 .reuseRefreshTokens(false)            // rotate refresh tokens on each use
                 .build())
             .build();
-        return new InMemoryRegisteredClientRepository(iosClient);
     }
 
     /**
