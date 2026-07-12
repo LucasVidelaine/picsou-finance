@@ -1,5 +1,6 @@
 package com.picsou.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.KeyUse;
 import com.nimbusds.jose.jwk.OctetSequenceKey;
@@ -7,6 +8,7 @@ import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import com.picsou.model.AppUser;
+import com.picsou.model.UserRole;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
@@ -39,14 +41,17 @@ import org.springframework.security.oauth2.server.authorization.settings.OAuth2T
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
+import org.springframework.security.jackson2.SecurityJackson2Modules;
+import org.springframework.security.oauth2.server.authorization.jackson2.OAuth2AuthorizationServerJackson2Module;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.context.SecurityContextHolderFilter;
 
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -117,10 +122,17 @@ public class AuthorizationServerConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
             // Populate the SecurityContext from the existing access_token cookie so the authorize
-            // endpoint knows who is authorizing. Anchored on UsernamePasswordAuthenticationFilter
-            // (a well-known order slot) to run ahead of the authorization + AS endpoint filters.
-            .addFilterBefore(new CookieBridgeAuthenticationFilter(jwtTokenAuthenticator),
-                UsernamePasswordAuthenticationFilter.class)
+            // endpoint knows who is authorizing. MUST run BEFORE OAuth2AuthorizationEndpointFilter:
+            // that filter reads the current principal to decide login-vs-consent, and on a stateless
+            // request (no session carrying a SecurityContext — the SPA login is cookie/JWT-based, not
+            // session-based) the cookie is the ONLY source of the principal. Anchored just after
+            // SecurityContextHolderFilter (which loads any session context first) so the bridge runs
+            // ahead of every AS endpoint filter. The previous UsernamePasswordAuthenticationFilter
+            // anchor was NOT in this chain, so Spring placed the bridge AFTER the authorize filter —
+            // the request then fell through authenticated-but-unhandled to a 404 (see
+            // Oauth2ConsentHandshakeIntegrationTest).
+            .addFilterAfter(new CookieBridgeAuthenticationFilter(jwtTokenAuthenticator),
+                SecurityContextHolderFilter.class)
             .exceptionHandling(ex -> ex.authenticationEntryPoint(spaLoginRedirectEntryPoint()));
 
         return http.build();
@@ -172,7 +184,41 @@ public class AuthorizationServerConfig {
         JdbcOperations jdbcOperations,
         RegisteredClientRepository registeredClientRepository
     ) {
-        return new JdbcOAuth2AuthorizationService(jdbcOperations, registeredClientRepository);
+        JdbcOAuth2AuthorizationService service =
+            new JdbcOAuth2AuthorizationService(jdbcOperations, registeredClientRepository);
+
+        // The persisted authorization carries the authenticating principal (an AppUser). Spring
+        // Security's hardened SecurityJackson2Modules ObjectMapper rejects any class not on its
+        // allow-list, so AppUser needs an explicit mix-in (see AppUserMixin) — otherwise persisting
+        // a consent-required authorization (remote-MCP flow) or reading one back (iOS refresh) fails
+        // with "not in the allowlist". Apply the same mapper to BOTH the write (parameters) and read
+        // (row) mappers so the round trip is symmetric.
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModules(
+            SecurityJackson2Modules.getModules(JdbcOAuth2AuthorizationService.class.getClassLoader()));
+        // Mirror the mapper JdbcOAuth2AuthorizationService builds by default: the AS module carries the
+        // mix-ins for the framework types persisted in oauth2_authorization (OAuth2AuthorizationRequest,
+        // token types, …). Building our own mapper means we must register it explicitly — omitting it
+        // fails deserialization on OAuth2AuthorizationRequest.
+        objectMapper.registerModule(new OAuth2AuthorizationServerJackson2Module());
+        objectMapper.addMixIn(AppUser.class, AppUserMixin.class);
+        // The principal snapshot and our own claims introduce scalar JDK/enum types the allow-list
+        // does not trust by default: Long (AppUser.id/tokenVersion, uid/tv claims) and UserRole
+        // (AppUser.role). Register a no-op mix-in to trust them — values written only by this server.
+        objectMapper.addMixIn(Long.class, TrustedClassMixin.class);
+        objectMapper.addMixIn(UserRole.class, TrustedClassMixin.class);
+
+        JdbcOAuth2AuthorizationService.OAuth2AuthorizationRowMapper rowMapper =
+            new JdbcOAuth2AuthorizationService.OAuth2AuthorizationRowMapper(registeredClientRepository);
+        rowMapper.setObjectMapper(objectMapper);
+        service.setAuthorizationRowMapper(rowMapper);
+
+        JdbcOAuth2AuthorizationService.OAuth2AuthorizationParametersMapper parametersMapper =
+            new JdbcOAuth2AuthorizationService.OAuth2AuthorizationParametersMapper();
+        parametersMapper.setObjectMapper(objectMapper);
+        service.setAuthorizationParametersMapper(parametersMapper);
+
+        return service;
     }
 
     /**
@@ -274,7 +320,11 @@ public class AuthorizationServerConfig {
                         context.getClaims()
                             .subject(user.getUsername())
                             .claim("type", "mcp")
-                            .audience(List.of(MCP_AUDIENCE))
+                            // Mutable ArrayList, not List.of(...): the token's claims are persisted in
+                            // oauth2_authorization and read back by SecurityJackson2Modules, whose
+                            // allow-list rejects java.util.ImmutableCollections (List.of) but accepts
+                            // ArrayList — a List.of aud breaks revoke/refresh deserialization.
+                            .audience(new ArrayList<>(List.of(MCP_AUDIENCE)))
                             .claim("uid", user.getId())
                             .claim("tv", user.getTokenVersion())
                             .claim("scope", String.join(" ", context.getAuthorizedScopes()));
