@@ -29,6 +29,7 @@ import { useAppStore } from '@/stores/app-store'
 import { LanguageToggle } from './LanguageToggle'
 import { useProfileStore } from '@/stores/profile-store'
 import { cn } from '@/lib/utils'
+import picsouLogo from '@/assets/horizontal-white-picsou.svg'
 
 function NavItem({
   to,
@@ -119,6 +120,13 @@ export function AppSidebar() {
 
   return (
     <nav className="hidden h-[calc(100vh-2rem)] max-h-[calc(100vh-2rem)] w-72 shrink-0 flex-col rounded-xl bg-background px-3 py-4 md:flex">
+      {/* Logo */}
+      <img
+        src={picsouLogo}
+        alt="Picsou"
+        className="mb-4 h-7 w-auto self-start px-4 opacity-90 brightness-0 dark:invert"
+      />
+
       <div className="flex flex-col gap-3">
         {NAV_ITEMS.map((item) => (
           <NavItem
