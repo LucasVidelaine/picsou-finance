@@ -44,6 +44,7 @@
 | 2026-06-26 | [AI provider runtime admin config (DB-only, no restart)](./decisions/2026-06-26-ai-provider-runtime-admin-config.md) | Active |
 | 2026-06-28 | [Reconstruct Revolut pockets from PSD2 internal-transfer rows](./decisions/2026-06-28-revolut-pockets-reconstruction.md) | Active |
 | 2026-06-28 | [Savings livrets: classify accounts and project interest (not written to balance)](./decisions/2026-06-28-savings-livrets-interest-projection.md) | Active |
+| 2026-07-03 | [OAuth2 Authorization Server for the native iOS app](./decisions/2026-07-03-oauth2-authorization-server-for-native-app.md) | Active |
 | 2026-07-06 | [Drop oauth2:token scope from MCP allowlist](./decisions/2026-07-06-drop-oauth2-token-scope.md) | Active |
 | 2026-07-11 | [Realized P&L: average-cost, computed on the fly](./decisions/2026-07-11-realized-pnl-average-cost-on-the-fly.md) | Active |
 | 2026-07-12 | [Remote-MCP OAuth authorization for third-party clients (claude.ai)](./decisions/2026-07-12-remote-mcp-oauth-authorization.md) | Active |
@@ -61,10 +62,12 @@
 | Theme (dark / light / system) + theme-adaptive rendering | 2026-06-02 | [theme-persistence.md](./features/theme-persistence.md) |
 | Dashboard — Time range isolation | 2026-04-13 | [dashboard-time-range-isolation.md](./features/dashboard-time-range-isolation.md) |
 | Bank sync | 2026-06-29 | [bank-sync.md](./features/bank-sync.md) |
+| Bank logos on account cards | 2026-07-01 | [bank-logos.md](./features/bank-logos.md) |
 | Budget & Cashflow | 2026-06-28 | [budget.md](./features/budget.md) |
 | Budget categorization rules (word-picker authoring UX) | 2026-06-28 | [budget-rules.md](./features/budget-rules.md) |
 | Optional AI transaction categorization | 2026-06-26 | [ai-categorization.md](./features/ai-categorization.md) |
-| Dashboard — Liabilities separated from performance | 2026-07-08 | [dashboard-liabilities-separation.md](./features/dashboard-liabilities-separation.md) |
+| Dashboard — Liabilities separated from performance | 2026-07-12 | [dashboard-liabilities-separation.md](./features/dashboard-liabilities-separation.md) |
+| Dashboard — Liabilities card (repayment progress) | 2026-06-28 | [dashboard-liabilities-card.md](./features/dashboard-liabilities-card.md) |
 | Trade Republic | 2026-07-07 | [trade-republic.md](./features/trade-republic.md) |
 | Trade Republic — Holdings deduplication | 2026-05-18 | [trade-republic-holding-deduplication.md](./features/trade-republic-holding-deduplication.md) |
 | ISIN → Ticker conversion | 2026-04-13 | [ISIN_TO_TICKER_CONVERSION.md](./features/ISIN_TO_TICKER_CONVERSION.md) |
@@ -77,6 +80,7 @@
 | Security Insight (asset type + ETF composition) | 2026-06-02 | [security-insight.md](./features/security-insight.md) |
 | Finary import + auto-sync | 2026-04-21 | [finary-import.md](./features/finary-import.md) |
 | Manual transactions + holdings derivation | 2026-06-28 | [manual-transactions.md](./features/manual-transactions.md) |
+| Transactions — global view (all accounts) | 2026-06-28 | [transactions-global-view.md](./features/transactions-global-view.md) |
 | CSV transaction import (investment accounts) | 2026-07-11 | [csv-transaction-import.md](./features/csv-transaction-import.md) |
 | Realized P&L on closed positions | 2026-07-11 | [realized-pnl.md](./features/realized-pnl.md) |
 | BoursoBank sync ⏸ disabled in 1.0.0 | 2026-04-26 | [bourso-bank.md](./features/bourso-bank.md) |
@@ -97,6 +101,7 @@
 | Login timing equalization (username-enumeration defense, GHSA-ww5m-pxgq-8qq6) | 2026-06-27 | [login-timing-attack.md](./features/login-timing-attack.md) |
 | GDPR data export (JSON + CSV) | 2026-04-26 | [data-export.md](./features/data-export.md) |
 | Revolut pockets (reconstruction from PSD2 internal-transfer rows) | 2026-06-28 | [revolut-pockets.md](./features/revolut-pockets.md) |
+| Revolut sidecar (assisted-enrolment login connector) | 2026-07-08 | [revolut-sidecar.md](./features/revolut-sidecar.md) |
 
 ## Lessons
 
