@@ -16,7 +16,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.jdbc.core.JdbcOperations;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.AuthenticationException;
@@ -26,12 +25,14 @@ import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationConsentService;
 import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsentService;
+import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationServerMetadata;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationServerConfigurer;
+import org.springframework.security.oauth2.server.authorization.context.AuthorizationServerContextHolder;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
 import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
 import org.springframework.security.oauth2.server.authorization.settings.OAuth2TokenFormat;
@@ -98,7 +99,9 @@ public class AuthorizationServerConfig {
 
         http
             .securityMatcher(authorizationServer.getEndpointsMatcher())
-            .with(authorizationServer, Customizer.withDefaults())
+            .with(authorizationServer, configurer -> configurer
+                .authorizationServerMetadataEndpoint(metadata -> metadata
+                    .authorizationServerMetadataCustomizer(this::advertiseRegistrationEndpoint)))
             .authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated())
             // The token endpoint is called by the native app with PKCE (no browser session);
             // the authorize endpoint is a GET. CSRF protection is not applicable to this chain.
@@ -112,6 +115,30 @@ public class AuthorizationServerConfig {
             .exceptionHandling(ex -> ex.authenticationEntryPoint(spaLoginRedirectEntryPoint()));
 
         return http.build();
+    }
+
+    /**
+     * Task 9: advertise {@code registration_endpoint} on the RFC 8414 authorization-server metadata
+     * document ({@code /.well-known/oauth-authorization-server}) so a standards-compliant remote-MCP
+     * client discovers the custom DCR endpoint ({@link DynamicClientRegistrationController}) without
+     * being told about it out-of-band — Spring AS 1.4.5 has no built-in (non-OIDC) client-registration
+     * endpoint, so nothing advertises this automatically; we add exactly the one claim.
+     *
+     * <p>{@code code_challenge_methods_supported} already contains {@code S256} unconditionally —
+     * that is {@code OAuth2AuthorizationServerMetadataEndpointFilter}'s own hard-coded default,
+     * applied to the builder before this customizer runs (verified in
+     * {@code AuthorizationServerMetadataTest} rather than re-set here).
+     *
+     * <p>The issuer is read from {@link AuthorizationServerContextHolder}, not built from a
+     * bean-level base URL: by the time this customizer runs, the framework has already resolved the
+     * issuer relative to the current request (honouring {@code X-Forwarded-*} — see
+     * {@code forward-headers-strategy: framework}) and populated the holder with it, exactly as it
+     * does for every other endpoint URL on this document ({@code token_endpoint},
+     * {@code authorization_endpoint}, …).
+     */
+    private void advertiseRegistrationEndpoint(OAuth2AuthorizationServerMetadata.Builder builder) {
+        String issuer = AuthorizationServerContextHolder.getContext().getIssuer();
+        builder.clientRegistrationEndpoint(issuer + "/oauth2/register");
     }
 
     /**

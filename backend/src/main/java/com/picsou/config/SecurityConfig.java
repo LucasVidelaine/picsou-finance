@@ -74,6 +74,15 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/auth/mfa/verify").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/activate/*").permitAll()
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                // RFC 9728 protected-resource metadata (Task 7) and RFC 7591 dynamic client
+                // registration (Task 8): unauthenticated by design, so a remote-MCP client can
+                // discover the resource + self-register before the OAuth handshake even starts.
+                // Neither is matched by the AS chain's own securityMatcher (@Order(1) above) —
+                // /.well-known/oauth-protected-resource isn't an AS-native endpoint, and
+                // /oauth2/register is a plain controller, not a configured clientRegistrationEndpoint
+                // — so both fall through to this chain and need an explicit permitAll here.
+                .requestMatchers(ProtectedResourceMetadataController.PATH).permitAll()
+                .requestMatchers(HttpMethod.POST, "/oauth2/register").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/mcp/**").authenticated()
                 .anyRequest().authenticated()

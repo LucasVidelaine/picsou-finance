@@ -91,6 +91,34 @@ class OAuth2ToolsTest {
         assertThat(status.keyName()).isEqualTo("claude.ai");
         assertThat(status.scopes()).containsExactly("budget:categories-read");
         assertThat(status.mfaEnabled()).isTrue();
+        assertThat(status.source()).isEqualTo("access_key");
+    }
+
+    // ─── Must-fix: MCP-JWT sessions (AccessKeyAuthentication with a null keyId) ──────────────
+
+    @Test
+    void getOAuth2SessionStatus_returnsStatusBuiltFromTheAuthentication_forAnMcpJwtSession() {
+        AppUser owner = mockOwner();
+        SecurityContextHolder.getContext().setAuthentication(new AccessKeyAuthentication(
+            owner,
+            List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("accounts:read"),
+                new org.springframework.security.core.authority.SimpleGrantedAuthority("goals:read")),
+            null));
+        when(userContext.currentUser()).thenReturn(owner);
+        when(mfaService.isEnabled(owner)).thenReturn(false);
+
+        OAuth2Tools.OAuth2SessionStatus status = tools.getOAuth2SessionStatus();
+
+        assertThat(status.keyId()).isNull();
+        assertThat(status.keyName()).isNull();
+        assertThat(status.scopes()).containsExactlyInAnyOrder("accounts:read", "goals:read");
+        assertThat(status.createdAt()).isNull();
+        assertThat(status.lastUsedAt()).isNull();
+        assertThat(status.expiresAt()).isNull();
+        assertThat(status.mfaEnabled()).isFalse();
+        assertThat(status.source()).isEqualTo("oauth2");
+        // The null-keyId path never touches the AccessKey repository — there is no row to look up.
+        org.mockito.Mockito.verifyNoInteractions(accessKeyService);
     }
 
     @Test
