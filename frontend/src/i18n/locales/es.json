@@ -563,6 +563,9 @@
     "dateFormat": "Formato de fecha",
     "dateFormatLocale": "Localizado",
     "dateFormatIso": "DD-MM-AAAA",
+    "sidebarStyle": "Estilo de la barra lateral",
+    "sidebarStyleCurrent": "Actual",
+    "sidebarStyleClassic": "Clásico",
     "account": "Cuenta",
     "accountDescription": "Gestiona tu cuenta",
     "username": "Nombre de usuario",
@@ -1122,5 +1125,10 @@
     "proceeds": "Ingresos",
     "avgCost": "Coste medio",
     "qtySold": "Cant. vendida"
+  },
+  "sidebarStylePrompt": {
+    "title": "Elige el estilo de tu barra lateral",
+    "description": "Dos diseños a elegir — puedes cambiarlo en cualquier momento.",
+    "hint": "Modificable en cualquier momento en Ajustes > Apariencia."
   }
 }

@@ -563,6 +563,9 @@
     "dateFormat": "Datumsformat",
     "dateFormatLocale": "Lokalisiert",
     "dateFormatIso": "TT-MM-JJJJ",
+    "sidebarStyle": "Seitenleisten-Stil",
+    "sidebarStyleCurrent": "Aktuell",
+    "sidebarStyleClassic": "Klassisch",
     "account": "Konto",
     "accountDescription": "Verwalte dein Konto",
     "username": "Benutzername",
@@ -1122,5 +1125,10 @@
     "proceeds": "Erlös",
     "avgCost": "Ø-Kosten",
     "qtySold": "Verk. Menge"
+  },
+  "sidebarStylePrompt": {
+    "title": "Wähle deinen Sidebar-Stil",
+    "description": "Zwei Layouts zur Auswahl — du kannst jederzeit wechseln.",
+    "hint": "Jederzeit änderbar unter Einstellungen > Erscheinungsbild."
   }
 }
