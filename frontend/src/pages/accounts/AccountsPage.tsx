@@ -143,22 +143,32 @@ export function AccountsPage() {
   // Pockets (accounts with parentAccountId set) are excluded from the flat list
   // to avoid double-counting their balance. They are rendered nested under their
   // parent Revolut wallet instead.
+  //
+  // A pocket's parent wallet can be soft-deleted (deleted_at set) without the
+  // pocket itself being deleted — the backend's @SQLRestriction then omits the
+  // wallet from this list entirely. Such an orphaned pocket must fall back to
+  // standalone rendering; otherwise it is excluded from nonPocketAccounts (has
+  // a parentAccountId) AND never grouped (its parent isn't in the list either),
+  // so it silently vanishes from the page despite existing and holding a balance.
+
+  const accountIds = useMemo(() => new Set((accounts ?? []).map((a) => a.id)), [accounts])
 
   const pocketsByParent = useMemo(() => {
     const map = new Map<number, Account[]>()
     for (const a of (accounts ?? [])) {
-      if (a.parentAccountId != null) {
+      if (a.parentAccountId != null && accountIds.has(a.parentAccountId)) {
         if (!map.has(a.parentAccountId)) map.set(a.parentAccountId, [])
         map.get(a.parentAccountId)!.push(a)
       }
     }
     return map
-  }, [accounts])
+  }, [accounts, accountIds])
 
-  // Non-pocket accounts only — used for totals, history IDs, and chart
+  // Non-pocket accounts (plus orphaned pockets, see above) — used for totals,
+  // history IDs, and chart
   const nonPocketAccounts = useMemo(
-    () => (accounts ?? []).filter((a) => a.parentAccountId == null),
-    [accounts],
+    () => (accounts ?? []).filter((a) => a.parentAccountId == null || !accountIds.has(a.parentAccountId)),
+    [accounts, accountIds],
   )
 
   // All non-pocket IDs for history query (split mode for per-account breakdown)
