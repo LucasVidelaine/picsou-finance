@@ -472,3 +472,23 @@ export function usePriceHistory(ticker: string | null, months: number, range: st
     staleTime: 2 * 60 * 1000,
   })
 }
+
+export function useAllAccounts() {
+  return useQuery({
+    queryKey: ['accounts', 'all'],
+    queryFn: accountsApi.listAll,
+    staleTime: QUERY_STALE_TIMES.accounts,
+  })
+}
+
+export function useToggleAccountVisibility() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, hidden }: { id: number; hidden: boolean }) => accountsApi.setVisibility(id, hidden),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['accounts'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['history'] })
+    },
+  })
+}
