@@ -11,6 +11,7 @@ import java.util.Optional;
 
 public interface AccountRepository extends JpaRepository<Account, Long> {
     List<Account> findAllByMemberIdOrderByCreatedAtAsc(Long memberId);
+    List<Account> findAllByMemberIdAndHiddenFalseOrderByCreatedAtAsc(Long memberId);
     Optional<Account> findByIdAndMemberId(Long id, Long memberId);
 
     /**
