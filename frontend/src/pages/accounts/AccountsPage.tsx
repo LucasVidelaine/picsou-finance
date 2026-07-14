@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useAccounts, useUpdateAccount, useDeleteAccount, useUpdateDebtMetadata } from '@/features/accounts/hooks'
+import { useAccounts, useAccountTree, useUpdateAccount, useDeleteAccount, useUpdateDebtMetadata } from '@/features/accounts/hooks'
 import { useHistory } from '@/features/history/hooks'
 import { useSavingsSuggestions } from '@/features/savings/hooks'
 import { AccountForm } from '@/components/shared/AccountForm'
@@ -123,34 +123,11 @@ export function AccountsPage() {
   //
   // Pockets (accounts with parentAccountId set) are excluded from the flat list
   // to avoid double-counting their balance. They are rendered nested under their
-  // parent Revolut wallet instead.
-  //
-  // A pocket's parent wallet can be soft-deleted (deleted_at set) without the
-  // pocket itself being deleted — the backend's @SQLRestriction then omits the
-  // wallet from this list entirely. Such an orphaned pocket must fall back to
-  // standalone rendering; otherwise it is excluded from nonPocketAccounts (has
-  // a parentAccountId) AND never grouped (its parent isn't in the list either),
-  // so it silently vanishes from the page despite existing and holding a balance.
+  // parent Revolut wallet instead. See useAccountTree for the orphaned-pocket
+  // fallback (parent wallet soft-deleted) that keeps such a pocket from vanishing.
 
-  const accountIds = useMemo(() => new Set((accounts ?? []).map((a) => a.id)), [accounts])
-
-  const pocketsByParent = useMemo(() => {
-    const map = new Map<number, Account[]>()
-    for (const a of (accounts ?? [])) {
-      if (a.parentAccountId != null && accountIds.has(a.parentAccountId)) {
-        if (!map.has(a.parentAccountId)) map.set(a.parentAccountId, [])
-        map.get(a.parentAccountId)!.push(a)
-      }
-    }
-    return map
-  }, [accounts, accountIds])
-
-  // Non-pocket accounts (plus orphaned pockets, see above) — used for totals,
-  // history IDs, and chart
-  const nonPocketAccounts = useMemo(
-    () => (accounts ?? []).filter((a) => a.parentAccountId == null || !accountIds.has(a.parentAccountId)),
-    [accounts, accountIds],
-  )
+  const { nonPocketAccounts, walletGroups: allWalletGroups, standaloneAccounts: allStandaloneAccounts } =
+    useAccountTree(accounts)
 
   // All non-pocket IDs for history query (split mode for per-account breakdown)
   const allAccountIds = useMemo(() => nonPocketAccounts.map((a) => a.id), [nonPocketAccounts])
@@ -163,20 +140,20 @@ export function AccountsPage() {
     return nonPocketAccounts.filter((a) => types.includes(a.type))
   }, [nonPocketAccounts, filter])
 
-  // Wallet groups: parents that have child pockets (e.g. Revolut wallet)
-  const walletGroups = useMemo(
-    () =>
-      filteredNonPockets
-        .filter((a) => pocketsByParent.has(a.id))
-        .map((wallet) => ({ wallet, pockets: pocketsByParent.get(wallet.id)! })),
-    [filteredNonPockets, pocketsByParent],
-  )
+  // Wallet groups: parents that have child pockets (e.g. Revolut wallet), filtered by
+  // the wallet's own type — pockets are shown in full regardless of the asset filter.
+  const walletGroups = useMemo(() => {
+    const types = ASSET_FILTER_MAP[filter]
+    if (!types) return allWalletGroups
+    return allWalletGroups.filter(({ wallet }) => types.includes(wallet.type))
+  }, [allWalletGroups, filter])
 
-  // Standalone accounts: non-pockets without any child pockets
-  const standaloneAccounts = useMemo(
-    () => filteredNonPockets.filter((a) => !pocketsByParent.has(a.id)),
-    [filteredNonPockets, pocketsByParent],
-  )
+  // Standalone accounts: non-pockets without any child pockets, filtered by type
+  const standaloneAccounts = useMemo(() => {
+    const types = ASSET_FILTER_MAP[filter]
+    if (!types) return allStandaloneAccounts
+    return allStandaloneAccounts.filter((a) => types.includes(a.type))
+  }, [allStandaloneAccounts, filter])
 
   // Whether current filter contains investment accounts (for PnL display)
   const hasHoldings = filteredNonPockets.some((a) => HOLDING_ACCOUNT_TYPES.includes(a.type))
@@ -230,6 +207,7 @@ export function AccountsPage() {
       ticker: null,
       logoUrl: null,
       createdAt: '',
+      hidden: false,
     }))
   }, [accounts, nonPocketAccounts, filter, t])
 
