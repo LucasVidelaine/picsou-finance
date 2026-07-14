@@ -157,7 +157,7 @@ export const mockAccounts: Account[] = [
   },
   {
     id: 10,
-    name: 'Pocket ••e1f2',
+    name: 'Impôts',
     type: 'CHECKING',
     provider: 'Revolut',
     currency: 'EUR',
