@@ -99,6 +99,14 @@ class AccountServiceTest {
     }
 
     @Test
+    void setHidden_throws_whenAccountNotOwnedByMember() {
+        when(accountRepository.findByIdAndMemberId(1L, 1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> accountService.setHidden(1L, 1L, true))
+            .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
     void getHoldings_returnsNullValue_whenPriceServiceHasNoPrice() {
         when(accountRepository.findByIdAndMemberId(1L, 1L)).thenReturn(Optional.of(ownedAccount()));
         AccountHolding holding = AccountHolding.builder()

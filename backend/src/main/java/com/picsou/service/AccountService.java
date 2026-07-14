@@ -75,6 +75,11 @@ public class AccountService {
         return findAll(memberId, false);
     }
 
+    /**
+     * @param includeHidden false (default) excludes hidden accounts, matching every other
+     *                       user-facing account list. true is used only by the /sync visibility
+     *                       tab, which must be able to see (and re-show) hidden accounts.
+     */
     public List<AccountResponse> findAll(Long memberId, boolean includeHidden) {
         List<Account> accounts = includeHidden
             ? accountRepository.findAllByMemberIdOrderByCreatedAtAsc(memberId)
