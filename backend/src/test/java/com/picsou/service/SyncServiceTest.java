@@ -43,7 +43,6 @@ class SyncServiceTest {
     @Mock TransactionRepository transactionRepository;
     @Mock CategorizationService categorizationService;
     @Mock RecurringDetectionService recurringDetectionService;
-    @Mock RevolutPocketService revolutPocketService;
 
     @InjectMocks SyncService syncService;
 
