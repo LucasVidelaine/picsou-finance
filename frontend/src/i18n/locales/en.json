@@ -804,6 +804,11 @@
       "noWallets": "No wallets tracked",
       "lastSync": "Last sync"
     },
+    "visibility": {
+      "title": "Accounts",
+      "description": "Choose which accounts appear in app. A hidden account keeps syncing normally — it's just removed from display.",
+      "manualGroup": "Manual"
+    },
     "finary": {
       "title": "Finary",
       "uploadFile": "Import Finary file (.xlsx)",

@@ -804,6 +804,11 @@
       "noWallets": "Aucun wallet suivi",
       "lastSync": "Dernière sync"
     },
+    "visibility": {
+      "title": "Comptes",
+      "description": "Choisis quels comptes apparaissent dans l'application. Un compte masqué continue d'être synchronisé normalement — il est juste retiré de l'affichage.",
+      "manualGroup": "Manuel"
+    },
     "finary": {
       "title": "Finary",
       "uploadFile": "Importer un fichier Finary (.xlsx)",

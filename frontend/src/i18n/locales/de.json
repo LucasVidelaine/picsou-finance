@@ -472,6 +472,11 @@
       "noWallets": "Keine Wallets im Blick",
       "lastSync": "Letzte Synchronisierung"
     },
+    "visibility": {
+      "title": "Konten",
+      "description": "Wähle, welche Konten in der App angezeigt werden. Ein ausgeblendetes Konto wird weiterhin normal synchronisiert — es wird nur aus der Anzeige entfernt.",
+      "manualGroup": "Manuell"
+    },
     "finary": {
       "title": "Finary",
       "uploadFile": "Finary-Datei importieren (.xlsx)",

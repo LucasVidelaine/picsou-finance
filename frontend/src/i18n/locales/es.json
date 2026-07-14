@@ -472,6 +472,11 @@
       "noWallets": "Sin wallets en seguimiento",
       "lastSync": "Última sincronización"
     },
+    "visibility": {
+      "title": "Cuentas",
+      "description": "Elige qué cuentas aparecen en la aplicación. Una cuenta oculta sigue sincronizándose con normalidad — solo se retira de la pantalla.",
+      "manualGroup": "Manual"
+    },
     "finary": {
       "title": "Finary",
       "uploadFile": "Importar archivo Finary (.xlsx)",
