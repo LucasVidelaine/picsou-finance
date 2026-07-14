@@ -3,9 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAccounts, useUpdateAccount, useDeleteAccount, useUpdateDebtMetadata } from '@/features/accounts/hooks'
 import { useHistory } from '@/features/history/hooks'
-import { useUnnamedPockets } from '@/features/pockets/hooks'
 import { useSavingsSuggestions } from '@/features/savings/hooks'
-import { PocketOnboardingModal } from '@/features/pockets/PocketOnboardingModal'
 import { AccountForm } from '@/components/shared/AccountForm'
 import { AddAccountModal } from '@/components/shared/AddAccountModal'
 import { AccountCard } from '@/components/shared/AccountCard'
@@ -17,8 +15,7 @@ import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Plus, Wallet, Pencil, Trash2, TrendingUp, TrendingDown, Info } from 'lucide-react'
+import { Plus, Wallet, Pencil, Trash2, TrendingUp, TrendingDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Account, AccountRequest, AccountType } from '@/types/api'
 
@@ -82,7 +79,6 @@ type AccountFormData = {
 // ─── Inline pocket card (smaller, with "alloué" tooltip) ─────────────────────
 
 function PocketCard({ account, onClick }: { account: Account; onClick?: () => void }) {
-  const { t } = useTranslation()
   return (
     <Card
       className="cursor-pointer transition-shadow hover:shadow-md"
@@ -95,21 +91,8 @@ function PocketCard({ account, onClick }: { account: Account; onClick?: () => vo
         />
         <div className="min-w-0 flex-1">
           <span className="truncate text-sm font-medium">{account.name}</span>
-          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+          <div className="mt-1">
             <CurrencyDisplay value={account.currentBalanceEur} className="text-base font-semibold" />
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="flex cursor-help items-center gap-0.5 text-xs text-muted-foreground">
-                    {t('pockets.allocatedLabel')}
-                    <Info className="size-3" />
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-56 text-center text-xs">
-                  {t('pockets.allocatedTooltip')}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
           </div>
         </div>
       </CardContent>
@@ -127,7 +110,6 @@ export function AccountsPage() {
   const updateAccount = useUpdateAccount()
   const updateDebt = useUpdateDebtMetadata()
   const deleteAccount = useDeleteAccount()
-  const { data: unnamedPockets } = useUnnamedPockets()
   const { data: savingsSuggestions } = useSavingsSuggestions()
   const hasSavingsSuggestions = Array.isArray(savingsSuggestions) && savingsSuggestions.length > 0
 
@@ -136,7 +118,6 @@ export function AccountsPage() {
   const [editingAccount, setEditingAccount] = useState<Account | null>(null)
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [filter, setFilter] = useState<AssetFilter>('ALL')
-  const [showPocketModal, setShowPocketModal] = useState(false)
 
   // ── Pocket grouping ──────────────────────────────────────────────────────────
   //
@@ -378,7 +359,6 @@ export function AccountsPage() {
   const isMutating = updateAccount.isPending || updateDebt.isPending
 
   const hasAnyAccounts = (accounts?.length ?? 0) > 0
-  const hasUnnamedPockets = (unnamedPockets?.length ?? 0) > 0
 
   return (
     <div className="space-y-6">
@@ -391,23 +371,6 @@ export function AccountsPage() {
           </Button>
         }
       />
-
-      {/* Unnamed pockets banner */}
-      {hasUnnamedPockets && unnamedPockets && (
-        <div className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/50 dark:bg-amber-950/30">
-          <p className="text-sm text-amber-800 dark:text-amber-300">
-            {t('pockets.unnamedPocketsBanner', { count: unnamedPockets.length })}
-          </p>
-          <Button
-            size="sm"
-            variant="outline"
-            className="ml-4 shrink-0"
-            onClick={() => setShowPocketModal(true)}
-          >
-            {t('pockets.nameYourPockets')}
-          </Button>
-        </div>
-      )}
 
       {/* Savings suggestions banner */}
       {hasSavingsSuggestions && (
@@ -632,16 +595,6 @@ export function AccountsPage() {
         loading={deleteAccount.isPending}
         variant="destructive"
       />
-
-      {/* Pocket onboarding modal — shown when unnamed pockets exist */}
-      {unnamedPockets && unnamedPockets.length > 0 && accounts && (
-        <PocketOnboardingModal
-          open={showPocketModal}
-          onOpenChange={setShowPocketModal}
-          pockets={unnamedPockets}
-          accounts={accounts}
-        />
-      )}
     </div>
   )
 }

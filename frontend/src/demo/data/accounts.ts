@@ -1,5 +1,4 @@
 import type { Account } from '@/types/api'
-import type { UnnamedPocket, CsvNameSuggestion } from '@/types/pockets'
 
 export const mockAccounts: Account[] = [
   {
@@ -163,30 +162,5 @@ export const mockAccounts: Account[] = [
     createdAt: '2024-02-01T08:00:00Z',
     parentAccountId: 8,
     externalAccountId: '3874abbf-a1b2-c3d4-e5f6-a7b8c9d0e1f2',
-  },
-]
-
-// ─── Demo unnamed pockets ────────────────────────────────────────────────────
-// Matches the real UnnamedPocketResponse DTO: accountId (no externalAccountId).
-
-export const mockUnnamedPockets: UnnamedPocket[] = [
-  {
-    accountId: 10,
-    placeholderName: 'Pocket ••e1f2',
-    parentAccountId: 8,
-    transfers: [
-      { amount: 200, date: '2026-06-01' },
-      { amount: 100, date: '2026-05-15' },
-    ],
-  },
-]
-
-// Matches CsvNamingResponse { suggestions: CsvNameSuggestion[] }.
-// suggestions use accountId (not uuid) and uncertain (not ambiguous).
-export const mockCsvSuggestions: CsvNameSuggestion[] = [
-  {
-    accountId: 10,
-    suggestedName: 'Épargne Court Terme',
-    uncertain: false,
   },
 ]
