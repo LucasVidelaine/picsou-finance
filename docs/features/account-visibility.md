@@ -36,6 +36,11 @@ being matched/updated by sync, reproducing the soft-delete behavior this feature
 - `DashboardService` (net worth / dashboard cards).
 - `budget.AllocationService` (budget allocation).
 - `SavingsService` (savings/livrets totals).
+- `FamilyViewService`'s `SharingLevel.ALL` branch (shared family dashboard another member sees).
+  Added in a final-review follow-up (commit `ae09139`) — this call site wasn't in the original
+  scope and a hidden account briefly leaked into the shared dashboard until it was found. The
+  `SharingLevel.MANUAL` branch is untouched: it uses an explicit per-account share list
+  (`findByIdInAndMemberId`), a different, intentional opt-in mechanism unaffected by `hidden`.
 
 **Intentionally NOT excluded** — these must keep operating on hidden accounts, since hiding is a
 display preference, not a deletion (rationale detailed in the Task 3 brief that shipped this
@@ -92,7 +97,8 @@ success, since a visibility change can affect all three.
 - `backend/src/main/java/com/picsou/dto/AccountVisibilityRequest.java` — `{ hidden: boolean }`
 - `backend/src/main/java/com/picsou/service/DashboardService.java`,
   `backend/src/main/java/com/picsou/service/budget/AllocationService.java`,
-  `backend/src/main/java/com/picsou/service/SavingsService.java` — hidden-excluding call sites
+  `backend/src/main/java/com/picsou/service/SavingsService.java`,
+  `backend/src/main/java/com/picsou/service/FamilyViewService.java` — hidden-excluding call sites
 - `frontend/src/features/accounts/hooks.ts` — `useAccountTree`, `useAllAccounts`, `useToggleAccountVisibility`
 - `frontend/src/pages/sync/AccountsVisibilityTab.tsx` — the "Comptes" tab UI
 - `frontend/src/pages/sync/SyncPage.tsx` — tab wiring
@@ -114,8 +120,10 @@ success, since a visibility change can affect all three.
 - **New user-facing account aggregations must explicitly filter `hidden`.** There is no repository-
   or entity-level default doing this for you; any new "list accounts" or "sum balances" call site
   has to call the `HiddenFalse` finder (or go through `AccountService.findAll(memberId)`) the same
-  way `DashboardService`/`AllocationService`/`SavingsService` do, or it will silently start
-  including hidden accounts.
+  way `DashboardService`/`AllocationService`/`SavingsService`/`FamilyViewService` do, or it will
+  silently start including hidden accounts — exactly the gap the final whole-branch review caught
+  in `FamilyViewService` before it shipped (see lesson
+  [final-whole-branch-review-catches-what-task-scoped-review-cannot.md](../lessons/final-whole-branch-review-catches-what-task-scoped-review-cannot.md)).
 - **Sync/export/scheduler paths must NOT filter `hidden`.** `SchedulerService`,
   `TradeRepublicSyncService`, `FinaryApiSyncService`, `FinaryImportService`, and every `*Exporter`
   intentionally call the unfiltered finder — a hidden account is still a fully live account from

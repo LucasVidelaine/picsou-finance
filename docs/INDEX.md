@@ -46,7 +46,7 @@
 | 2026-06-09 | [Offline merchant knowledge base and nested-route Budget IA](./decisions/2026-06-09-merchant-kb-and-budget-ia.md) | Active |
 | 2026-06-26 | [Optional AI transaction categorization via TransactionCategorizerPort](./decisions/2026-06-26-ai-transaction-categorization.md) | Active |
 | 2026-06-26 | [AI provider runtime admin config (DB-only, no restart)](./decisions/2026-06-26-ai-provider-runtime-admin-config.md) | Active |
-| 2026-06-28 | [Reconstruct Revolut pockets from PSD2 internal-transfer rows](./decisions/2026-06-28-revolut-pockets-reconstruction.md) | Active |
+| 2026-06-28 | [Reconstruct Revolut pockets from PSD2 internal-transfer rows](./decisions/2026-06-28-revolut-pockets-reconstruction.md) | ⚠️ Superseded |
 | 2026-06-28 | [Savings livrets: classify accounts and project interest (not written to balance)](./decisions/2026-06-28-savings-livrets-interest-projection.md) | Active |
 | 2026-07-03 | [OAuth2 Authorization Server for the native iOS app](./decisions/2026-07-03-oauth2-authorization-server-for-native-app.md) | Active |
 | 2026-07-06 | [Drop oauth2:token scope from MCP allowlist](./decisions/2026-07-06-drop-oauth2-token-scope.md) | Active |
@@ -120,6 +120,8 @@
 | The savings-livrets integration seam — defects survive where two green streams meet | 2026-06-28 | [savings-livrets-integration-seam.md](./lessons/savings-livrets-integration-seam.md) |
 | Stop protocol surfaces false brief hypotheses before cargo-cult code | 2026-07-06 | [stop-protocol-discovers-false-hypotheses.md](./lessons/stop-protocol-discovers-false-hypotheses.md) |
 | Demo data must include all required interface properties | 2026-07-06 | [demo-data-interface-completeness.md](./lessons/demo-data-interface-completeness.md) |
+| A child row whose parent is filtered out of a list needs an explicit rendering fallback | 2026-07-14 | [orphaned-child-needs-a-rendering-fallback.md](./lessons/orphaned-child-needs-a-rendering-fallback.md) |
+| A final whole-branch review catches call sites no single task-scoped review can | 2026-07-14 | [final-whole-branch-review-catches-what-task-scoped-review-cannot.md](./lessons/final-whole-branch-review-catches-what-task-scoped-review-cannot.md) |
 
 ## Conventions
 

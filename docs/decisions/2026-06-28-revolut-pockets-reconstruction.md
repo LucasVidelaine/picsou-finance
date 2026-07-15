@@ -7,7 +7,7 @@
 > decision and its trade-offs.
 
 > Date: 2026-06-28
-> Status: ✅ Active
+> Status: ⚠️ Superseded (2026-07-14)
 
 ## Context
 
