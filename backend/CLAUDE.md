@@ -11,9 +11,12 @@ mvn test -Dtest=GoalServiceTest                       # Run a single test class
 mvn package -DskipTests                               # Build JAR
 ```
 
-Most tests are pure Mockito unit tests — no database needed. One test
-(`BudgetSeedWriteOnReadPostgresTest`) spins up a real PostgreSQL 16 via Testcontainers to cover the
-budget seed-on-read path that H2 cannot reproduce; it self-skips when no Docker daemon is present.
+Most tests are pure Mockito unit tests — no database needed. Several tests spin up a real
+PostgreSQL 16 via Testcontainers (Docker Engine ≥ 25.0) where H2 can't reproduce the behavior:
+`BudgetSeedWriteOnReadPostgresTest` (budget seed-on-read in a read-only transaction),
+`OAuth2SchemaMigrationTest` / `WalletEvmMigrationTest` (Flyway migration fidelity), and the
+OAuth2/MCP authorization-server suite (`AuthorizationServerConfigTest` and friends). They all
+self-skip when no Docker daemon is present, so the rest of the suite still runs.
 
 ## Package structure
 

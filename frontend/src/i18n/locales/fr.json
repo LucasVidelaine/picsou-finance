@@ -694,7 +694,7 @@
     "desc": {
       "banks": "Connecter vos banques via OAuth",
       "exchanges": "Binance, Kraken...",
-      "wallets": "Bitcoin, Ethereum, Solana...",
+      "wallets": "Bitcoin, Ethereum, BNB, Solana...",
       "tr": "Trade Republic",
       "revolut": "Téléphone + code, synchro à la demande",
       "finary": "Importer depuis Finary",
@@ -798,11 +798,14 @@
       "label": "Label",
       "track": "Suivre",
       "connectError": "Échec de l'ajout. Vérifiez l'adresse et réessayez.",
+      "syncError": "Échec de la synchronisation. Vérifiez l'adresse ou réessayez plus tard.",
+      "removeError": "Impossible de supprimer ce portefeuille. Veuillez réessayer.",
       "sync": "Synchroniser",
       "remove": "Supprimer",
       "removeConfirm": "Supprimer ce wallet ?",
       "noWallets": "Aucun wallet suivi",
-      "lastSync": "Dernière sync"
+      "lastSync": "Dernière sync",
+      "evmHint": "Une seule adresse, toutes les chaînes EVM — Ethereum, BNB Chain, Polygon, Arbitrum, Optimism, Base et Avalanche."
     },
     "visibility": {
       "title": "Comptes",

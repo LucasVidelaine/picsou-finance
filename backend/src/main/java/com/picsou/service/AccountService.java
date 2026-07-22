@@ -11,6 +11,8 @@ import com.picsou.dto.SavingsConfigDto;
 import com.picsou.dto.SnapshotRequest;
 import com.picsou.dto.TransactionResponse;
 import com.picsou.exception.ResourceNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.picsou.model.Account;
 import com.picsou.model.AccountHolding;
 import com.picsou.model.AccountType;
@@ -34,10 +36,13 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 @Transactional(readOnly = true)
 public class AccountService {
+
+    private static final Logger log = LoggerFactory.getLogger(AccountService.class);
 
     private final AccountRepository accountRepository;
     private final BalanceSnapshotRepository snapshotRepository;
@@ -227,6 +232,27 @@ public class AccountService {
         return holdingRepository.save(holding);
     }
 
+    /**
+     * Removes holdings of {@code account} whose ticker is not in {@code keepTickers}
+     * — i.e. assets the latest sync no longer reports as <em>held</em> (keyed on the
+     * balances the adapter returned, never on which prices happened to resolve, so a
+     * transient price outage cannot delete a still-held asset). Without this, a sold
+     * or moved-out holding lingers at its last quantity and inflates the account's
+     * live balance ({@link #liveBalanceEur}) and invested basis forever. An empty
+     * {@code keepTickers} clears all holdings (the wallet holds nothing priced/known).
+     *
+     * <p>Takes the already-resolved {@link Account} (the caller has just loaded and
+     * member-scoped it), so no extra ownership lookup is issued on the sync path.
+     */
+    @Transactional
+    public void pruneHoldings(Account account, Set<String> keepTickers) {
+        if (keepTickers.isEmpty()) {
+            holdingRepository.deleteByAccountId(account.getId());
+        } else {
+            holdingRepository.deleteByAccountIdAndTickerNotIn(account.getId(), keepTickers);
+        }
+    }
+
     // ─── Package-private helpers used by other services ──────────────────────
 
     /**
@@ -295,7 +321,17 @@ public class AccountService {
         for (AccountHolding h : holdings) {
             BigDecimal qty = h.getQuantity();
             BigDecimal livePrice = h.getTicker() != null ? priceService.getPriceEur(h.getTicker()) : null;
-            if (livePrice == null) continue;
+            if (livePrice == null) {
+                // Skipping is deliberate -- a held-but-unpriced asset must not be valued at a
+                // guess -- but it is not free: during a price-provider outage the balance (and
+                // any snapshot taken from it) silently shrinks by whatever those holdings were
+                // worth. Log it so the dip is explicable rather than mysterious.
+                if (qty != null && qty.signum() > 0) {
+                    log.warn("No EUR price for holding {} (account {}) -- excluding it from the live balance",
+                        h.getTicker(), account.getId());
+                }
+                continue;
+            }
             liveValue = liveValue.add(qty.multiply(livePrice));
         }
         return liveValue;
