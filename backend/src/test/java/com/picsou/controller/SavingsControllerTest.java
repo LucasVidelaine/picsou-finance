@@ -235,6 +235,7 @@ class SavingsControllerTest {
             new BigDecimal("10000"),
             new BigDecimal("10000"),
             null,
+            null,
             false,
             "#6366f1",
             null,

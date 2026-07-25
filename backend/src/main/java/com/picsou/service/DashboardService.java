@@ -74,6 +74,7 @@ public class DashboardService {
         BigDecimal totalAssets = BigDecimal.ZERO;
         BigDecimal totalLiabilities = BigDecimal.ZERO;
         BigDecimal totalInvested = BigDecimal.ZERO;
+        Map<Long, BigDecimal> accountValues = new HashMap<>();
 
         for (Account account : accounts) {
             // Pocket sub-accounts: balance already counted in the parent wallet.
@@ -94,20 +95,22 @@ public class DashboardService {
                 accountValue = priceService.toEur(account.getCurrentBalance(), account.getCurrency(), account.getTicker());
                 accountInvested = accountValue;
             } else {
-                BigDecimal liveValue = BigDecimal.ZERO;
                 BigDecimal investedValue = BigDecimal.ZERO;
                 for (AccountHolding h : holdings) {
                     BigDecimal qty = h.getQuantity();
                     BigDecimal avgBuy = h.getAverageBuyIn() != null ? h.getAverageBuyIn() : BigDecimal.ZERO;
 
-                    liveValue = liveValue.add(holdingValueEur(h));
                     investedValue = investedValue.add(qty.multiply(avgBuy));
                 }
-                log.info("getDashboard: account={} holdings={} liveValue={} investedValue={}",
-                    account.getId(), holdings.size(), liveValue, investedValue);
-                accountValue = liveValue;
+                // Keep the dashboard on the same account-level valuation path as account
+                // cards and history. In particular, Bourse Direct falls back atomically to
+                // its authoritative EUR total when Yahoo/OpenFIGI cannot resolve an ISIN.
+                accountValue = accountService.liveBalanceEur(account);
+                log.info("getDashboard: account={} holdings={} accountValue={} investedValue={}",
+                    account.getId(), holdings.size(), accountValue, investedValue);
                 accountInvested = investedValue;
             }
+            accountValues.put(account.getId(), accountValue);
 
             if (account.getType() == AccountType.LOAN) {
                 totalLiabilities = totalLiabilities.add(accountValue);
@@ -140,8 +143,10 @@ public class DashboardService {
 
         // Percentages are shares of their own side of the balance sheet:
         // assets divide by totalAssets, liabilities by totalLiabilities (issue #18).
-        List<DistributionItem> distribution = buildDistribution(accounts, totalAssets, holdingsByAccount, false);
-        List<DistributionItem> rawLiabilities = buildDistribution(accounts, totalLiabilities, holdingsByAccount, true);
+        List<DistributionItem> distribution = buildDistribution(
+            accounts, totalAssets, holdingsByAccount, accountValues, false);
+        List<DistributionItem> rawLiabilities = buildDistribution(
+            accounts, totalLiabilities, holdingsByAccount, accountValues, true);
 
         // Enrich liabilities with loan parameters in one query
         List<Long> liabilityIds = rawLiabilities.stream().map(DistributionItem::accountId).toList();
@@ -186,6 +191,7 @@ public class DashboardService {
 
     private List<DistributionItem> buildDistribution(List<Account> accounts, BigDecimal divisor,
                                                        Map<Long, List<AccountHolding>> holdingsByAccount,
+                                                       Map<Long, BigDecimal> accountValues,
                                                        boolean liabilitiesOnly) {
         List<DistributionItem> items = new ArrayList<>();
 
@@ -197,18 +203,9 @@ public class DashboardService {
             if (liabilitiesOnly != isLoan) continue;
 
             List<AccountHolding> holdings = holdingsByAccount.getOrDefault(account.getId(), List.of());
-            BigDecimal balanceEur;
-            if (isLoan) {
-                // Keep liability rows on the same valuation as the totals above.
-                balanceEur = accountService.liveBalanceEur(account);
-            } else if (holdings.isEmpty()) {
-                balanceEur = priceService.toEur(account.getCurrentBalance(), account.getCurrency(), account.getTicker());
-            } else {
-                balanceEur = BigDecimal.ZERO;
-                for (AccountHolding h : holdings) {
-                    balanceEur = balanceEur.add(holdingValueEur(h));
-                }
-            }
+            // Reuse the exact value that fed the hero total. Repricing here could mix two
+            // market snapshots or turn a broker fallback into a partial Yahoo valuation.
+            BigDecimal balanceEur = accountValues.getOrDefault(account.getId(), BigDecimal.ZERO);
 
             double percentage = divisor.compareTo(BigDecimal.ZERO) > 0
                 ? balanceEur.divide(divisor, 6, RoundingMode.HALF_UP)
@@ -228,15 +225,5 @@ public class DashboardService {
         }
 
         return items;
-    }
-
-    private BigDecimal holdingValueEur(AccountHolding holding) {
-        BigDecimal livePrice = holding.getTicker() != null ? priceService.getPriceEur(holding.getTicker()) : null;
-        if (livePrice == null) {
-            log.warn("No live price for ticker '{}' — holding {} valued at zero until a quote is available",
-                holding.getTicker(), holding.getId());
-            return BigDecimal.ZERO;
-        }
-        return holding.getQuantity().multiply(livePrice);
     }
 }

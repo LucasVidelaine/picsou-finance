@@ -87,6 +87,26 @@ public class RateLimitConfig {
     }
 
     /**
+     * Per-IP Bourse Direct auth rate limiter: 5 attempts per 15 minutes.
+     */
+    @Bean("bourseDirectAuthBuckets")
+    public Map<String, Bucket> bourseDirectAuthBuckets() {
+        return boundedBucketStore();
+    }
+
+    /**
+     * Per-IP IBKR Flex sync rate limiter: 6 requests per minute.
+     * IBKR itself enforces a separate per-token limit (~1 request/sec) on the Flex Web
+     * Service; this application-level per-IP cap is additive and defensive — it keeps one
+     * caller from burning the shared token's budget, while leaving room for the
+     * SendRequest + several GetStatement polls a single sync fans out into.
+     */
+    @Bean("ibkrSyncBuckets")
+    public Map<String, Bucket> ibkrSyncBuckets() {
+        return boundedBucketStore();
+    }
+
+    /**
      * Per-IP setup wizard rate limiter: 10 mutating requests per minute.
      * Tight because the endpoints are unauthenticated until setup completes
      * — without this, a fresh install is exposed to admin-seeding floods
@@ -218,6 +238,24 @@ public class RateLimitConfig {
             .addLimit(Bandwidth.builder()
                 .capacity(5)
                 .refillIntervally(5, Duration.ofMinutes(15))
+                .build())
+            .build();
+    }
+
+    public static Bucket createBourseDirectAuthBucket() {
+        return Bucket.builder()
+            .addLimit(Bandwidth.builder()
+                .capacity(5)
+                .refillIntervally(5, Duration.ofMinutes(15))
+                .build())
+            .build();
+    }
+
+    public static Bucket createIbkrSyncBucket() {
+        return Bucket.builder()
+            .addLimit(Bandwidth.builder()
+                .capacity(6)
+                .refillIntervally(6, Duration.ofMinutes(1))
                 .build())
             .build();
     }

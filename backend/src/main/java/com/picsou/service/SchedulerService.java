@@ -34,10 +34,12 @@ public class SchedulerService {
     private final TradeRepublicSyncService trSyncService;
     private final BoursoSyncService boursoSyncService;
     private final RevolutSyncService revolutSyncService;
+    private final BourseDirectSyncService bourseDirectSyncService;
     private final PriceService priceService;
     private final CryptoExchangeSyncService cryptoExchangeSyncService;
     private final WalletSyncService walletSyncService;
     private final FinaryApiSyncService finaryApiSyncService;
+    private final IbkrSyncService ibkrSyncService;
 
     public SchedulerService(
         AccountRepository accountRepository,
@@ -48,10 +50,12 @@ public class SchedulerService {
         TradeRepublicSyncService trSyncService,
         BoursoSyncService boursoSyncService,
         RevolutSyncService revolutSyncService,
+        BourseDirectSyncService bourseDirectSyncService,
         PriceService priceService,
         CryptoExchangeSyncService cryptoExchangeSyncService,
         WalletSyncService walletSyncService,
-        FinaryApiSyncService finaryApiSyncService
+        FinaryApiSyncService finaryApiSyncService,
+        IbkrSyncService ibkrSyncService
     ) {
         this.accountRepository = accountRepository;
         this.snapshotRepository = snapshotRepository;
@@ -61,10 +65,12 @@ public class SchedulerService {
         this.trSyncService = trSyncService;
         this.boursoSyncService = boursoSyncService;
         this.revolutSyncService = revolutSyncService;
+        this.bourseDirectSyncService = bourseDirectSyncService;
         this.priceService = priceService;
         this.cryptoExchangeSyncService = cryptoExchangeSyncService;
         this.walletSyncService = walletSyncService;
         this.finaryApiSyncService = finaryApiSyncService;
+        this.ibkrSyncService = ibkrSyncService;
     }
 
     /**
@@ -99,6 +105,19 @@ public class SchedulerService {
 
             trSyncService.resyncIfSessionActive(memberId);
             boursoSyncService.resyncIfSessionActive(memberId);
+            bourseDirectSyncService.resyncIfSessionActive(memberId);
+
+            try {
+                ibkrSyncService.resyncIfConnected(memberId);
+            } catch (Exception ex) {
+                // resyncIfConnected swallows sync failures itself, but Spring can still
+                // throw UnexpectedRollbackException AT THE PROXY EXIT: a repository call
+                // failing inside the sync marks the shared transaction rollback-only
+                // through the repository's own proxy, and the commit attempt happens
+                // after the method's internal catch. Without this wrapper that breaks
+                // the loop for every remaining member.
+                log.error("Daily IBKR auto-sync failed for member {}", memberId, ex);
+            }
 
             try {
                 cryptoExchangeSyncService.resyncAll(memberId);

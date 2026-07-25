@@ -17,7 +17,7 @@ const baseLoan = {
   color: '#6366f1',
   balanceEur: -118200,
   percentage: 0,
-  accountType: 'LOAN',
+  accountType: 'LOAN' as const,
   hasHoldings: false,
 }
 

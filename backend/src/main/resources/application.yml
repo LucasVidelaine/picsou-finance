@@ -162,6 +162,8 @@ app:
     url: ${BOURSO_AUTH_URL:http://bourso-auth:8001}
   revolut-auth:
     url: ${REVOLUT_AUTH_URL:http://revolut-auth:8002}
+  bourse-direct-auth:
+    url: ${BOURSE_DIRECT_AUTH_URL:http://bourse-direct-auth:8001}
   startup-sync:
     enabled: ${APP_STARTUP_SYNC_ENABLED:true}
   enablebanking:

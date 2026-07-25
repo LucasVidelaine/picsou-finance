@@ -34,6 +34,10 @@ jobs:
             image: ${{ github.repository }}/revolut-auth
             context: services/revolut-auth
             dockerfile: services/revolut-auth/Dockerfile
+          - name: bourse-direct-auth
+            image: ${{ github.repository }}/bourse-direct-auth
+            context: services/bourse-direct-auth
+            dockerfile: services/bourse-direct-auth/Dockerfile
             versioned: false
 
     steps:

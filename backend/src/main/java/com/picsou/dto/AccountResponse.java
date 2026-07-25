@@ -14,6 +14,7 @@ public record AccountResponse(
     String currency,
     BigDecimal currentBalance,
     BigDecimal currentBalanceEur,
+    BigDecimal cashBalance,
     Instant lastSyncedAt,
     boolean isManual,
     String color,
@@ -36,6 +37,7 @@ public record AccountResponse(
             a.getCurrency(),
             a.getCurrentBalance(),
             balanceEur,
+            a.getCashBalance(),
             a.getLastSyncedAt(),
             a.isManual(),
             a.getColor(),
@@ -52,19 +54,19 @@ public record AccountResponse(
 
     public AccountResponse withRealEstate(RealEstateMetadataResponse realEstate) {
         return new AccountResponse(id, name, type, provider, currency, currentBalance,
-            currentBalanceEur, lastSyncedAt, isManual, color, ticker, logoUrl, createdAt, realEstate, debt,
+            currentBalanceEur, cashBalance, lastSyncedAt, isManual, color, ticker, logoUrl, createdAt, realEstate, debt,
             savingsConfig, parentAccountId, hidden);
     }
 
     public AccountResponse withDebt(DebtResponse debt) {
         return new AccountResponse(id, name, type, provider, currency, currentBalance,
-            currentBalanceEur, lastSyncedAt, isManual, color, ticker, logoUrl, createdAt, realEstate, debt,
+            currentBalanceEur, cashBalance, lastSyncedAt, isManual, color, ticker, logoUrl, createdAt, realEstate, debt,
             savingsConfig, parentAccountId, hidden);
     }
 
     public AccountResponse withSavingsConfig(SavingsConfigDto savingsConfig) {
         return new AccountResponse(id, name, type, provider, currency, currentBalance,
-            currentBalanceEur, lastSyncedAt, isManual, color, ticker, logoUrl, createdAt, realEstate, debt,
+            currentBalanceEur, cashBalance, lastSyncedAt, isManual, color, ticker, logoUrl, createdAt, realEstate, debt,
             savingsConfig, parentAccountId, hidden);
     }
 }

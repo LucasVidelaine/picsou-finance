@@ -108,7 +108,7 @@ class SyncServiceTest {
         });
         lenient().when(accountService.toResponse(any(Account.class)))
             .thenReturn(new AccountResponse(99L, "Compte Courant", null, "BNP Paribas", "EUR",
-                new BigDecimal("100"), new BigDecimal("100"), null, false, "#6366f1", null,
+                new BigDecimal("100"), new BigDecimal("100"), null, null, false, "#6366f1", null,
                 "https://logos.example/bnp.png", null, null, null, null, null, false));
         // Merged in from 1.1.0: completeConnection now ingests transactions per account.
         when(bankConnector.fetchTransactions(any(), any(), any())).thenReturn(List.of());
