@@ -1,7 +1,12 @@
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import type { GoalProgress } from '@/types/api'
 import { mockAccounts } from './data/accounts'
-import { mockAllocationTargets, mockExpenseEstimate, mockWealthPyramid } from './data/analysis'
+import {
+  mockAllocationTargets,
+  mockDiversification,
+  mockExpenseEstimate,
+  mockWealthPyramid,
+} from './data/analysis'
 import { mockDashboard } from './data/dashboard'
 import { mockGoals } from './data/goals'
 import { mockHoldings } from './data/holdings'
@@ -30,6 +35,7 @@ handlers.set(key('GET', '/dashboard'), () => mockDashboard)
 
 // Analysis
 handlers.set(key('GET', '/analysis/pyramid'), () => mockWealthPyramid)
+handlers.set(key('GET', '/analysis/diversification'), () => mockDiversification)
 // Held in a mutable copy, because saving targets invalidates the whole ['analysis'] namespace:
 // a PUT that only echoed the merge back would be undone by the refetch that follows it, and the
 // demo would show the form silently reverting.

@@ -35,4 +35,22 @@ test.describe('Analysis', () => {
     await page.getByLabel('Crypto').fill('40')
     await expect(page.getByRole('button', { name: 'Enregistrer' })).toBeDisabled()
   })
+
+  test('should show the sector and geographic breakdowns', async ({ page }) => {
+    await page.goto('/analysis')
+    await expect(page.getByText('Diversification')).toBeVisible()
+    await expect(page.getByText('Secteurs')).toBeVisible()
+    await expect(page.getByText('Zones géographiques')).toBeVisible()
+    // Keys resolved through the labels the holding modal already ships.
+    await expect(page.getByText('Technologie')).toBeVisible()
+    await expect(page.getByText('États-Unis')).toBeVisible()
+  })
+
+  test('should state what the breakdown could not classify', async ({ page }) => {
+    await page.goto('/analysis')
+    // Coverage is stated rather than renormalised away — a bar over part of the portfolio must
+    // not read as one over all of it.
+    await expect(page.getByText(/Calculé sur \d+ % du portefeuille/)).toBeVisible()
+    await expect(page.getByText(/non classé/)).toBeVisible()
+  })
 })

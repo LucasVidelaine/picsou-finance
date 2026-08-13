@@ -914,3 +914,44 @@ export interface EssentialExpenseEstimate {
   monthsObserved: number
   excludedTransferCount: number
 }
+
+// --- Analysis: sector and geographic diversification ---
+
+/**
+ * What a country breakdown is measuring. An ETF's countries are look-through *exposure*; a
+ * directly held share contributes its *domicile*. Once both are present the bar mixes two
+ * different quantities, and says so.
+ */
+export type DiversificationBasis = 'EXPOSURE' | 'MIXED'
+
+export interface DiversificationBreakdown {
+  score: number
+  effectiveCount: number
+  targetCount: number
+  basis: DiversificationBasis
+  slices: WeightedSlice[]
+}
+
+export interface Diversification {
+  totalValueEur: number
+  classifiedValueEur: number
+  unclassifiedValueEur: number
+  coveragePercent: number
+  /** Tickers with no profile yet — "not looked up", not "unknowable". */
+  pendingTickers: string[]
+  sectors: DiversificationBreakdown
+  countries: DiversificationBreakdown
+}
+
+export interface HoldingClassificationRequest {
+  wealthTier: WealthTier | null
+  sectorKey: string | null
+  countryKey: string | null
+}
+
+export interface HoldingClassificationResponse {
+  ticker: string
+  wealthTier: WealthTier | null
+  sectorKey: string | null
+  countryKey: string | null
+}

@@ -1,0 +1,250 @@
+package com.picsou.service;
+
+import com.picsou.dto.DiversificationResponse;
+import com.picsou.dto.HoldingResponse;
+import com.picsou.model.*;
+import com.picsou.repository.AccountHoldingRepository;
+import com.picsou.repository.HoldingClassificationRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.*;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class PortfolioDiversificationServiceTest {
+
+    private static final Long MEMBER = 1L;
+
+    @Mock AccountAccessResolver accessResolver;
+    @Mock AccountService accountService;
+    @Mock AccountHoldingRepository holdingRepository;
+    @Mock HoldingClassificationRepository classificationRepository;
+    @Mock SecurityProfileService securityProfileService;
+
+    @InjectMocks PortfolioDiversificationService service;
+
+    private final List<Account> accounts = new ArrayList<>();
+    private final Map<Long, BigDecimal> shares = new HashMap<>();
+    private final Map<String, SecurityProfile> profiles = new HashMap<>();
+    private long nextId = 1;
+
+    @BeforeEach
+    void wireDefaults() {
+        lenient().when(accessResolver.readableAccounts(MEMBER)).thenReturn(accounts);
+        lenient().when(accessResolver.sharesFor(any(), any())).thenReturn(shares);
+        lenient().when(classificationRepository.findByMemberId(MEMBER)).thenReturn(List.of());
+        lenient().when(securityProfileService.load(any())).thenReturn(profiles);
+    }
+
+    private Account equityAccount(Map<String, String> lines) {
+        Account account = Account.builder()
+            .id(nextId++).name("PEA").type(AccountType.PEA).currency("EUR").color("#000")
+            .build();
+        accounts.add(account);
+        shares.put(account.getId(), new BigDecimal("100"));
+        lenient().when(holdingRepository.findByAccount_Id(account.getId()))
+            .thenReturn(List.of(AccountHolding.builder().ticker("ANY").build()));
+        lenient().when(accountService.getHoldings(account.getId(), MEMBER)).thenReturn(
+            lines.entrySet().stream().map(e -> new HoldingResponse(
+                e.getKey(), e.getKey(), BigDecimal.ONE, null, null, "EUR",
+                new BigDecimal(e.getValue()), null, null, null, null, null, false)).toList());
+        return account;
+    }
+
+    private void stockProfile(String ticker, String sector, String country) {
+        profiles.put(ticker, SecurityProfile.builder()
+            .ticker(ticker).assetType("STOCK").sectorKey(sector).countryKey(country)
+            .refreshedAt(Instant.now()).slices(new ArrayList<>()).build());
+    }
+
+    private void etfProfile(String ticker, Map<String, String> sectors, Map<String, String> countries) {
+        List<SecurityCompositionSlice> slices = new ArrayList<>();
+        sectors.forEach((label, pct) -> slices.add(SecurityCompositionSlice.builder()
+            .kind(SecuritySliceKind.SECTOR).label(label).percent(new BigDecimal(pct)).build()));
+        countries.forEach((label, pct) -> slices.add(SecurityCompositionSlice.builder()
+            .kind(SecuritySliceKind.COUNTRY).label(label).percent(new BigDecimal(pct)).build()));
+        profiles.put(ticker, SecurityProfile.builder()
+            .ticker(ticker).assetType("ETF").refreshedAt(Instant.now()).slices(slices).build());
+    }
+
+    private static BigDecimal sliceOf(DiversificationResponse.Breakdown b, String label) {
+        return b.slices().stream().filter(s -> s.label().equals(label))
+            .findFirst().map(s -> s.percent()).orElse(BigDecimal.valueOf(-1));
+    }
+
+    @Test
+    void aDirectlyHeldShareContributesItsWholeValueToOneSectorAndOneCountry() {
+        equityAccount(Map.of("AI.PA", "10000"));
+        stockProfile("AI.PA", "basic_materials", "FR");
+
+        DiversificationResponse response = service.diversification(MEMBER);
+
+        assertThat(sliceOf(response.sectors(), "basic_materials")).isEqualByComparingTo("100.00");
+        assertThat(sliceOf(response.countries(), "FR")).isEqualByComparingTo("100.00");
+        assertThat(response.coveragePercent()).isEqualByComparingTo("100.00");
+    }
+
+    @Test
+    void anEtfIsLookedThroughAndWeightedByValue() {
+        equityAccount(Map.of("CW8.PA", "10000"));
+        etfProfile("CW8.PA",
+            Map.of("technology", "40", "healthcare", "60"),
+            Map.of("US", "70", "JP", "30"));
+
+        DiversificationResponse response = service.diversification(MEMBER);
+
+        assertThat(sliceOf(response.sectors(), "technology")).isEqualByComparingTo("40.00");
+        assertThat(sliceOf(response.sectors(), "healthcare")).isEqualByComparingTo("60.00");
+        assertThat(sliceOf(response.countries(), "US")).isEqualByComparingTo("70.00");
+    }
+
+    @Test
+    void aPartialBreakdownIsRenormalisedToWhatTheProviderPublished() {
+        // A top-ten country list does not sum to 100. Treating the percentages as absolute would
+        // dump the remainder into "unclassified" for every single fund.
+        equityAccount(Map.of("CW8.PA", "10000"));
+        etfProfile("CW8.PA", Map.of("technology", "30"), Map.of("US", "50", "JP", "10"));
+
+        DiversificationResponse response = service.diversification(MEMBER);
+
+        assertThat(sliceOf(response.sectors(), "technology")).isEqualByComparingTo("100.00");
+        assertThat(sliceOf(response.countries(), "US")).isEqualByComparingTo("83.33");
+        assertThat(response.unclassifiedValueEur()).isEqualByComparingTo("0.00");
+    }
+
+    @Test
+    void aManualOverrideBeatsTheResolvedProfile() {
+        equityAccount(Map.of("AI.PA", "10000"));
+        stockProfile("AI.PA", "basic_materials", "FR");
+        when(classificationRepository.findByMemberId(MEMBER)).thenReturn(List.of(
+            HoldingClassification.builder().ticker("AI.PA").sectorKey("energy").countryKey("BE").build()));
+
+        DiversificationResponse response = service.diversification(MEMBER);
+
+        assertThat(sliceOf(response.sectors(), "energy")).isEqualByComparingTo("100.00");
+        assertThat(sliceOf(response.countries(), "BE")).isEqualByComparingTo("100.00");
+    }
+
+    @Test
+    void anOverrideOnOneFieldLeavesTheOtherResolvedNormally() {
+        equityAccount(Map.of("AI.PA", "10000"));
+        stockProfile("AI.PA", "basic_materials", "FR");
+        when(classificationRepository.findByMemberId(MEMBER)).thenReturn(List.of(
+            HoldingClassification.builder().ticker("AI.PA").sectorKey("energy").build()));
+
+        DiversificationResponse response = service.diversification(MEMBER);
+
+        assertThat(sliceOf(response.sectors(), "energy")).isEqualByComparingTo("100.00");
+        assertThat(sliceOf(response.countries(), "FR")).isEqualByComparingTo("100.00");
+    }
+
+    @Test
+    void anUnknownTickerIsReportedNotRenormalisedAway() {
+        // A bar computed over 60% of the portfolio must not look like one computed over all of
+        // it — the same discipline as the Others remainder in the holding modal.
+        equityAccount(Map.of("AI.PA", "6000", "MC.PA", "4000"));
+        stockProfile("AI.PA", "basic_materials", "FR");
+
+        DiversificationResponse response = service.diversification(MEMBER);
+
+        assertThat(response.totalValueEur()).isEqualByComparingTo("10000.00");
+        assertThat(response.classifiedValueEur()).isEqualByComparingTo("6000.00");
+        assertThat(response.unclassifiedValueEur()).isEqualByComparingTo("4000.00");
+        assertThat(response.coveragePercent()).isEqualByComparingTo("60.00");
+        assertThat(response.pendingTickers()).containsExactly("MC.PA");
+        // And the classified part still sums to 100 among itself.
+        assertThat(sliceOf(response.sectors(), "basic_materials")).isEqualByComparingTo("100.00");
+    }
+
+    @Test
+    void theSameTickerHeldTwiceIsOnePosition() {
+        equityAccount(Map.of("AI.PA", "4000"));
+        equityAccount(Map.of("AI.PA", "6000"));
+        stockProfile("AI.PA", "basic_materials", "FR");
+
+        DiversificationResponse response = service.diversification(MEMBER);
+
+        assertThat(response.totalValueEur()).isEqualByComparingTo("10000.00");
+        assertThat(response.sectors().slices()).hasSize(1);
+    }
+
+    @Test
+    void sharesAreAppliedSoAJointAccountIsNotOverstated() {
+        Account joint = equityAccount(Map.of("AI.PA", "10000"));
+        shares.put(joint.getId(), new BigDecimal("50"));
+        stockProfile("AI.PA", "basic_materials", "FR");
+
+        assertThat(service.diversification(MEMBER).totalValueEur()).isEqualByComparingTo("5000.00");
+    }
+
+    @Test
+    void nonEquityAccountsAreIgnored() {
+        Account crypto = Account.builder()
+            .id(nextId++).name("Binance").type(AccountType.CRYPTO).currency("EUR").color("#000").build();
+        accounts.add(crypto);
+        shares.put(crypto.getId(), new BigDecimal("100"));
+
+        assertThat(service.diversification(MEMBER).totalValueEur()).isEqualByComparingTo("0.00");
+    }
+
+    @Test
+    void theScoreCountsEffectivePositionsNotBuckets() {
+        // Five sectors held 96/1/1/1/1 is not a diversified portfolio, and counting buckets
+        // cannot tell it apart from 20/20/20/20/20.
+        equityAccount(Map.of("CONC", "10000"));
+        etfProfile("CONC", Map.of("technology", "96", "energy", "1", "healthcare", "1",
+            "utilities", "1", "industrials", "1"), Map.of());
+
+        DiversificationResponse concentrated = service.diversification(MEMBER);
+        assertThat(concentrated.sectors().effectiveCount()).isLessThan(new BigDecimal("1.2"));
+        assertThat(concentrated.sectors().score()).isLessThan(25);
+
+        accounts.clear(); shares.clear(); profiles.clear(); nextId = 1;
+        equityAccount(Map.of("EVEN", "10000"));
+        etfProfile("EVEN", Map.of("technology", "20", "energy", "20", "healthcare", "20",
+            "utilities", "20", "industrials", "20"), Map.of());
+
+        DiversificationResponse even = service.diversification(MEMBER);
+        assertThat(even.sectors().effectiveCount()).isEqualByComparingTo("5.00");
+        assertThat(even.sectors().score()).isEqualTo(83);
+    }
+
+    @Test
+    void aDirectShareMarksTheCountryBasisAsMixed() {
+        // An ETF's countries are look-through exposure, a share's is its domicile. Adding them
+        // adds two different quantities, and the client has to be able to say so.
+        equityAccount(Map.of("AI.PA", "10000"));
+        stockProfile("AI.PA", "basic_materials", "FR");
+
+        assertThat(service.diversification(MEMBER).countries().basis()).isEqualTo("MIXED");
+    }
+
+    @Test
+    void aPureEtfPortfolioReportsExposureBasis() {
+        equityAccount(Map.of("CW8.PA", "10000"));
+        etfProfile("CW8.PA", Map.of("technology", "100"), Map.of("US", "100"));
+
+        assertThat(service.diversification(MEMBER).countries().basis()).isEqualTo("EXPOSURE");
+    }
+
+    @Test
+    void anEmptyPortfolioDoesNotDivideByZero() {
+        DiversificationResponse response = service.diversification(MEMBER);
+
+        assertThat(response.totalValueEur()).isEqualByComparingTo("0.00");
+        assertThat(response.coveragePercent()).isEqualByComparingTo("0.00");
+        assertThat(response.sectors().score()).isZero();
+    }
+}

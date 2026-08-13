@@ -255,7 +255,19 @@
       "sum": "Total {{value}}% / 100%",
       "allocationHint": "Los cuatro porcentajes deben sumar 100%."
     },
-    "targetAmount": "objetivo"
+    "targetAmount": "objetivo",
+    "diversification": {
+      "title": "Diversificación",
+      "sectors": "Sectores",
+      "countries": "Regiones",
+      "effective": "{{value}} posiciones efectivas / {{target}} previstas",
+      "coverage": "Calculado sobre el {{value}} % de la bolsa de acciones y ETF",
+      "unclassified": "sin clasificar",
+      "pending": "Pendiente de clasificar: {{tickers}}",
+      "noData": "No hay datos de reparto disponibles",
+      "noHoldings": "No hay línea de acciones o ETF que analizar.",
+      "basisNote": "En un ETF el país es la exposición real del índice; en una acción en directo es el país de emisión del ISIN. Son magnitudes distintas, sumadas aquí."
+    }
   },
   "accountTypes": {
     "checking": "Cuenta corriente",

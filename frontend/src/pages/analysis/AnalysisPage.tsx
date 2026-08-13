@@ -6,14 +6,16 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { ErrorState } from '@/components/shared/ErrorState'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useAllocationTargets, useWealthPyramid } from '@/features/analysis/hooks'
+import { useAllocationTargets, useDiversification, useWealthPyramid } from '@/features/analysis/hooks'
 import { PyramidSection } from './PyramidSection'
+import { DiversificationSection } from './DiversificationSection'
 import { AllocationTargetsModal } from './AllocationTargetsModal'
 
 export function AnalysisPage() {
   const { t } = useTranslation()
   const pyramid = useWealthPyramid()
   const targets = useAllocationTargets()
+  const diversification = useDiversification()
   const [editing, setEditing] = useState(false)
 
   const hasWealth = (pyramid.data?.totalAssetsEur ?? 0) !== 0
@@ -53,7 +55,12 @@ export function AnalysisPage() {
         />
       )}
 
-      {pyramid.data && hasWealth && <PyramidSection pyramid={pyramid.data} />}
+      {pyramid.data && hasWealth && (
+        <div className="space-y-4">
+          <PyramidSection pyramid={pyramid.data} />
+          {diversification.data && <DiversificationSection data={diversification.data} />}
+        </div>
+      )}
 
       <AllocationTargetsModal
         open={editing}

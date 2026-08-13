@@ -255,7 +255,19 @@
       "sum": "Total {{value}}% / 100%",
       "allocationHint": "Les quatre pourcentages doivent totaliser 100%."
     },
-    "targetAmount": "cible"
+    "targetAmount": "cible",
+    "diversification": {
+      "title": "Diversification",
+      "sectors": "Secteurs",
+      "countries": "Zones géographiques",
+      "effective": "{{value}} postes effectifs / {{target}} visés",
+      "coverage": "Calculé sur {{value}} % du portefeuille actions & ETF",
+      "unclassified": "non classé",
+      "pending": "En attente de classement : {{tickers}}",
+      "noData": "Aucune donnée de répartition disponible",
+      "noHoldings": "Aucune ligne d'actions ou d'ETF à analyser.",
+      "basisNote": "Pour un ETF, le pays est l'exposition réelle de l'indice ; pour une action détenue en direct, c'est le pays d'émission de l'ISIN. Ce sont deux grandeurs différentes, additionnées ici."
+    }
   },
   "accountTypes": {
     "checking": "Compte courant",

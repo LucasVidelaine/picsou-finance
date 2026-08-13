@@ -255,7 +255,19 @@
       "sum": "Summe {{value}}% / 100%",
       "allocationHint": "Die vier Prozentsätze müssen zusammen 100% ergeben."
     },
-    "targetAmount": "Ziel"
+    "targetAmount": "Ziel",
+    "diversification": {
+      "title": "Diversifikation",
+      "sectors": "Sektoren",
+      "countries": "Regionen",
+      "effective": "{{value}} effektive Positionen / {{target}} angestrebt",
+      "coverage": "Berechnet über {{value}} % des Aktien- & ETF-Anteils",
+      "unclassified": "nicht klassifiziert",
+      "pending": "Klassifizierung ausstehend: {{tickers}}",
+      "noData": "Keine Aufteilungsdaten verfügbar",
+      "noHoldings": "Keine Aktien- oder ETF-Position zu analysieren.",
+      "basisNote": "Bei einem ETF ist das Land die tatsächliche Indexausrichtung; bei einer direkt gehaltenen Aktie das Emissionsland der ISIN. Das sind zwei verschiedene Größen, die hier addiert werden."
+    }
   },
   "accountTypes": {
     "checking": "Girokonto",

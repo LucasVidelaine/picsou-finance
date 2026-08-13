@@ -56,6 +56,8 @@
 | 2026-08-01 | [Per-member ownership shares on properties and loans](./decisions/2026-08-01-account-ownership-shares.md) | Active |
 | 2026-08-10 | [Verify an ISIN's ticker against Yahoo instead of predicting it](./decisions/2026-08-10-yahoo-verified-isin-tickers.md) | Active |
 | 2026-08-11 | [Deleting an account removes the connection behind it](./decisions/2026-08-11-account-deletion-removes-its-connection.md) | Active |
+| 2026-08-13 | [A country breakdown mixes domicile and exposure, and says so](./decisions/2026-08-13-equity-domicile-vs-etf-exposure.md) | Active |
+| 2026-08-13 | [Persist security profiles and warm them on a schedule](./decisions/2026-08-13-persisted-security-profiles.md) | Active |
 
 ## Feature notes
 
@@ -79,6 +81,7 @@
 | Encryption at rest | 2026-04-08 | [encryption-at-rest.md](./features/encryption-at-rest.md) |
 | Crypto tracking | 2026-08-11 | [crypto-tracking.md](./features/crypto-tracking.md) |
 | Wealth pyramid (Analysis) | 2026-08-13 | [wealth-pyramid.md](./features/wealth-pyramid.md) |
+| Portfolio diversification (sector + geography) | 2026-08-13 | [portfolio-diversification.md](./features/portfolio-diversification.md) |
 | Savings goals | 2026-06-02 | [goals.md](./features/goals.md) |
 | Goals — Grid view (donuts) | 2026-06-02 | [goal-calendar-donut.md](./features/goal-calendar-donut.md) |
 | Price service | 2026-08-07 | [price-service.md](./features/price-service.md) |

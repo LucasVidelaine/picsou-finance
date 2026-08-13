@@ -11,6 +11,14 @@ export function useWealthPyramid() {
   })
 }
 
+export function useDiversification() {
+  return useQuery({
+    queryKey: ['analysis', 'diversification'],
+    queryFn: analysisApi.diversification,
+    staleTime: QUERY_STALE_TIMES.analysis,
+  })
+}
+
 export function useAllocationTargets() {
   return useQuery({
     queryKey: ['analysis', 'targets'],

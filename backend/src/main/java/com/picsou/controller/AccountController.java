@@ -6,6 +6,8 @@ import com.picsou.dto.DebtRequest;
 import com.picsou.dto.DebtResponse;
 import com.picsou.dto.ExchangePositionResponse;
 import com.picsou.dto.HoldingRequest;
+import com.picsou.dto.HoldingClassificationRequest;
+import com.picsou.dto.HoldingClassificationResponse;
 import com.picsou.dto.HoldingResponse;
 import com.picsou.dto.RealEstateMetadataRequest;
 import com.picsou.dto.RealEstateMetadataResponse;
@@ -25,6 +27,8 @@ import com.picsou.service.LoanAmortizationService;
 import com.picsou.service.ManualTransactionService;
 import com.picsou.service.PropertyValuationService;
 import com.picsou.service.RealizedPnlService;
+import com.picsou.model.HoldingClassification;
+import com.picsou.service.HoldingClassificationService;
 import com.picsou.service.UserContext;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -40,6 +44,7 @@ import java.util.List;
 public class AccountController {
 
     private final AccountService accountService;
+    private final HoldingClassificationService holdingClassificationService;
     private final UserContext userContext;
     private final ManualTransactionService manualTransactionService;
     private final RealizedPnlService realizedPnlService;
@@ -54,8 +59,10 @@ public class AccountController {
                             CryptoExchangeSyncService cryptoExchangeSyncService,
                             PropertyValuationService propertyValuationService,
                             AccountOwnershipService ownershipService,
-                            AccountConnectionService accountConnectionService) {
+                            AccountConnectionService accountConnectionService,
+                            HoldingClassificationService holdingClassificationService) {
         this.accountConnectionService = accountConnectionService;
+        this.holdingClassificationService = holdingClassificationService;
         this.accountService = accountService;
         this.userContext = userContext;
         this.manualTransactionService = manualTransactionService;
@@ -179,6 +186,24 @@ public class AccountController {
         @Valid @RequestBody HoldingRequest req
     ) {
         return accountService.updateHolding(id, userContext.currentMemberId(), ticker, req.quantity(), req.averageBuyIn());
+    }
+
+    /**
+     * The member's own verdict on what a holding is — its pyramid tier, its sector, its country.
+     *
+     * <p>Needed because a wrapper does not determine the asset (a gold ETC and a bitcoin ETP both
+     * live in an ordinary brokerage account) and because no provider knows every security. Each
+     * field overrides independently; sending all three as null clears the override entirely.
+     */
+    @PutMapping("/{id}/holdings/{ticker}/classification")
+    public HoldingClassificationResponse classifyHolding(
+        @PathVariable Long id,
+        @PathVariable String ticker,
+        @Valid @RequestBody HoldingClassificationRequest req
+    ) {
+        HoldingClassification saved = holdingClassificationService.classify(
+            id, userContext.currentMemberId(), ticker, req);
+        return HoldingClassificationResponse.from(ticker, saved);
     }
 
     @DeleteMapping("/{id}/holdings/{ticker}")

@@ -1,5 +1,6 @@
 import type {
   AllocationTargets,
+  Diversification,
   EssentialExpenseEstimate,
   WealthPyramid,
 } from '@/types/api'
@@ -90,4 +91,48 @@ export const mockExpenseEstimate: EssentialExpenseEstimate = {
   estimate: 1912.4,
   monthsObserved: 6,
   excludedTransferCount: 11,
+}
+
+/**
+ * Deliberately imperfect too: technology-heavy, US-heavy, and with a slice the profiles have not
+ * been warmed for — so the coverage line and the pending-tickers hint are both exercised.
+ */
+export const mockDiversification: Diversification = {
+  totalValueEur: 142400,
+  classifiedValueEur: 131800,
+  unclassifiedValueEur: 10600,
+  coveragePercent: 92.56,
+  pendingTickers: ['MC.PA'],
+  sectors: {
+    score: 78,
+    effectiveCount: 4.68,
+    targetCount: 6,
+    basis: 'MIXED',
+    slices: [
+      { label: 'technology', percent: 31.4 },
+      { label: 'financial_services', percent: 18.2 },
+      { label: 'healthcare', percent: 13.7 },
+      { label: 'consumer_cyclical', percent: 11.1 },
+      { label: 'industrials', percent: 9.8 },
+      { label: 'energy', percent: 6.3 },
+      { label: 'basic_materials', percent: 4.2 },
+      { label: 'utilities', percent: 3.1 },
+      { label: 'real_estate', percent: 2.2 },
+    ],
+  },
+  countries: {
+    score: 71,
+    effectiveCount: 2.14,
+    targetCount: 3,
+    basis: 'MIXED',
+    slices: [
+      { label: 'US', percent: 62.8 },
+      { label: 'FR', percent: 14.3 },
+      { label: 'JP', percent: 7.1 },
+      { label: 'GB', percent: 5.4 },
+      { label: 'DE', percent: 4.6 },
+      { label: 'NL', percent: 3.2 },
+      { label: 'CH', percent: 2.6 },
+    ],
+  },
 }

@@ -255,7 +255,19 @@
       "sum": "Total {{value}}% / 100%",
       "allocationHint": "The four percentages must add up to 100%."
     },
-    "targetAmount": "target"
+    "targetAmount": "target",
+    "diversification": {
+      "title": "Diversification",
+      "sectors": "Sectors",
+      "countries": "Regions",
+      "effective": "{{value}} effective positions / {{target}} targeted",
+      "coverage": "Computed over {{value}}% of the stocks & ETFs sleeve",
+      "unclassified": "unclassified",
+      "pending": "Awaiting classification: {{tickers}}",
+      "noData": "No breakdown data available",
+      "noHoldings": "No stock or ETF line to analyse.",
+      "basisNote": "For an ETF the country is the index's actual exposure; for a directly held share it is the ISIN's country of issuance. These are different quantities, added together here."
+    }
   },
   "accountTypes": {
     "checking": "Checking",

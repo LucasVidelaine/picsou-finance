@@ -53,7 +53,7 @@ public class HoldingClassification extends AuditableEntity {
      *
      * <p>{@code UNIQUE (member_id, ticker)} would accept both {@code gold} and {@code GOLD} for
      * one member, while every reader keys its override map by the upper-cased ticker — so the
-     * tier that won would depend on the order rows came back in. Normalising here rather than
+     * row that won would depend on the order they came back in. Normalising here rather than
      * widening the constraint to {@code UPPER(ticker)} keeps the invariant at the only gate that
      * writes this table, and leaves a migration that is already applied on running instances
      * alone.
@@ -64,8 +64,16 @@ public class HoldingClassification extends AuditableEntity {
         if (ticker != null) ticker = ticker.trim().toUpperCase(Locale.ROOT);
     }
 
-    /** {@code null} leaves the inferred tier in place; PR2 adds sector/country beside it. */
+    /** {@code null} leaves the inferred value in place — each field overrides independently. */
     @Enumerated(EnumType.STRING)
     @Column(name = "wealth_tier", length = 20)
     private WealthTier wealthTier;
+
+    /** Morningstar sector key, e.g. {@code technology}. */
+    @Column(name = "sector_key", length = 40)
+    private String sectorKey;
+
+    /** ISO 3166-1 alpha-2. */
+    @Column(name = "country_key", length = 2)
+    private String countryKey;
 }

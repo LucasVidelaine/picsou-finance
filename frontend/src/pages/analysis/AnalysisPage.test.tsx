@@ -10,6 +10,7 @@ const useAllocationTargets = vi.fn()
 vi.mock('@/features/analysis/hooks', () => ({
   useWealthPyramid: () => useWealthPyramid(),
   useAllocationTargets: () => useAllocationTargets(),
+  useDiversification: () => ({ data: undefined }),
   useEssentialExpenseEstimate: () => ({ data: undefined }),
   useSaveAllocationTargets: () => ({ mutate: vi.fn(), isPending: false }),
 }))

@@ -465,6 +465,28 @@ appears twice, or if the account is not a property or a loan.
 
 ---
 
+#### `PUT /api/accounts/{id}/holdings/{ticker}/classification`
+
+The member's own verdict on what a holding is, overriding whatever was inferred from the account
+type and the price providers. Needed because a wrapper does not determine the asset — a gold ETC
+and a bitcoin ETP both live in an ordinary brokerage account.
+
+**Body** — every field optional; null means "stop overriding this one", and the three are
+independent so correcting a sector does not drop a tier set earlier:
+```json
+{ "wealthTier": "ALTERNATIVE", "sectorKey": "basic_materials", "countryKey": "FR" }
+```
+
+**Response `200`:**
+```json
+{ "ticker": "GLD", "wealthTier": "ALTERNATIVE", "sectorKey": null, "countryKey": null }
+```
+
+Stored per `(member, ticker)` rather than per holding row, so one correction covers the same
+security in every account and survives a sync that drops and recreates the holding. Sending all
+three fields null deletes the override. Requires ownership of the account, not merely read
+access: a co-owner must not rewrite how someone else's holdings are counted.
+
 ### 4. Real estate — `/api/real-estate`
 
 #### `GET /api/real-estate/summary`
@@ -551,6 +573,47 @@ is then **unrated, not scored zero**: `safetyNet.score` is `null` and `score.glo
 to the allocation score plus the modifiers. `cryptoTopTenShare` is `null` when no crypto holding
 was seen line by line — an exchange tracked as a single balance draws no penalty, because its
 composition is unknown rather than poor.
+
+#### `GET /api/analysis/diversification`
+
+How the equity sleeve spreads across sectors and regions. ETFs are looked through to their
+composition; a directly held share contributes its whole value to one sector and one country.
+
+Reads **persisted profiles only** — never the network, so a page render can never block on a
+scrape. `SchedulerService` warms the table weekly.
+
+**Response `200`:**
+```json
+{
+  "totalValueEur": 142400.00,
+  "classifiedValueEur": 131800.00,
+  "unclassifiedValueEur": 10600.00,
+  "coveragePercent": 92.56,
+  "pendingTickers": ["MC.PA"],
+  "sectors": {
+    "score": 78, "effectiveCount": 4.68, "targetCount": 6, "basis": "MIXED",
+    "slices": [{ "label": "technology", "percent": 31.40 }]
+  },
+  "countries": {
+    "score": 71, "effectiveCount": 2.14, "targetCount": 3, "basis": "MIXED",
+    "slices": [{ "label": "US", "percent": 62.80 }]
+  }
+}
+```
+
+`label` is a stable key — the same vocabulary `/api/securities/{ticker}/insight` uses, translated
+client-side under `holdings.insight.sectorNames.*` / `countryNames.*`, with the raw value as the
+fallback. `score` is `min(100, 100 × N_eff / targetCount)` where `N_eff = 1/Σw²`, the effective
+number of positions: it separates 20/20/20/20/20 from 96/1/1/1/1, which counting buckets cannot.
+
+Both scores are computed over the **classified** part only. `coveragePercent`,
+`unclassifiedValueEur` and `pendingTickers` travel with them so a breakdown over part of a
+portfolio cannot be read as one over all of it. A ticker in `pendingTickers` has no profile yet —
+"not looked up", not "unknowable".
+
+`basis` is `EXPOSURE` when every contribution came from a fund look-through, `MIXED` once a
+directly held share contributed its ISIN domicile. The two are different quantities; see the
+[ADR](../../docs/decisions/2026-08-13-equity-domicile-vs-etf-exposure.md).
 
 #### `GET /api/analysis/allocation-targets`
 
