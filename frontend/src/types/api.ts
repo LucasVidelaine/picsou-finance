@@ -855,18 +855,23 @@ export interface TierAccount {
   valueEur: number
 }
 
+/** Only the four investment tiers appear; the cushion is measured in euros, not as a share. */
 export interface WealthTierLine {
-  tier: WealthTier
-  /** For SAFETY_NET this is the cushion's excess only, not the whole cushion. */
+  tier: Exclude<WealthTier, 'SAFETY_NET'>
   valueEur: number
   actualPercent: number
   targetPercent: number
+  /** What the target percentage is worth today — a gap in euros is actionable, points are not. */
+  targetEur: number
   gapPercent: number
   accounts: TierAccount[]
 }
 
 export interface SafetyNetLine {
+  /** Savings passbooks only — a current account is not an emergency fund. */
   valueEur: number
+  /** Current-account money: reported so it is visible, scored nowhere. */
+  dailyCashEur: number
   /** null until the member states their monthly expenses. */
   targetEur: number | null
   coverage: number | null

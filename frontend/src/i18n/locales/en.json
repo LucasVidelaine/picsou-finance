@@ -235,8 +235,11 @@
       "short": "{{value}}% of target",
       "covered": "Covered",
       "excess": "Excess",
-      "excessHint": "Anything beyond the target counts as money to redeploy: it appears in the allocation with a 0% target.",
-      "unknown": "Set your compulsory monthly expenses to define your emergency fund target."
+      "excessHint": "Anything beyond the target is idle cash to redeploy: it does not enter the allocation below.",
+      "unknown": "Set your compulsory monthly expenses to define your emergency fund target.",
+      "dailyCash": "Your current accounts hold",
+      "dailyCashHint": "counted neither in the cushion nor in the allocation.",
+      "inPassbooks": "in savings passbooks."
     },
     "targets": {
       "title": "My allocation targets",
@@ -251,7 +254,8 @@
       "allocation": "Target split of the rest",
       "sum": "Total {{value}}% / 100%",
       "allocationHint": "The four percentages must add up to 100%."
-    }
+    },
+    "targetAmount": "target"
   },
   "accountTypes": {
     "checking": "Checking",

@@ -58,6 +58,14 @@ public class WealthPyramidService {
      * machinery for it — and a score that silently flips between two page loads is worse than one
      * that is stable and slightly stale.
      */
+    /**
+     * The tiers the four target percentages divide between. {@code SAFETY_NET} is deliberately
+     * absent: it is measured in euros against an absolute target, and expressing the same money a
+     * second time as a share of something else read as a contradiction on screen.
+     */
+    private static final List<WealthTier> INVESTMENT_TIERS = List.of(
+        WealthTier.REAL_ESTATE, WealthTier.EQUITY, WealthTier.CRYPTO, WealthTier.ALTERNATIVE);
+
     private static final Set<String> TOP_TIER_COINS = Set.of(
         "BTC", "ETH", "BNB", "SOL", "XRP", "ADA", "DOGE", "TRX", "AVAX", "LINK"
     );
@@ -108,6 +116,11 @@ public class WealthPyramidService {
 
         BigDecimal totalAssets = BigDecimal.ZERO;
         BigDecimal cryptoTopTen = BigDecimal.ZERO;
+        // Current-account money is tracked apart from the cushion. A current account is where
+        // this month's money passes through — rent, groceries, the card — not what stands
+        // between the member and a bad month, so counting it would report a buffer that is
+        // largely already committed.
+        BigDecimal dailyCash = BigDecimal.ZERO;
         // Only crypto we actually saw line by line. An exchange tracked as a single balance has
         // no per-coin detail, and judging its composition from silence would penalise a portfolio
         // for a breakdown we never received.
@@ -123,13 +136,19 @@ public class WealthPyramidService {
             WealthTier accountTier = WealthTier.of(account.getType());
             List<AccountHolding> holdings = holdingRepository.findByAccount_Id(account.getId());
 
+            boolean currentAccount = account.getType() == AccountType.CHECKING;
+
             if (holdings.isEmpty()) {
                 BigDecimal value = AccountAccessResolver.weigh(
                     accountService.valuation(account).liveEur(), share);
                 totalAssets = totalAssets.add(value);
-                byTier.merge(accountTier, value, BigDecimal::add);
-                accountsByTier.get(accountTier).add(new WealthPyramidResponse.TierAccount(
-                    account.getId(), account.getName(), account.getColor(), value));
+                if (currentAccount && accountTier == WealthTier.SAFETY_NET) {
+                    dailyCash = dailyCash.add(value);
+                } else {
+                    byTier.merge(accountTier, value, BigDecimal::add);
+                    accountsByTier.get(accountTier).add(new WealthPyramidResponse.TierAccount(
+                        account.getId(), account.getName(), account.getColor(), value));
+                }
                 continue;
             }
 
@@ -167,11 +186,22 @@ public class WealthPyramidService {
             }
 
             totalAssets = totalAssets.add(accountTotal);
-            perTier.forEach((tier, value) -> {
+            BigDecimal cashFromThisAccount = BigDecimal.ZERO;
+            for (Map.Entry<WealthTier, BigDecimal> entry : perTier.entrySet()) {
+                WealthTier tier = entry.getKey();
+                BigDecimal value = entry.getValue();
+                // An explicit per-ticker override wins even here: if the member says a line in a
+                // current account is equity, it is equity. Only money still resolving to the
+                // cushion is set aside as daily cash.
+                if (currentAccount && tier == WealthTier.SAFETY_NET) {
+                    cashFromThisAccount = cashFromThisAccount.add(value);
+                    continue;
+                }
                 byTier.merge(tier, value, BigDecimal::add);
                 accountsByTier.get(tier).add(new WealthPyramidResponse.TierAccount(
                     account.getId(), account.getName(), account.getColor(), value));
-            });
+            }
+            dailyCash = dailyCash.add(cashFromThisAccount);
         }
 
         // Property net of its mortgage, from the one service that already resolves both sides'
@@ -185,8 +215,8 @@ public class WealthPyramidService {
             byTier.merge(WealthTier.REAL_ESTATE, propertyDebt.negate(), BigDecimal::add);
         }
 
-        return assemble(byTier, accountsByTier, totalAssets, cryptoTopTen, cryptoDetailed, profile,
-            property.loanToValue());
+        return assemble(byTier, accountsByTier, totalAssets, dailyCash, cryptoTopTen, cryptoDetailed,
+            profile, property.loanToValue());
     }
 
     /**
@@ -210,6 +240,7 @@ public class WealthPyramidService {
     private WealthPyramidResponse assemble(Map<WealthTier, BigDecimal> byTier,
                                            Map<WealthTier, List<WealthPyramidResponse.TierAccount>> accountsByTier,
                                            BigDecimal totalAssets,
+                                           BigDecimal dailyCash,
                                            BigDecimal cryptoTopTen,
                                            BigDecimal cryptoDetailed,
                                            MemberAllocationProfile profile,
@@ -225,24 +256,26 @@ public class WealthPyramidService {
         // Zero when unknown: a target we cannot compute must not be assumed to be exceeded.
         BigDecimal excess = known ? safetyValue.subtract(safetyTarget).max(BigDecimal.ZERO) : BigDecimal.ZERO;
 
-        // The allocation base excludes the part of the cushion doing its job, and includes the
-        // part that is not. Cash beyond the target is money in the wrong place, so it belongs in
-        // the vector with a target of 0 rather than being quietly set aside — that is what makes
-        // a 90%-cash portfolio score badly instead of scoring its 10% remainder perfectly.
-        BigDecimal working = known ? safetyValue.subtract(excess) : safetyValue;
-        BigDecimal allocatable = totalAssets.subtract(working).max(BigDecimal.ZERO);
+        // Everything cash-like sits outside the allocation: the cushion is measured in euros
+        // against an absolute target, and current-account money is neither cushion nor
+        // investment. What remains is what the four percentages divide.
+        BigDecimal allocatable = totalAssets.subtract(safetyValue).subtract(dailyCash)
+            .max(BigDecimal.ZERO);
 
         List<WealthPyramidResponse.TierLine> lines = new ArrayList<>();
         BigDecimal divergence = BigDecimal.ZERO;
-        for (WealthTier tier : WealthTier.values()) {
-            BigDecimal value = tier == WealthTier.SAFETY_NET ? excess : byTier.get(tier);
+        for (WealthTier tier : INVESTMENT_TIERS) {
+            BigDecimal value = byTier.get(tier);
             BigDecimal actual = percentOf(value, allocatable);
-            BigDecimal target = tier == WealthTier.SAFETY_NET
-                ? BigDecimal.ZERO : profile.targetFor(tier);
+            BigDecimal target = profile.targetFor(tier);
             divergence = divergence.add(actual.subtract(target).abs());
             lines.add(new WealthPyramidResponse.TierLine(
-                tier, value, scale2(actual), scale2(target), scale2(actual.subtract(target)),
-                tier == WealthTier.SAFETY_NET ? List.of() : accountsByTier.get(tier)));
+                tier, value, scale2(actual), scale2(target),
+                // The target in euros, because a gap of "-6.4 points" is not something a member
+                // can act on and "you are 21 000 € short here" is.
+                scale2(allocatable.multiply(target).divide(HUNDRED, SCALE, RoundingMode.HALF_UP)),
+                scale2(actual.subtract(target)),
+                accountsByTier.get(tier)));
         }
 
         // Half the L1 distance: literally the fraction of allocatable wealth that would have to
@@ -272,7 +305,7 @@ public class WealthPyramidService {
             scale2(totalAssets),
             scale2(allocatable),
             new WealthPyramidResponse.SafetyNet(
-                scale2(safetyValue), scale2(safetyTarget),
+                scale2(safetyValue), scale2(dailyCash), scale2(safetyTarget),
                 coverage == null ? null : coverage.setScale(4, RoundingMode.HALF_UP),
                 scale2(excess), known, safetyScore),
             lines,

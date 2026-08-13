@@ -22,6 +22,7 @@ function pyramid(overrides: Partial<WealthPyramid> = {}): WealthPyramid {
     allocatableEur: 100000,
     safetyNet: {
       valueEur: 6000,
+      dailyCashEur: 0,
       targetEur: 6000,
       coverage: 1,
       excessEur: 0,
@@ -29,11 +30,10 @@ function pyramid(overrides: Partial<WealthPyramid> = {}): WealthPyramid {
       score: 100,
     },
     tiers: [
-      { tier: 'SAFETY_NET', valueEur: 0, actualPercent: 0, targetPercent: 0, gapPercent: 0, accounts: [] },
-      { tier: 'REAL_ESTATE', valueEur: 30000, actualPercent: 30, targetPercent: 30, gapPercent: 0, accounts: [] },
-      { tier: 'EQUITY', valueEur: 50000, actualPercent: 50, targetPercent: 50, gapPercent: 0, accounts: [] },
-      { tier: 'CRYPTO', valueEur: 10000, actualPercent: 10, targetPercent: 10, gapPercent: 0, accounts: [] },
-      { tier: 'ALTERNATIVE', valueEur: 10000, actualPercent: 10, targetPercent: 10, gapPercent: 0, accounts: [] },
+      { tier: 'REAL_ESTATE', valueEur: 30000, actualPercent: 30, targetPercent: 30, targetEur: 30000, gapPercent: 0, accounts: [] },
+      { tier: 'EQUITY', valueEur: 50000, actualPercent: 50, targetPercent: 50, targetEur: 50000, gapPercent: 0, accounts: [] },
+      { tier: 'CRYPTO', valueEur: 10000, actualPercent: 10, targetPercent: 10, targetEur: 10000, gapPercent: 0, accounts: [] },
+      { tier: 'ALTERNATIVE', valueEur: 10000, actualPercent: 10, targetPercent: 10, targetEur: 10000, gapPercent: 0, accounts: [] },
     ],
     score: {
       global: 100,
@@ -49,20 +49,22 @@ function pyramid(overrides: Partial<WealthPyramid> = {}): WealthPyramid {
 }
 
 describe('PyramidSection', () => {
-  it('renders the global score and one row per tier', () => {
+  it('renders the global score and one row per investment tier', () => {
     render(<PyramidSection pyramid={pyramid()} />)
 
     expect(screen.getByText('100')).toBeInTheDocument()
-    for (const tier of ['SAFETY_NET', 'REAL_ESTATE', 'EQUITY', 'CRYPTO', 'ALTERNATIVE']) {
+    for (const tier of ['REAL_ESTATE', 'EQUITY', 'CRYPTO', 'ALTERNATIVE']) {
       expect(screen.getByText(`analysis.tiers.${tier}`)).toBeInTheDocument()
     }
+    // The cushion is measured in euros against an absolute target, not as a share of anything.
+    expect(screen.queryByText('analysis.tiers.SAFETY_NET')).not.toBeInTheDocument()
   })
 
   it('shows the safety net as unrated rather than zero when expenses are unknown', () => {
     render(
       <PyramidSection
         pyramid={pyramid({
-          safetyNet: { valueEur: 6000, targetEur: null, coverage: null, excessEur: 0, known: false, score: null },
+          safetyNet: { valueEur: 6000, dailyCashEur: 0, targetEur: null, coverage: null, excessEur: 0, known: false, score: null },
         })}
       />,
     )
@@ -78,8 +80,8 @@ describe('PyramidSection', () => {
       <PyramidSection
         pyramid={pyramid({
           tiers: [
-            { tier: 'EQUITY', valueEur: 50000, actualPercent: 30, targetPercent: 50, gapPercent: -20, accounts: [] },
-            { tier: 'CRYPTO', valueEur: 10000, actualPercent: 12, targetPercent: 10, gapPercent: 2, accounts: [] },
+            { tier: 'EQUITY', valueEur: 50000, actualPercent: 30, targetPercent: 50, targetEur: 83333, gapPercent: -20, accounts: [] },
+            { tier: 'CRYPTO', valueEur: 10000, actualPercent: 12, targetPercent: 10, targetEur: 8333, gapPercent: 2, accounts: [] },
           ],
         })}
       />,
@@ -94,7 +96,7 @@ describe('PyramidSection', () => {
     render(
       <PyramidSection
         pyramid={pyramid({
-          safetyNet: { valueEur: 10000, targetEur: 6000, coverage: 1.667, excessEur: 4000, known: true, score: 87 },
+          safetyNet: { valueEur: 10000, dailyCashEur: 0, targetEur: 6000, coverage: 1.667, excessEur: 4000, known: true, score: 87 },
         })}
       />,
     )

@@ -235,8 +235,11 @@
       "short": "{{value}}% des Ziels",
       "covered": "Gedeckt",
       "excess": "Überschuss",
-      "excessHint": "Alles über dem Ziel gilt als umzuschichtendes Geld: es erscheint in der Aufteilung mit einem Ziel von 0%.",
-      "unknown": "Trage deine monatlichen Fixkosten ein, um das Ziel für deinen Notgroschen festzulegen."
+      "excessHint": "Alles über dem Ziel ist umzuschichtendes Geld: es fließt nicht in die Aufteilung unten ein.",
+      "unknown": "Trage deine monatlichen Fixkosten ein, um das Ziel für deinen Notgroschen festzulegen.",
+      "dailyCash": "Auf deinen Girokonten liegen",
+      "dailyCashHint": "weder im Notgroschen noch in der Aufteilung gezählt.",
+      "inPassbooks": "auf Sparkonten."
     },
     "targets": {
       "title": "Meine Zielaufteilung",
@@ -251,7 +254,8 @@
       "allocation": "Zielaufteilung des Rests",
       "sum": "Summe {{value}}% / 100%",
       "allocationHint": "Die vier Prozentsätze müssen zusammen 100% ergeben."
-    }
+    },
+    "targetAmount": "Ziel"
   },
   "accountTypes": {
     "checking": "Girokonto",

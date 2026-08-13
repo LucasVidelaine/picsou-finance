@@ -235,8 +235,11 @@
       "short": "{{value}}% de la cible",
       "covered": "Couvert",
       "excess": "Excédent",
-      "excessHint": "La part au-delà de la cible compte comme à replacer : elle apparaît dans la répartition avec une cible de 0%.",
-      "unknown": "Renseignez vos dépenses mensuelles obligatoires pour définir la cible de votre matelas."
+      "excessHint": "La part au-delà de la cible est de la trésorerie à replacer : elle n'entre pas dans la répartition ci-dessous.",
+      "unknown": "Renseignez vos dépenses mensuelles obligatoires pour définir la cible de votre matelas.",
+      "dailyCash": "Vos comptes courants portent",
+      "dailyCashHint": "non comptés dans le matelas ni dans la répartition.",
+      "inPassbooks": "sur vos livrets d'épargne."
     },
     "targets": {
       "title": "Mes cibles d'allocation",
@@ -251,7 +254,8 @@
       "allocation": "Répartition cible du reste",
       "sum": "Total {{value}}% / 100%",
       "allocationHint": "Les quatre pourcentages doivent totaliser 100%."
-    }
+    },
+    "targetAmount": "cible"
   },
   "accountTypes": {
     "checking": "Compte courant",

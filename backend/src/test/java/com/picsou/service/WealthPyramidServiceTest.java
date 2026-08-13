@@ -91,6 +91,10 @@ class WealthPyramidServiceTest {
         return response.tiers().stream().filter(l -> l.tier() == tier).findFirst().orElseThrow();
     }
 
+    private boolean hasTier(WealthPyramidResponse response, WealthTier tier) {
+        return response.tiers().stream().anyMatch(l -> l.tier() == tier);
+    }
+
     private void expenses(String monthly) {
         when(allocationTargetService.profileFor(MEMBER)).thenReturn(
             MemberAllocationProfile.builder().monthlyEssentialExpenses(new BigDecimal(monthly)).build());
@@ -100,7 +104,7 @@ class WealthPyramidServiceTest {
 
     @Test
     void accountsLandInTheirTypesTier() {
-        cash(AccountType.CHECKING, "5000");
+        cash(AccountType.LIVRET_A, "5000");
         cash(AccountType.PEA, "20000");
         cash(AccountType.CRYPTO, "3000");
         cash(AccountType.OTHER, "2000");
@@ -115,8 +119,61 @@ class WealthPyramidServiceTest {
     }
 
     @Test
+    void onlySavingsPassbooksCountAsTheCushion() {
+        // A current account is where this month's money passes through, not what stands between
+        // the member and a bad month.
+        cash(AccountType.LIVRET_A, "5000");
+        cash(AccountType.CHECKING, "3000");
+
+        WealthPyramidResponse response = service.pyramid(MEMBER);
+
+        assertThat(response.safetyNet().valueEur()).isEqualByComparingTo("5000");
+        assertThat(response.safetyNet().dailyCashEur()).isEqualByComparingTo("3000");
+        // Reported, so the money is visible somewhere — but it is still part of what the member owns.
+        assertThat(response.totalAssetsEur()).isEqualByComparingTo("8000");
+    }
+
+    @Test
+    void currentAccountCashIsOutsideTheAllocationToo() {
+        cash(AccountType.CHECKING, "4000");
+        cash(AccountType.LIVRET_A, "6000");
+        cash(AccountType.PEA, "10000");
+
+        WealthPyramidResponse response = service.pyramid(MEMBER);
+
+        // Neither cushion nor investment: it divides nothing.
+        assertThat(response.allocatableEur()).isEqualByComparingTo("10000");
+        assertThat(tier(response, WealthTier.EQUITY).actualPercent()).isEqualByComparingTo("100");
+    }
+
+    @Test
+    void theSafetyNetIsNotOneOfTheAllocationLines() {
+        // It is measured in euros against an absolute target; a second line expressing the same
+        // money as a share of something else read as a contradiction.
+        cash(AccountType.LIVRET_A, "6000");
+        cash(AccountType.PEA, "10000");
+
+        WealthPyramidResponse response = service.pyramid(MEMBER);
+
+        assertThat(hasTier(response, WealthTier.SAFETY_NET)).isFalse();
+        assertThat(response.tiers()).hasSize(4);
+    }
+
+    @Test
+    void eachLineCarriesItsTargetInEurosNotJustInPoints() {
+        expenses("1000");                        // cushion target 6000
+        cash(AccountType.LIVRET_A, "6000");
+        cash(AccountType.PEA, "100000");         // allocatable = 100000, equity target 50%
+
+        WealthPyramidResponse response = service.pyramid(MEMBER);
+
+        assertThat(tier(response, WealthTier.EQUITY).targetEur()).isEqualByComparingTo("50000.00");
+        assertThat(tier(response, WealthTier.REAL_ESTATE).targetEur()).isEqualByComparingTo("30000.00");
+    }
+
+    @Test
     void aLoanIsNeverCountedAsAnAsset() {
-        cash(AccountType.CHECKING, "5000");
+        cash(AccountType.LIVRET_A, "5000");
         cash(AccountType.LOAN, "150000");
 
         assertThat(service.pyramid(MEMBER).totalAssetsEur()).isEqualByComparingTo("5000");
@@ -162,7 +219,7 @@ class WealthPyramidServiceTest {
 
     @Test
     void sharesAreAppliedExactlyOnce() {
-        Account joint = cash(AccountType.CHECKING, "10000");
+        Account joint = cash(AccountType.LIVRET_A, "10000");
         shares.put(joint.getId(), new BigDecimal("50"));
 
         assertThat(service.pyramid(MEMBER).totalAssetsEur()).isEqualByComparingTo("5000");
@@ -188,7 +245,7 @@ class WealthPyramidServiceTest {
     void withoutStatedExpensesTheSafetyNetIsUnratedRatherThanZero() {
         // Scoring someone 0/100 because they have not filled in a form is a lie, and it is the
         // kind that makes people stop believing the page.
-        cash(AccountType.CHECKING, "5000");
+        cash(AccountType.LIVRET_A, "5000");
         cash(AccountType.PEA, "50000");
 
         WealthPyramidResponse response = service.pyramid(MEMBER);
@@ -202,7 +259,7 @@ class WealthPyramidServiceTest {
     @Test
     void anUnderfundedCushionScoresInProportion() {
         expenses("1000");                       // target = 6000
-        cash(AccountType.CHECKING, "3000");     // coverage = 0.5
+        cash(AccountType.LIVRET_A, "3000");     // coverage = 0.5
 
         assertThat(service.pyramid(MEMBER).safetyNet().score()).isEqualTo(50);
     }
@@ -210,7 +267,7 @@ class WealthPyramidServiceTest {
     @Test
     void aCoveredCushionScoresFull() {
         expenses("1000");
-        cash(AccountType.CHECKING, "6000");
+        cash(AccountType.LIVRET_A, "6000");
 
         WealthPyramidResponse response = service.pyramid(MEMBER);
         assertThat(response.safetyNet().score()).isEqualTo(100);
@@ -220,24 +277,24 @@ class WealthPyramidServiceTest {
     @Test
     void anOverfundedCushionFloorsAtSixtyRatherThanCollapsing() {
         expenses("1000");
-        cash(AccountType.CHECKING, "60000");    // coverage = 10, far past the saturation point
+        cash(AccountType.LIVRET_A, "60000");    // coverage = 10, far past the saturation point
 
         assertThat(service.pyramid(MEMBER).safetyNet().score()).isEqualTo(60);
     }
 
     @Test
-    void cushionBeyondTheTargetEntersTheAllocationWithATargetOfZero() {
-        expenses("1000");                       // target = 6000
-        cash(AccountType.CHECKING, "10000");    // 4000 of it is idle
+    void cushionBeyondTheTargetIsReportedButNotAllocated() {
+        expenses("1000");                        // target = 6000
+        cash(AccountType.LIVRET_A, "10000");     // 4000 of it is idle
         cash(AccountType.PEA, "6000");
 
         WealthPyramidResponse response = service.pyramid(MEMBER);
 
-        // Allocatable excludes only the working part of the cushion.
-        assertThat(response.allocatableEur()).isEqualByComparingTo("10000");
-        assertThat(tier(response, WealthTier.SAFETY_NET).valueEur()).isEqualByComparingTo("4000");
-        assertThat(tier(response, WealthTier.SAFETY_NET).targetPercent()).isEqualByComparingTo("0");
-        assertThat(tier(response, WealthTier.SAFETY_NET).actualPercent()).isEqualByComparingTo("40");
+        assertThat(response.safetyNet().excessEur()).isEqualByComparingTo("4000");
+        // The whole cushion sits outside the allocation, excess included: only the four
+        // investment tiers divide what is left.
+        assertThat(response.allocatableEur()).isEqualByComparingTo("6000");
+        assertThat(hasTier(response, WealthTier.SAFETY_NET)).isFalse();
     }
 
     // --- Scoring ---
@@ -245,7 +302,7 @@ class WealthPyramidServiceTest {
     @Test
     void aPortfolioOnItsTargetsScoresOneHundred() {
         expenses("1000");
-        cash(AccountType.CHECKING, "6000");         // exactly covered
+        cash(AccountType.LIVRET_A, "6000");         // exactly covered
         cash(AccountType.REAL_ESTATE, "30000");     // 30%
         cash(AccountType.PEA, "50000");             // 50%
         cash(AccountType.CRYPTO, "10000");          // 10%
@@ -261,7 +318,7 @@ class WealthPyramidServiceTest {
     @Test
     void misplacedIsTheShareOfWealthThatWouldHaveToMove() {
         expenses("1000");
-        cash(AccountType.CHECKING, "6000");
+        cash(AccountType.LIVRET_A, "6000");
         // Everything in equity: 50 points of it are where they belong, 50 are not.
         cash(AccountType.PEA, "100000");
 
@@ -274,7 +331,7 @@ class WealthPyramidServiceTest {
     @Test
     void theCryptoPenaltyScalesWithHowMuchCryptoWeighs() {
         expenses("1000");
-        cash(AccountType.CHECKING, "6000");
+        cash(AccountType.LIVRET_A, "6000");
         cash(AccountType.PEA, "90000");
         // A small sleeve of nothing but minor coins: real, but a rounding error in the wealth.
         withHoldings(AccountType.CRYPTO, "10000", Map.of("SHIB", "10000"));
@@ -289,7 +346,7 @@ class WealthPyramidServiceTest {
     @Test
     void majorsAboveTheFloorDrawNoCryptoPenalty() {
         expenses("1000");
-        cash(AccountType.CHECKING, "6000");
+        cash(AccountType.LIVRET_A, "6000");
         withHoldings(AccountType.CRYPTO, "10000", Map.of("BTC", "9000", "SHIB", "1000"));
         when(coinGecko.supports(any())).thenReturn(true);
 
@@ -305,7 +362,7 @@ class WealthPyramidServiceTest {
         // Scoring that silence as "holds no majors" would punish a portfolio for a breakdown
         // the connector never sent.
         expenses("1000");
-        cash(AccountType.CHECKING, "6000");
+        cash(AccountType.LIVRET_A, "6000");
         cash(AccountType.REAL_ESTATE, "30000");
         cash(AccountType.PEA, "50000");
         cash(AccountType.CRYPTO, "10000");

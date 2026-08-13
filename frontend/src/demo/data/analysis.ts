@@ -20,9 +20,10 @@ export const mockAllocationTargets: AllocationTargets = {
 
 export const mockWealthPyramid: WealthPyramid = {
   totalAssetsEur: 337400,
-  allocatableEur: 326300,
+  allocatableEur: 314900,
   safetyNet: {
     valueEur: 18200,
+    dailyCashEur: 4300,
     targetEur: 11100,
     coverage: 1.6396,
     excessEur: 7100,
@@ -31,15 +32,8 @@ export const mockWealthPyramid: WealthPyramid = {
   },
   tiers: [
     {
-      tier: 'SAFETY_NET',
-      valueEur: 7100,
-      actualPercent: 2.18,
-      targetPercent: 0,
-      gapPercent: 2.18,
-      accounts: [],
-    },
-    {
       tier: 'REAL_ESTATE',
+      targetEur: 94470,
       valueEur: 138000,
       actualPercent: 42.29,
       targetPercent: 30,
@@ -48,6 +42,7 @@ export const mockWealthPyramid: WealthPyramid = {
     },
     {
       tier: 'EQUITY',
+      targetEur: 157450,
       valueEur: 142400,
       actualPercent: 43.64,
       targetPercent: 50,
@@ -59,6 +54,7 @@ export const mockWealthPyramid: WealthPyramid = {
     },
     {
       tier: 'CRYPTO',
+      targetEur: 31490,
       valueEur: 32800,
       actualPercent: 10.05,
       targetPercent: 10,
@@ -67,6 +63,7 @@ export const mockWealthPyramid: WealthPyramid = {
     },
     {
       tier: 'ALTERNATIVE',
+      targetEur: 31490,
       valueEur: 6000,
       actualPercent: 1.84,
       targetPercent: 10,

@@ -25,7 +25,7 @@ vi.mock('react-i18next', () => ({
 const emptyPyramid: WealthPyramid = {
   totalAssetsEur: 0,
   allocatableEur: 0,
-  safetyNet: { valueEur: 0, targetEur: null, coverage: null, excessEur: 0, known: false, score: null },
+  safetyNet: { valueEur: 0, dailyCashEur: 0, targetEur: null, coverage: null, excessEur: 0, known: false, score: null },
   tiers: [],
   score: { global: 0, allocation: 100, misplacedPercent: 0, cryptoPenalty: 0, leverageBonus: 0, cryptoTopTenShare: null, loanToValue: null },
 }

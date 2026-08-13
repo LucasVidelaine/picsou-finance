@@ -24,7 +24,7 @@ silently vanish from a chart. A `Map` cannot have this property; a switch expres
 
 | Tier | Account types |
 |---|---|
-| `SAFETY_NET` | `CHECKING`, `SAVINGS`, `LEP`, `LIVRET_A`, `LDDS`, `LIVRET_JEUNE`, `PEL`, `CEL` |
+| `SAFETY_NET` | `SAVINGS`, `LEP`, `LIVRET_A`, `LDDS`, `LIVRET_JEUNE`, `PEL`, `CEL` — and `CHECKING`, which the service then sets aside (below) |
 | `REAL_ESTATE` | `REAL_ESTATE`, `SCPI` (and `LOAN`, only so the switch stays total — loans never enter as assets) |
 | `EQUITY` | `PEA`, `COMPTE_TITRES`, `EMPLOYEE_SAVINGS`, `ASSURANCE_VIE` |
 | `CRYPTO` | `CRYPTO` |
@@ -64,18 +64,33 @@ property card disagree about the same house.
 The cushion's target is an **absolute amount** (`monthlyEssentialExpenses × safetyNetMonths`),
 not a share — six months of rent is six months of rent whatever the portfolio is worth.
 
-The four other targets are percentages of what is left once the cushion is doing its job:
+**Only savings passbooks count towards it.** A current account is where this month's money passes
+through — rent, groceries, the card — not what stands between the member and a bad month, so
+counting it would report a buffer that is largely already committed. Current-account money is
+reported separately as `safetyNet.dailyCashEur`, so it is visible rather than silently dropped,
+and scored nowhere.
+
+Everything cash-like then sits **outside** the allocation:
 
 ```
-working    = min(safetyNetValue, target)
-allocatable = totalAssets - working
+allocatable = totalAssets - safetyNetValue - dailyCash
 excess      = max(0, safetyNetValue - target)
 ```
 
-`excess` then enters the allocation vector as the `SAFETY_NET` line **with a target of 0**. That
-is the point: cash beyond the target is money in the wrong place, and setting it aside instead
-would let a 90 %-cash portfolio score its 10 % remainder perfectly. With it, the five shares
-always sum to 100.
+The four investment targets are percentages of `allocatable` and sum to 100 between themselves.
+The cushion is **not** one of the bars: it is measured in euros against an absolute target, and a
+second line expressing the same money as a share of something else read as a contradiction.
+
+Each line carries `targetEur` alongside `targetPercent` — a gap of "−6.4 points" is not something
+a member can act on, and "the target here is 157 450 €" is.
+
+> **Known consequence, deliberate.** Because idle cash no longer enters the allocation vector, a
+> portfolio that is overwhelmingly cash scores its small invested remainder on its own merits.
+> Over-funding is still penalised, but only through the safety-net sub-score, which floors at 60.
+> A member holding 90 % of their wealth in cash can therefore still score in the eighties. If that
+> proves misleading in practice, the fix is to scale the over-funding penalty by the share of
+> *total assets* sitting idle rather than by the coverage ratio alone — see the sub-score formula
+> below.
 
 ### Scoring
 
@@ -157,7 +172,9 @@ GET /api/analysis/pyramid
 |--------|-----|----------------------|
 | Assets only, not net worth | The dashboard's rule already; counting property net of its mortgage would penalise exactly the leverage the pyramid wants maximised — LTV is surfaced beside the tier instead | Net-worth-based tiers |
 | Absolute safety-net target | Six months of rent does not scale with the portfolio | A percentage target like the other four |
-| Cushion excess in the vector at target 0 | Makes a cash-heavy portfolio score badly instead of scoring its remainder perfectly; keeps the five shares summing to 100 | Excluding the excess from the base |
+| Passbooks only in the cushion | A current account holds money already committed to this month | Counting every liquid euro |
+| Cushion kept out of the allocation bars | It is measured in euros; a second line as a share of something else contradicts it on screen | A `SAFETY_NET` line carrying the excess at target 0 |
+| `targetEur` beside `targetPercent` | "You are 15 000 € short here" is actionable; "−6.4 pts" is not | Points alone |
 | Half-L1 divergence | The only measure with a plain-language meaning: the fraction of wealth in the wrong place | RMSE (uninterpretable); χ² (explodes when a target is small — 10 % crypto held at 0 % would dominate) |
 | Unrated rather than 0 when expenses are unknown | A form the user has not filled in is not a portfolio failing | Treating null as zero coverage |
 | Crypto penalty scaled by crypto weight | A 2 %-crypto sleeve of small caps is a rounding error in the wealth, not a 10-point failure | A flat penalty |

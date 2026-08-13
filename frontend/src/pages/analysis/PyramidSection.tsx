@@ -9,8 +9,7 @@ import type { WealthPyramid, WealthTier, WealthTierLine } from '@/types/api'
 
 /**
  * Tier colours reuse the Accounts page's asset-group palette so the same money keeps the same
- * colour across the app. SAFETY_NET is amber rather than green on purpose: in this vector it
- * carries the cushion's *excess*, which is a warning, not a success.
+ * colour across the app.
  */
 const TIER_COLORS: Record<WealthTier, string> = {
   SAFETY_NET: '#f59e0b',
@@ -73,18 +72,25 @@ function TierRow({ line }: { line: WealthTierLine }) {
 
       <div className="mt-1.5 flex items-baseline justify-between gap-3 text-xs">
         <CurrencyDisplay value={line.valueEur} className="text-muted-foreground" />
-        {notable && (
-          <span
-            className={cn(
-              line.gapPercent > 0
-                ? 'text-amber-600 dark:text-amber-500'
-                : 'text-sky-600 dark:text-sky-500',
-            )}
-          >
-            {line.gapPercent > 0 ? '+' : ''}
-            {line.gapPercent.toFixed(1)} {t('analysis.points')}
+        <div className="flex items-baseline gap-2">
+          {/* The target in euros sits beside the gap in points: "-6.4 pts" is not something you
+              can act on, "the target here is 71 000 €" is. */}
+          <span className="text-muted-foreground">
+            {t('analysis.targetAmount')} <CurrencyDisplay value={line.targetEur} />
           </span>
-        )}
+          {notable && (
+            <span
+              className={cn(
+                line.gapPercent > 0
+                  ? 'text-amber-600 dark:text-amber-500'
+                  : 'text-sky-600 dark:text-sky-500',
+              )}
+            >
+              ({line.gapPercent > 0 ? '+' : ''}
+              {line.gapPercent.toFixed(1)} {t('analysis.points')})
+            </span>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -198,11 +204,25 @@ export function PyramidSection({ pyramid }: { pyramid: WealthPyramid }) {
                   {t('analysis.safetyNet.excessHint')}
                 </p>
               )}
+              {safetyNet.dailyCashEur > 0 && (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {t('analysis.safetyNet.dailyCash')}{' '}
+                  <CurrencyDisplay value={safetyNet.dailyCashEur} className="text-foreground" />
+                  {', '}
+                  {t('analysis.safetyNet.dailyCashHint')}
+                </p>
+              )}
             </>
           ) : (
-            <p className="text-sm text-muted-foreground">
-              {t('analysis.safetyNet.unknown')}
-            </p>
+            <>
+              <p className="text-sm text-muted-foreground">
+                {t('analysis.safetyNet.unknown')}
+              </p>
+              <p className="mt-2 flex flex-wrap items-baseline gap-1 text-sm text-muted-foreground">
+                <CurrencyDisplay value={safetyNet.valueEur} className="text-foreground" />
+                <span>{t('analysis.safetyNet.inPassbooks')}</span>
+              </p>
+            </>
           )}
 
           <div className="mt-6 divide-y divide-border border-t border-border">

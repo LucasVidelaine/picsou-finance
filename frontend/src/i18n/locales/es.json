@@ -235,8 +235,11 @@
       "short": "{{value}}% del objetivo",
       "covered": "Cubierto",
       "excess": "Excedente",
-      "excessHint": "Lo que supera el objetivo cuenta como dinero por recolocar: aparece en el reparto con un objetivo del 0%.",
-      "unknown": "Indica tus gastos mensuales obligatorios para definir el objetivo de tu colchón."
+      "excessHint": "Lo que supera el objetivo es liquidez por recolocar: no entra en el reparto de abajo.",
+      "unknown": "Indica tus gastos mensuales obligatorios para definir el objetivo de tu colchón.",
+      "dailyCash": "Tus cuentas corrientes tienen",
+      "dailyCashHint": "no contabilizado ni en el colchón ni en el reparto.",
+      "inPassbooks": "en cuentas de ahorro."
     },
     "targets": {
       "title": "Mis objetivos de reparto",
@@ -251,7 +254,8 @@
       "allocation": "Reparto objetivo del resto",
       "sum": "Total {{value}}% / 100%",
       "allocationHint": "Los cuatro porcentajes deben sumar 100%."
-    }
+    },
+    "targetAmount": "objetivo"
   },
   "accountTypes": {
     "checking": "Cuenta corriente",

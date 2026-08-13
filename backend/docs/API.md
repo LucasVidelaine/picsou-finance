@@ -502,9 +502,20 @@ member's ownership shares, exactly like `/api/dashboard`.
 The five tiers, their weight against the member's targets, and the resulting score.
 
 Built from **assets only**, never net worth — property enters net of the mortgage financing it,
-and loans are otherwise excluded. The `SAFETY_NET` entry in `tiers` carries the cushion's
-*excess* (cash beyond the target, which has a target of 0), not the whole cushion; the whole
-cushion is the `safetyNet` object.
+and loans are otherwise excluded.
+
+`tiers` carries the **four investment tiers only**, and their percentages sum to 100 over
+`allocatableEur`. The cushion is not among them: it is measured in euros against an absolute
+target in the `safetyNet` object, and a second line expressing the same money as a share would
+contradict it.
+
+`safetyNet.valueEur` counts **savings passbooks only** — a current account holds money already
+committed to this month, so counting it would report a buffer that is largely spent.
+`dailyCashEur` reports current-account money so it is visible; it is scored nowhere and, like the
+cushion, sits outside `allocatableEur`.
+
+Each tier line carries `targetEur` beside `targetPercent`, because a gap of "−6.36 points" is not
+something a member can act on.
 
 **Response `200`:**
 ```json
@@ -512,13 +523,13 @@ cushion is the `safetyNet` object.
   "totalAssetsEur": 337400.00,
   "allocatableEur": 326300.00,
   "safetyNet": {
-    "valueEur": 18200.00, "targetEur": 11100.00, "coverage": 1.6396,
-    "excessEur": 7100.00, "known": true, "score": 87
+    "valueEur": 18200.00, "dailyCashEur": 4300.00, "targetEur": 11100.00,
+    "coverage": 1.6396, "excessEur": 7100.00, "known": true, "score": 87
   },
   "tiers": [
     {
       "tier": "EQUITY", "valueEur": 142400.00, "actualPercent": 43.64,
-      "targetPercent": 50.00, "gapPercent": -6.36,
+      "targetPercent": 50.00, "targetEur": 157450.00, "gapPercent": -6.36,
       "accounts": [{ "accountId": 2, "name": "PEA", "color": "#6366f1", "valueEur": 96400.00 }]
     }
   ],

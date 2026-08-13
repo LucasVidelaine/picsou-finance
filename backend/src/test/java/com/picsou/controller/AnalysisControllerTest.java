@@ -43,7 +43,8 @@ class AnalysisControllerTest {
     void pyramidIsScopedToTheMemberFromTheUserContext() {
         WealthPyramidResponse expected = new WealthPyramidResponse(
             BigDecimal.TEN, BigDecimal.TEN,
-            new WealthPyramidResponse.SafetyNet(BigDecimal.ZERO, null, null, BigDecimal.ZERO, false, null),
+            new WealthPyramidResponse.SafetyNet(
+                BigDecimal.ZERO, BigDecimal.ZERO, null, null, BigDecimal.ZERO, false, null),
             List.of(),
             new WealthPyramidResponse.Score(70, 70, BigDecimal.ZERO, BigDecimal.ZERO,
                 BigDecimal.ZERO, null, null));
