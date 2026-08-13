@@ -31,7 +31,15 @@
 
 ### AccountType
 
-`LEP` · `PEA` · `COMPTE_TITRES` · `CRYPTO` · `CHECKING` · `SAVINGS` · `REAL_ESTATE` · `LOAN` · `EMPLOYEE_SAVINGS` · `OTHER`
+`LEP` · `LIVRET_A` · `LDDS` · `LIVRET_JEUNE` · `PEL` · `CEL` · `PEA` · `COMPTE_TITRES` · `CRYPTO` · `CHECKING` · `SAVINGS` · `REAL_ESTATE` · `SCPI` · `LOAN` · `EMPLOYEE_SAVINGS` · `ASSURANCE_VIE` · `OTHER`
+
+### WealthTier
+
+`SAFETY_NET` · `REAL_ESTATE` · `EQUITY` · `CRYPTO` · `ALTERNATIVE`
+
+The investment-pyramid layer an account or holding belongs to. Distinct from the Accounts
+page's asset filters: those group accounts the way a user browses them, this one groups them
+by the role they play in a portfolio.
 
 ### Chain
 
@@ -484,7 +492,93 @@ Past estimates, newest first. Readable by co-owners.
 
 ---
 
-### 5. Geocoding — `/api/geocode`
+### 5. Analysis — `/api/analysis`
+
+How the portfolio is built, rather than what it is worth. Every figure is weighted by the
+member's ownership shares, exactly like `/api/dashboard`.
+
+#### `GET /api/analysis/pyramid`
+
+The five tiers, their weight against the member's targets, and the resulting score.
+
+Built from **assets only**, never net worth — property enters net of the mortgage financing it,
+and loans are otherwise excluded. The `SAFETY_NET` entry in `tiers` carries the cushion's
+*excess* (cash beyond the target, which has a target of 0), not the whole cushion; the whole
+cushion is the `safetyNet` object.
+
+**Response `200`:**
+```json
+{
+  "totalAssetsEur": 337400.00,
+  "allocatableEur": 326300.00,
+  "safetyNet": {
+    "valueEur": 18200.00, "targetEur": 11100.00, "coverage": 1.6396,
+    "excessEur": 7100.00, "known": true, "score": 87
+  },
+  "tiers": [
+    {
+      "tier": "EQUITY", "valueEur": 142400.00, "actualPercent": 43.64,
+      "targetPercent": 50.00, "gapPercent": -6.36,
+      "accounts": [{ "accountId": 2, "name": "PEA", "color": "#6366f1", "valueEur": 96400.00 }]
+    }
+  ],
+  "score": {
+    "global": 79, "allocation": 86, "misplacedPercent": 14.42,
+    "cryptoPenalty": 0.60, "leverageBonus": 4.20,
+    "cryptoTopTenShare": 72.50, "loanToValue": 51.40
+  }
+}
+```
+
+`safetyNet.known` is `false` when the member has never stated their monthly expenses. The tier
+is then **unrated, not scored zero**: `safetyNet.score` is `null` and `score.global` falls back
+to the allocation score plus the modifiers. `cryptoTopTenShare` is `null` when no crypto holding
+was seen line by line — an exchange tracked as a single balance draws no penalty, because its
+composition is unknown rather than poor.
+
+#### `GET /api/analysis/allocation-targets`
+
+The member's targets, or the shipped defaults when they have never set any. No row is created
+by reading.
+
+**Response `200`:**
+```json
+{
+  "monthlyEssentialExpenses": 1850.00, "safetyNetMonths": 6,
+  "realEstatePct": 30.00, "equityPct": 50.00, "cryptoPct": 10.00, "alternativePct": 10.00
+}
+```
+
+#### `PUT /api/analysis/allocation-targets`
+
+Replaces the whole profile. `monthlyEssentialExpenses` may be `null` — that is how a member
+clears a figure they no longer stand behind, putting the safety net back to unrated.
+
+**Errors:** `422` when the four percentages do not sum to exactly 100. The `errors` map keys
+that violation under **`summingToOneHundred`** (a derived property), not under a field name —
+cross-field validation on a record has no single field to attach to.
+
+#### `GET /api/analysis/essential-expenses/estimate`
+
+What the member's own transactions suggest they spend monthly, offered as a starting point for
+the field above. **Never stored on their behalf** — accepting it is a `PUT`.
+
+Mean monthly debits on `CHECKING` accounts over the last six *complete* months, with internal
+transfers removed by counterparty matching (a debit whose amount reappears as a credit on
+another readable account within ±3 days), investment legs dropped, and a narrow label heuristic
+as a last resort. Divided by the months actually observed, not by six.
+
+**Response `200`:**
+```json
+{ "estimate": 1912.40, "monthsObserved": 6, "excludedTransferCount": 11 }
+```
+
+`estimate` is `null` when there is no usable history — never `0`, which would be
+indistinguishable from "this member spends nothing" and would set a target of zero.
+
+---
+
+### 6. Geocoding — `/api/geocode`
 
 #### `GET /api/geocode?q={query}&limit={n}`
 
@@ -494,7 +588,7 @@ exceeding it returns `429`.
 
 ---
 
-### 6. Goals — `/api/goals`
+### 7. Goals — `/api/goals`
 
 #### `GET /api/goals`
 
@@ -614,7 +708,7 @@ exceeding it returns `429`.
 
 ---
 
-### 7. Bank Sync (Enable Banking) — `/api/sync`
+### 8. Bank Sync (Enable Banking) — `/api/sync`
 
 #### `GET /api/sync/institutions`
 
@@ -743,7 +837,7 @@ Countries the active bank-sync provider supports, for the "which country" search
 
 ---
 
-### 8. Trade Republic — `/api/tr`
+### 9. Trade Republic — `/api/tr`
 
 #### `POST /api/tr/auth/initiate`
 
@@ -825,7 +919,7 @@ Countries the active bank-sync provider supports, for the "which country" search
 
 ---
 
-### 9. Bourse Direct — `/api/bourse-direct`
+### 10. Bourse Direct — `/api/bourse-direct`
 
 The connector is read-only. Authentication persists an encrypted browser
 session, then portfolio import continues asynchronously.
@@ -909,7 +1003,7 @@ rate limiting returns `429`.
 
 ---
 
-### 10. Crypto Wallets — `/api/crypto/wallet`
+### 11. Crypto Wallets — `/api/crypto/wallet`
 
 #### `POST /api/crypto/wallet`
 
@@ -962,7 +1056,7 @@ rate limiting returns `429`.
 
 ---
 
-### 11. Crypto Exchanges — `/api/crypto/exchange`
+### 12. Crypto Exchanges — `/api/crypto/exchange`
 
 #### `POST /api/crypto/exchange`
 
@@ -1061,7 +1155,7 @@ quantity`. The per-line figures therefore still add up to the holding's own cost
 
 ---
 
-### 12. Prices — `/api/prices`
+### 13. Prices — `/api/prices`
 
 #### `GET /api/prices`
 
@@ -1085,7 +1179,7 @@ Prices are in EUR. Results are cached for 15 minutes.
 
 ---
 
-### 13. Finary — `/api/finary`
+### 14. Finary — `/api/finary`
 
 Two import modes: **file-based** (XLSX upload) and **API-based** (direct sync). Both use a two-phase flow: preview then execute with account mappings.
 
@@ -1216,7 +1310,7 @@ Returns whether the Finary API credentials (`FINARY_EMAIL`, `FINARY_PASSWORD`) a
 
 ---
 
-### 12. Amundi Épargne Salariale — `/api/amundi`
+### 15. Amundi Épargne Salariale — `/api/amundi`
 
 Read-only. Amundi gates its login behind a captcha and a mandatory second
 factor, so authentication is always interactive; it persists an encrypted
@@ -1304,7 +1398,7 @@ Domain failures use `422` RFC 7807 responses with a stable `code` property:
 
 ---
 
-### 13. DEGIRO — `/api/degiro`
+### 16. DEGIRO — `/api/degiro`
 
 The connector is read-only and **session-only**: DEGIRO's session cookie expires
 after ~30 minutes of inactivity and Picsou never stores the account's TOTP

@@ -104,6 +104,10 @@ export const SetupStepCrypto = lazy(() =>
   }))
 )
 
+export const AnalysisPage = lazy(() =>
+  import('@/pages/analysis/AnalysisPage').then((m) => ({ default: m.AnalysisPage }))
+)
+
 export const NotFoundPage = lazy(() =>
   import('@/pages/error/NotFoundPage').then((m) => ({ default: m.NotFoundPage }))
 )

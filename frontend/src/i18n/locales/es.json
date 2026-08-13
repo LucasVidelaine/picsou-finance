@@ -48,7 +48,9 @@
     "unknownProfile": "Perfil desconocido",
     "logout": "Cerrar sesión",
     "admin": "Administración",
-    "admin.desc": "Ajustes de la instancia"
+    "admin.desc": "Ajustes de la instancia",
+    "analysis": "Análisis",
+    "analysis.desc": "Reparto y diversificación"
   },
   "auth": {
     "login": "Iniciar sesión",
@@ -200,6 +202,57 @@
     },
     "fees": "Comisiones"
   },
+  "analysis": {
+    "title": "Análisis",
+    "editTargets": "Mis objetivos",
+    "error": "No se pudo cargar el análisis",
+    "points": "pts",
+    "targetShort": "objetivo {{value}}%",
+    "empty": {
+      "title": "Nada que analizar todavía",
+      "description": "Añade cuentas para que Picsou pueda valorar cómo está construido tu patrimonio."
+    },
+    "tiers": {
+      "SAFETY_NET": "Colchón de seguridad",
+      "REAL_ESTATE": "Inmobiliario",
+      "EQUITY": "Acciones y ETF",
+      "CRYPTO": "Cripto",
+      "ALTERNATIVE": "Activos alternativos"
+    },
+    "score": {
+      "title": "Puntuación de composición",
+      "safetyNet": "Colchón",
+      "allocation": "Reparto",
+      "cryptoPenalty": "Penalización cripto",
+      "leverageBonus": "Bonus de apalancamiento",
+      "notRated": "sin evaluar",
+      "misplaced": "El {{value}}% de tu patrimonio tendría que moverse para alcanzar tus objetivos.",
+      "safetyNetUnknownHint": "Indica tus gastos mensuales obligatorios para que se evalúe el colchón de seguridad."
+    },
+    "safetyNet": {
+      "title": "Colchón de seguridad y reparto",
+      "ofTarget": "sobre un objetivo de",
+      "short": "{{value}}% del objetivo",
+      "covered": "Cubierto",
+      "excess": "Excedente",
+      "excessHint": "Lo que supera el objetivo cuenta como dinero por recolocar: aparece en el reparto con un objetivo del 0%.",
+      "unknown": "Indica tus gastos mensuales obligatorios para definir el objetivo de tu colchón."
+    },
+    "targets": {
+      "title": "Mis objetivos de reparto",
+      "description": "El colchón se define en importe; el resto, en porcentaje de lo que lo supera.",
+      "expenses": "Gastos mensuales obligatorios",
+      "expensesPlaceholder": "1.850",
+      "expensesHint": "Alquiler, préstamos, energía, alimentación — lo que sale cada mes pase lo que pase.",
+      "suggestion": "Estimado en",
+      "suggestionBasis": "sobre {{count}} meses observados",
+      "useSuggestion": "Usar",
+      "months": "Meses de gastos a cubrir",
+      "allocation": "Reparto objetivo del resto",
+      "sum": "Total {{value}}% / 100%",
+      "allocationHint": "Los cuatro porcentajes deben sumar 100%."
+    }
+  },
   "accountTypes": {
     "checking": "Cuenta corriente",
     "savings": "Cuenta de ahorro",
@@ -215,7 +268,9 @@
     "realEstate": "Inmobiliario",
     "loan": "Préstamo",
     "other": "Otro",
-    "employeeSavings": "Ahorro salarial"
+    "employeeSavings": "Ahorro salarial",
+    "assuranceVie": "Seguro de vida",
+    "scpi": "SCPI"
   },
   "realEstate": {
     "purchasePrice": "Precio de compra",

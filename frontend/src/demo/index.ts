@@ -1,6 +1,7 @@
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import type { GoalProgress } from '@/types/api'
 import { mockAccounts } from './data/accounts'
+import { mockAllocationTargets, mockExpenseEstimate, mockWealthPyramid } from './data/analysis'
 import { mockDashboard } from './data/dashboard'
 import { mockGoals } from './data/goals'
 import { mockHoldings } from './data/holdings'
@@ -26,6 +27,15 @@ handlers.set(key('POST', '/auth/refresh'), () => ({ username: 'demo' }))
 
 // Dashboard
 handlers.set(key('GET', '/dashboard'), () => mockDashboard)
+
+// Analysis
+handlers.set(key('GET', '/analysis/pyramid'), () => mockWealthPyramid)
+handlers.set(key('GET', '/analysis/allocation-targets'), () => mockAllocationTargets)
+handlers.set(key('PUT', '/analysis/allocation-targets'), (config) => ({
+  ...mockAllocationTargets,
+  ...(typeof config.data === 'string' ? JSON.parse(config.data) : {}),
+}))
+handlers.set(key('GET', '/analysis/essential-expenses/estimate'), () => mockExpenseEstimate)
 
 // Accounts
 handlers.set(key('GET', '/accounts'), () => mockAccounts)

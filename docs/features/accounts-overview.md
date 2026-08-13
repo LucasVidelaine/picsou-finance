@@ -93,12 +93,12 @@ Six asset categories defined in `AccountsPage.tsx`:
 
 | Filter key | Account types | Chart color |
 |-----------|--------------|-------------|
-| STOCKS | PEA, COMPTE_TITRES | `#6366f1` |
+| STOCKS | PEA, COMPTE_TITRES, EMPLOYEE_SAVINGS, ASSURANCE_VIE | `#6366f1` |
 | METALS | OTHER | `#eab308` |
 | SAVINGS | LEP, LIVRET_A, LDDS, LIVRET_JEUNE, PEL, CEL, SAVINGS | `#22c55e` |
 | CHECKING | CHECKING | `#0ea5e9` |
 | CRYPTO | CRYPTO | `#f97316` |
-| REAL_ESTATE | REAL_ESTATE | `#a855f7` |
+| REAL_ESTATE | REAL_ESTATE, SCPI | `#a855f7` |
 
 The filter affects the summary card, chart, and account card grid simultaneously.
 
@@ -163,7 +163,9 @@ AccountsPage
   account palette runs from indigo to yellow; a raw yellow-500 glyph on its own pale tint is
   barely visible in light mode.
 - **Never derive an account type's label key from its name.** `accountTypeLabelKey()` in `lib/constants.ts` is the only mapping; a local `type.toLowerCase()` renders the raw key (`accountTypes.livret_a`) for any type whose key isn't simply its lowercased value. See [add-account-modal.md](./add-account-modal.md#account-type-labels).
-- **`TYPE_TO_GROUP` must cover every `AccountType`** — if a new type is added to the enum but not to this map, those accounts silently disappear from the ALL chart.
+- **`TYPE_TO_GROUP` must cover every `AccountType`** — if a new type is added to the enum but not to this map, those accounts silently disappear from the ALL chart. It is typed `Record<AccountType, string>`, so the compiler catches the omission; `ASSET_FILTER_MAP` is **not** exhaustive by type and needs the same edit by hand.
+- **This grouping is not the investment pyramid's.** `WealthTier.of()` answers a different question (the role an asset plays, not how a user browses it) and lives on the backend — see [wealth-pyramid.md](./wealth-pyramid.md). Do not collapse the two without deciding which answer to lose.
+- **`HOLDING_ACCOUNT_TYPES` lives in `lib/constants.ts`**, not in this page. It used to be duplicated here, in `AccountDetailPage` and in `features/accounts/hooks.ts`, so a new position-bearing type meant three chances to forget one.
 - **`currentBalanceEur` is the account's full value, not the viewer's share.** Co-owned accounts carry `sharePercent` alongside it (see [account-ownership-shares.md](account-ownership-shares.md)); anything summing balances on this page must apply it, because the server only weights its own aggregates.
 - **`Account.id` cast to `number`** — virtual group accounts use string keys (`'STOCKS'`, `'CRYPTO'`) cast as `number` via `as unknown as number`. This works because Recharts uses `dataKey` as a string lookup, but it's fragile.
 - **`totalInvested` relies on the last invested point** — if an account has no snapshots at all, its invested amount is 0 and PnL equals its full balance. This is correct for newly created accounts where balance = invested.

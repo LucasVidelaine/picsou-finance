@@ -48,7 +48,9 @@
     "unknownProfile": "Profil inconnu",
     "logout": "Déconnexion",
     "admin": "Administration",
-    "admin.desc": "Réglages de l'instance"
+    "admin.desc": "Réglages de l'instance",
+    "analysis": "Analyse",
+    "analysis.desc": "Répartition & diversification"
   },
   "auth": {
     "login": "Connexion",
@@ -200,6 +202,57 @@
     },
     "fees": "Frais"
   },
+  "analysis": {
+    "title": "Analyse",
+    "editTargets": "Mes cibles",
+    "error": "Impossible de charger l'analyse",
+    "points": "pts",
+    "targetShort": "cible {{value}}%",
+    "empty": {
+      "title": "Rien à analyser pour l'instant",
+      "description": "Ajoutez des comptes pour que Picsou puisse juger la composition de votre patrimoine."
+    },
+    "tiers": {
+      "SAFETY_NET": "Matelas de sécurité",
+      "REAL_ESTATE": "Immobilier",
+      "EQUITY": "Actions & ETF",
+      "CRYPTO": "Crypto",
+      "ALTERNATIVE": "Actifs alternatifs"
+    },
+    "score": {
+      "title": "Score de composition",
+      "safetyNet": "Matelas",
+      "allocation": "Allocation",
+      "cryptoPenalty": "Pénalité crypto",
+      "leverageBonus": "Bonus de levier",
+      "notRated": "non évalué",
+      "misplaced": "{{value}}% de votre patrimoine est à déplacer pour atteindre vos cibles.",
+      "safetyNetUnknownHint": "Renseignez vos dépenses mensuelles obligatoires pour que le matelas de sécurité soit évalué."
+    },
+    "safetyNet": {
+      "title": "Matelas de sécurité et répartition",
+      "ofTarget": "sur une cible de",
+      "short": "{{value}}% de la cible",
+      "covered": "Couvert",
+      "excess": "Excédent",
+      "excessHint": "La part au-delà de la cible compte comme à replacer : elle apparaît dans la répartition avec une cible de 0%.",
+      "unknown": "Renseignez vos dépenses mensuelles obligatoires pour définir la cible de votre matelas."
+    },
+    "targets": {
+      "title": "Mes cibles d'allocation",
+      "description": "Le matelas se calcule en montant, le reste en pourcentage de ce qui dépasse.",
+      "expenses": "Dépenses mensuelles obligatoires",
+      "expensesPlaceholder": "1 850",
+      "expensesHint": "Loyer, crédits, énergie, alimentation — ce qui tombe tous les mois quoi qu'il arrive.",
+      "suggestion": "Estimé à",
+      "suggestionBasis": "sur {{count}} mois observés",
+      "useSuggestion": "Utiliser",
+      "months": "Mois de dépenses à couvrir",
+      "allocation": "Répartition cible du reste",
+      "sum": "Total {{value}}% / 100%",
+      "allocationHint": "Les quatre pourcentages doivent totaliser 100%."
+    }
+  },
   "accountTypes": {
     "checking": "Compte courant",
     "savings": "Livret d'épargne",
@@ -215,7 +268,9 @@
     "realEstate": "Immobilier",
     "loan": "Prêt",
     "other": "Autre",
-    "employeeSavings": "Épargne salariale"
+    "employeeSavings": "Épargne salariale",
+    "assuranceVie": "Assurance vie",
+    "scpi": "SCPI"
   },
   "realEstate": {
     "purchasePrice": "Prix d'achat",

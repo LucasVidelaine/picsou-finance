@@ -17,6 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Plus, Wallet, Pencil, Trash2, TrendingUp, TrendingDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { HOLDING_ACCOUNT_TYPES } from '@/lib/constants'
 import type { Account, AccountRequest, AccountType } from '@/types/api'
 
 type AssetFilter = 'ALL' | 'STOCKS' | 'METALS' | 'SAVINGS' | 'CHECKING' | 'CRYPTO' | 'REAL_ESTATE' | 'DEBTS'
@@ -25,12 +26,12 @@ const FILTER_KEYS: AssetFilter[] = ['ALL', 'STOCKS', 'METALS', 'SAVINGS', 'CHECK
 
 const ASSET_FILTER_MAP: Record<AssetFilter, AccountType[] | null> = {
   ALL: null,
-  STOCKS: ['PEA', 'COMPTE_TITRES', 'EMPLOYEE_SAVINGS'],
+  STOCKS: ['PEA', 'COMPTE_TITRES', 'EMPLOYEE_SAVINGS', 'ASSURANCE_VIE'],
   METALS: ['OTHER'],
   SAVINGS: ['LEP', 'LIVRET_A', 'LDDS', 'LIVRET_JEUNE', 'PEL', 'CEL', 'SAVINGS'],
   CHECKING: ['CHECKING'],
   CRYPTO: ['CRYPTO'],
-  REAL_ESTATE: ['REAL_ESTATE'],
+  REAL_ESTATE: ['REAL_ESTATE', 'SCPI'],
   DEBTS: ['LOAN'],
 }
 
@@ -48,6 +49,7 @@ const TYPE_TO_GROUP: Record<AccountType, string> = {
   PEA: 'STOCKS',
   COMPTE_TITRES: 'STOCKS',
   EMPLOYEE_SAVINGS: 'STOCKS',
+  ASSURANCE_VIE: 'STOCKS',
   OTHER: 'METALS',
   LEP: 'SAVINGS',
   LIVRET_A: 'SAVINGS',
@@ -59,10 +61,10 @@ const TYPE_TO_GROUP: Record<AccountType, string> = {
   CHECKING: 'CHECKING',
   CRYPTO: 'CRYPTO',
   REAL_ESTATE: 'REAL_ESTATE',
+  SCPI: 'REAL_ESTATE',
   LOAN: 'DEBTS',
 }
 
-const HOLDING_ACCOUNT_TYPES: AccountType[] = ['PEA', 'COMPTE_TITRES', 'CRYPTO', 'EMPLOYEE_SAVINGS']
 
 type AccountFormData = {
   name: string

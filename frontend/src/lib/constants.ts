@@ -12,10 +12,25 @@ export const ACCOUNT_TYPES: { value: AccountType; labelKey: string }[] = [
   { value: 'PEA', labelKey: 'accountTypes.pea' },
   { value: 'COMPTE_TITRES', labelKey: 'accountTypes.compteTitres' },
   { value: 'CRYPTO', labelKey: 'accountTypes.crypto' },
+  { value: 'ASSURANCE_VIE', labelKey: 'accountTypes.assuranceVie' },
   { value: 'REAL_ESTATE', labelKey: 'accountTypes.realEstate' },
+  { value: 'SCPI', labelKey: 'accountTypes.scpi' },
   { value: 'EMPLOYEE_SAVINGS', labelKey: 'accountTypes.employeeSavings' },
   { value: 'LOAN', labelKey: 'accountTypes.loan' },
   { value: 'OTHER', labelKey: 'accountTypes.other' },
+]
+
+/**
+ * Account types whose value comes from `account_holding` lines rather than a stored
+ * balance — the client-side mirror of the backend's `AccountType.isInvestment()`, plus
+ * `EMPLOYEE_SAVINGS`, whose FCPE lines arrive from the Amundi sync rather than from
+ * manual BUY/SELL entry.
+ *
+ * Lives here because three pages used to keep their own copy, so adding a type meant
+ * three chances to forget one.
+ */
+export const HOLDING_ACCOUNT_TYPES: AccountType[] = [
+  'PEA', 'COMPTE_TITRES', 'CRYPTO', 'EMPLOYEE_SAVINGS', 'ASSURANCE_VIE',
 ]
 
 /** Translation key for an account type's display label. */
@@ -50,6 +65,9 @@ export const QUERY_STALE_TIMES = {
   // Property valuations refresh monthly at most -- the underlying open data is published
   // twice a year -- so anything shorter would just re-fetch an identical answer.
   realEstate: 10 * 60 * 1000,
+  // Allocation moves at the pace of the portfolio behind it, and the score is read, not
+  // watched -- the dashboard's cadence is the right one here too.
+  analysis: 5 * 60 * 1000,
 } as const
 
 /**

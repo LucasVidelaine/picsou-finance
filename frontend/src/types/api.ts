@@ -1,7 +1,7 @@
 export type AccountType =
   | 'LEP' | 'LIVRET_A' | 'LDDS' | 'LIVRET_JEUNE' | 'PEL' | 'CEL'
   | 'PEA' | 'COMPTE_TITRES' | 'CRYPTO' | 'CHECKING' | 'SAVINGS'
-  | 'REAL_ESTATE' | 'LOAN' | 'EMPLOYEE_SAVINGS' | 'OTHER'
+  | 'REAL_ESTATE' | 'SCPI' | 'LOAN' | 'EMPLOYEE_SAVINGS' | 'ASSURANCE_VIE' | 'OTHER'
 
 export type PropertyKind = 'HOUSE' | 'APARTMENT' | 'BUILDING' | 'LAND' | 'PARKING' | 'COMMERCIAL'
 
@@ -842,4 +842,70 @@ export interface RealizedPnlResponse {
   realizedTotal: number
   byTicker: TickerRealized[]
   lots: RealizedLot[]
+}
+
+// --- Analysis: the investment pyramid ---
+
+export type WealthTier = 'SAFETY_NET' | 'REAL_ESTATE' | 'EQUITY' | 'CRYPTO' | 'ALTERNATIVE'
+
+export interface TierAccount {
+  accountId: number
+  name: string
+  color: string
+  valueEur: number
+}
+
+export interface WealthTierLine {
+  tier: WealthTier
+  /** For SAFETY_NET this is the cushion's excess only, not the whole cushion. */
+  valueEur: number
+  actualPercent: number
+  targetPercent: number
+  gapPercent: number
+  accounts: TierAccount[]
+}
+
+export interface SafetyNetLine {
+  valueEur: number
+  /** null until the member states their monthly expenses. */
+  targetEur: number | null
+  coverage: number | null
+  excessEur: number
+  known: boolean
+  score: number | null
+}
+
+export interface WealthScore {
+  global: number
+  allocation: number
+  misplacedPercent: number
+  cryptoPenalty: number
+  leverageBonus: number
+  cryptoTopTenShare: number | null
+  loanToValue: number | null
+}
+
+export interface WealthPyramid {
+  totalAssetsEur: number
+  allocatableEur: number
+  safetyNet: SafetyNetLine
+  tiers: WealthTierLine[]
+  score: WealthScore
+}
+
+export interface AllocationTargets {
+  monthlyEssentialExpenses: number | null
+  safetyNetMonths: number
+  realEstatePct: number
+  equityPct: number
+  cryptoPct: number
+  alternativePct: number
+}
+
+export type AllocationTargetsRequest = AllocationTargets
+
+export interface EssentialExpenseEstimate {
+  estimate: number | null
+  monthsObserved: number
+  excludedTransferCount: number
 }

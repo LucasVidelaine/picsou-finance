@@ -1,0 +1,349 @@
+package com.picsou.service;
+
+import com.picsou.adapter.CoinGeckoPriceProvider;
+import com.picsou.dto.HoldingResponse;
+import com.picsou.dto.RealEstateSummaryResponse;
+import com.picsou.dto.WealthPyramidResponse;
+import com.picsou.model.*;
+import com.picsou.repository.AccountHoldingRepository;
+import com.picsou.repository.HoldingClassificationRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class WealthPyramidServiceTest {
+
+    private static final Long MEMBER = 1L;
+
+    @Mock AccountAccessResolver accessResolver;
+    @Mock AccountService accountService;
+    @Mock AccountHoldingRepository holdingRepository;
+    @Mock HoldingClassificationRepository classificationRepository;
+    @Mock AllocationTargetService allocationTargetService;
+    @Mock RealEstateSummaryService realEstateSummaryService;
+    @Mock CoinGeckoPriceProvider coinGecko;
+
+    @InjectMocks WealthPyramidService service;
+
+    private final List<Account> accounts = new java.util.ArrayList<>();
+    private final Map<Long, BigDecimal> shares = new HashMap<>();
+    private long nextId = 1;
+
+    @BeforeEach
+    void wireDefaults() {
+        lenient().when(accessResolver.readableAccounts(MEMBER)).thenReturn(accounts);
+        lenient().when(accessResolver.sharesFor(any(), any())).thenReturn(shares);
+        lenient().when(classificationRepository.findByMemberId(MEMBER)).thenReturn(List.of());
+        lenient().when(allocationTargetService.profileFor(MEMBER))
+            .thenReturn(MemberAllocationProfile.builder().build());
+        lenient().when(realEstateSummaryService.summarize(MEMBER)).thenReturn(noProperty());
+        lenient().when(holdingRepository.findByAccount_Id(anyLong())).thenReturn(List.of());
+        lenient().when(coinGecko.supports(any())).thenReturn(false);
+    }
+
+    private static RealEstateSummaryResponse noProperty() {
+        return new RealEstateSummaryResponse(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+            BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, null, BigDecimal.ZERO, List.of());
+    }
+
+    /** A balance-only account worth {@code value}, wholly owned. */
+    private Account cash(AccountType type, String value) {
+        Account account = Account.builder()
+            .id(nextId++).name(type.name()).type(type).currency("EUR").color("#000000")
+            .currentBalance(new BigDecimal(value)).build();
+        accounts.add(account);
+        // The real sharesFor returns an explicit 100 for a wholly-owned account; weigh() treats a
+        // null share as "worth nothing to you", so a null here would silently zero every fixture.
+        shares.put(account.getId(), new BigDecimal("100"));
+        lenient().when(accountService.valuation(account)).thenReturn(
+            new AccountService.Valuation(new BigDecimal(value), new BigDecimal(value), true, true, false));
+        return account;
+    }
+
+    /** An account holding positions; {@code lines} are ticker/value pairs summing to {@code value}. */
+    private Account withHoldings(AccountType type, String value, Map<String, String> lines) {
+        Account account = cash(type, value);
+        lenient().when(holdingRepository.findByAccount_Id(account.getId()))
+            .thenReturn(List.of(AccountHolding.builder().ticker("ANY").build()));
+        lenient().when(accountService.getHoldings(account.getId(), MEMBER)).thenReturn(
+            lines.entrySet().stream().map(e -> new HoldingResponse(
+                e.getKey(), e.getKey(), BigDecimal.ONE, null, null, "EUR",
+                new BigDecimal(e.getValue()), null, null, null, null, null, false)).toList());
+        return account;
+    }
+
+    private WealthPyramidResponse.TierLine tier(WealthPyramidResponse response, WealthTier tier) {
+        return response.tiers().stream().filter(l -> l.tier() == tier).findFirst().orElseThrow();
+    }
+
+    private void expenses(String monthly) {
+        when(allocationTargetService.profileFor(MEMBER)).thenReturn(
+            MemberAllocationProfile.builder().monthlyEssentialExpenses(new BigDecimal(monthly)).build());
+    }
+
+    // --- Classification ---
+
+    @Test
+    void accountsLandInTheirTypesTier() {
+        cash(AccountType.CHECKING, "5000");
+        cash(AccountType.PEA, "20000");
+        cash(AccountType.CRYPTO, "3000");
+        cash(AccountType.OTHER, "2000");
+
+        WealthPyramidResponse response = service.pyramid(MEMBER);
+
+        assertThat(response.totalAssetsEur()).isEqualByComparingTo("30000");
+        assertThat(response.safetyNet().valueEur()).isEqualByComparingTo("5000");
+        assertThat(tier(response, WealthTier.EQUITY).valueEur()).isEqualByComparingTo("20000");
+        assertThat(tier(response, WealthTier.CRYPTO).valueEur()).isEqualByComparingTo("3000");
+        assertThat(tier(response, WealthTier.ALTERNATIVE).valueEur()).isEqualByComparingTo("2000");
+    }
+
+    @Test
+    void aLoanIsNeverCountedAsAnAsset() {
+        cash(AccountType.CHECKING, "5000");
+        cash(AccountType.LOAN, "150000");
+
+        assertThat(service.pyramid(MEMBER).totalAssetsEur()).isEqualByComparingTo("5000");
+    }
+
+    @Test
+    void aCryptoLineInsideABrokerageAccountCountsAsCrypto() {
+        // The wrapper does not determine the asset. A bitcoin ETP in a CTO is crypto exposure,
+        // and calling it listed equity would misstate two tiers at once.
+        withHoldings(AccountType.COMPTE_TITRES, "10000", Map.of("BTC", "4000", "CW8", "6000"));
+        when(coinGecko.supports("BTC")).thenReturn(true);
+
+        WealthPyramidResponse response = service.pyramid(MEMBER);
+
+        assertThat(tier(response, WealthTier.CRYPTO).valueEur()).isEqualByComparingTo("4000");
+        assertThat(tier(response, WealthTier.EQUITY).valueEur()).isEqualByComparingTo("6000");
+    }
+
+    @Test
+    void aManualOverrideBeatsBothTheAccountTypeAndTheCoinLookup() {
+        withHoldings(AccountType.COMPTE_TITRES, "10000", Map.of("GOLD", "10000"));
+        when(classificationRepository.findByMemberId(MEMBER)).thenReturn(List.of(
+            HoldingClassification.builder().ticker("gold").wealthTier(WealthTier.ALTERNATIVE).build()));
+
+        WealthPyramidResponse response = service.pyramid(MEMBER);
+
+        // Matched case-insensitively: the user types the ticker, the sync stores it uppercased.
+        assertThat(tier(response, WealthTier.ALTERNATIVE).valueEur()).isEqualByComparingTo("10000");
+        assertThat(tier(response, WealthTier.EQUITY).valueEur()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    void cashInsideAnEnvelopeStaysWithItsAccountTier() {
+        // A life-insurance euro fund is not a line: without the residual it would vanish from the
+        // pyramid while still counting in the dashboard's net worth.
+        withHoldings(AccountType.ASSURANCE_VIE, "50000", Map.of("CW8", "30000"));
+
+        WealthPyramidResponse response = service.pyramid(MEMBER);
+
+        assertThat(response.totalAssetsEur()).isEqualByComparingTo("50000");
+        assertThat(tier(response, WealthTier.EQUITY).valueEur()).isEqualByComparingTo("50000");
+    }
+
+    @Test
+    void sharesAreAppliedExactlyOnce() {
+        Account joint = cash(AccountType.CHECKING, "10000");
+        shares.put(joint.getId(), new BigDecimal("50"));
+
+        assertThat(service.pyramid(MEMBER).totalAssetsEur()).isEqualByComparingTo("5000");
+    }
+
+    @Test
+    void propertyEntersNetOfTheMortgageFinancingIt() {
+        cash(AccountType.REAL_ESTATE, "300000");
+        when(realEstateSummaryService.summarize(MEMBER)).thenReturn(new RealEstateSummaryResponse(
+            new BigDecimal("300000"), new BigDecimal("120000"), new BigDecimal("180000"),
+            BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, new BigDecimal("40"),
+            BigDecimal.ZERO, List.of()));
+
+        WealthPyramidResponse response = service.pyramid(MEMBER);
+
+        assertThat(response.totalAssetsEur()).isEqualByComparingTo("180000");
+        assertThat(tier(response, WealthTier.REAL_ESTATE).valueEur()).isEqualByComparingTo("180000");
+    }
+
+    // --- Safety net ---
+
+    @Test
+    void withoutStatedExpensesTheSafetyNetIsUnratedRatherThanZero() {
+        // Scoring someone 0/100 because they have not filled in a form is a lie, and it is the
+        // kind that makes people stop believing the page.
+        cash(AccountType.CHECKING, "5000");
+        cash(AccountType.PEA, "50000");
+
+        WealthPyramidResponse response = service.pyramid(MEMBER);
+
+        assertThat(response.safetyNet().known()).isFalse();
+        assertThat(response.safetyNet().score()).isNull();
+        assertThat(response.safetyNet().targetEur()).isNull();
+        assertThat(response.score().global()).isGreaterThan(0);
+    }
+
+    @Test
+    void anUnderfundedCushionScoresInProportion() {
+        expenses("1000");                       // target = 6000
+        cash(AccountType.CHECKING, "3000");     // coverage = 0.5
+
+        assertThat(service.pyramid(MEMBER).safetyNet().score()).isEqualTo(50);
+    }
+
+    @Test
+    void aCoveredCushionScoresFull() {
+        expenses("1000");
+        cash(AccountType.CHECKING, "6000");
+
+        WealthPyramidResponse response = service.pyramid(MEMBER);
+        assertThat(response.safetyNet().score()).isEqualTo(100);
+        assertThat(response.safetyNet().excessEur()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    void anOverfundedCushionFloorsAtSixtyRatherThanCollapsing() {
+        expenses("1000");
+        cash(AccountType.CHECKING, "60000");    // coverage = 10, far past the saturation point
+
+        assertThat(service.pyramid(MEMBER).safetyNet().score()).isEqualTo(60);
+    }
+
+    @Test
+    void cushionBeyondTheTargetEntersTheAllocationWithATargetOfZero() {
+        expenses("1000");                       // target = 6000
+        cash(AccountType.CHECKING, "10000");    // 4000 of it is idle
+        cash(AccountType.PEA, "6000");
+
+        WealthPyramidResponse response = service.pyramid(MEMBER);
+
+        // Allocatable excludes only the working part of the cushion.
+        assertThat(response.allocatableEur()).isEqualByComparingTo("10000");
+        assertThat(tier(response, WealthTier.SAFETY_NET).valueEur()).isEqualByComparingTo("4000");
+        assertThat(tier(response, WealthTier.SAFETY_NET).targetPercent()).isEqualByComparingTo("0");
+        assertThat(tier(response, WealthTier.SAFETY_NET).actualPercent()).isEqualByComparingTo("40");
+    }
+
+    // --- Scoring ---
+
+    @Test
+    void aPortfolioOnItsTargetsScoresOneHundred() {
+        expenses("1000");
+        cash(AccountType.CHECKING, "6000");         // exactly covered
+        cash(AccountType.REAL_ESTATE, "30000");     // 30%
+        cash(AccountType.PEA, "50000");             // 50%
+        cash(AccountType.CRYPTO, "10000");          // 10%
+        cash(AccountType.OTHER, "10000");           // 10%
+
+        WealthPyramidResponse response = service.pyramid(MEMBER);
+
+        assertThat(response.score().allocation()).isEqualTo(100);
+        assertThat(response.score().misplacedPercent()).isEqualByComparingTo("0.00");
+        assertThat(response.score().global()).isEqualTo(100);
+    }
+
+    @Test
+    void misplacedIsTheShareOfWealthThatWouldHaveToMove() {
+        expenses("1000");
+        cash(AccountType.CHECKING, "6000");
+        // Everything in equity: 50 points of it are where they belong, 50 are not.
+        cash(AccountType.PEA, "100000");
+
+        WealthPyramidResponse response = service.pyramid(MEMBER);
+
+        assertThat(response.score().misplacedPercent()).isEqualByComparingTo("50.00");
+        assertThat(response.score().allocation()).isEqualTo(50);
+    }
+
+    @Test
+    void theCryptoPenaltyScalesWithHowMuchCryptoWeighs() {
+        expenses("1000");
+        cash(AccountType.CHECKING, "6000");
+        cash(AccountType.PEA, "90000");
+        // A small sleeve of nothing but minor coins: real, but a rounding error in the wealth.
+        withHoldings(AccountType.CRYPTO, "10000", Map.of("SHIB", "10000"));
+
+        WealthPyramidResponse response = service.pyramid(MEMBER);
+
+        assertThat(response.score().cryptoTopTenShare()).isEqualByComparingTo("0.00");
+        // 10 x 10% weight x full shortfall = 1 point.
+        assertThat(response.score().cryptoPenalty()).isEqualByComparingTo("1.00");
+    }
+
+    @Test
+    void majorsAboveTheFloorDrawNoCryptoPenalty() {
+        expenses("1000");
+        cash(AccountType.CHECKING, "6000");
+        withHoldings(AccountType.CRYPTO, "10000", Map.of("BTC", "9000", "SHIB", "1000"));
+        when(coinGecko.supports(any())).thenReturn(true);
+
+        WealthPyramidResponse response = service.pyramid(MEMBER);
+
+        assertThat(response.score().cryptoTopTenShare()).isEqualByComparingTo("90.00");
+        assertThat(response.score().cryptoPenalty()).isEqualByComparingTo("0.00");
+    }
+
+    @Test
+    void aCryptoAccountWithNoPerCoinDetailIsNotPenalised() {
+        // An exchange tracked as a single balance tells us nothing about its composition.
+        // Scoring that silence as "holds no majors" would punish a portfolio for a breakdown
+        // the connector never sent.
+        expenses("1000");
+        cash(AccountType.CHECKING, "6000");
+        cash(AccountType.REAL_ESTATE, "30000");
+        cash(AccountType.PEA, "50000");
+        cash(AccountType.CRYPTO, "10000");
+        cash(AccountType.OTHER, "10000");
+
+        WealthPyramidResponse response = service.pyramid(MEMBER);
+
+        assertThat(response.score().cryptoTopTenShare()).isNull();
+        assertThat(response.score().cryptoPenalty()).isEqualByComparingTo("0.00");
+        assertThat(response.score().global()).isEqualTo(100);
+    }
+
+    @Test
+    void theLeverageBonusPeaksInTheMiddleAndVanishesWhenFullyMortgaged() {
+        assertThat(leverageBonusAt("60")).isEqualByComparingTo("5.00");
+        assertThat(leverageBonusAt("85")).isEqualByComparingTo("5.00");
+        assertThat(leverageBonusAt("30")).isEqualByComparingTo("2.50");
+        // A property mortgaged to the hilt is not a better position than a well-leveraged one.
+        assertThat(leverageBonusAt("100")).isEqualByComparingTo("0.00");
+    }
+
+    private BigDecimal leverageBonusAt(String ltv) {
+        accounts.clear();
+        shares.clear();
+        cash(AccountType.REAL_ESTATE, "100000");
+        when(realEstateSummaryService.summarize(MEMBER)).thenReturn(new RealEstateSummaryResponse(
+            new BigDecimal("100000"), BigDecimal.ZERO, new BigDecimal("100000"),
+            BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, new BigDecimal(ltv),
+            BigDecimal.ZERO, List.of()));
+        return service.pyramid(MEMBER).score().leverageBonus();
+    }
+
+    @Test
+    void anEmptyPortfolioDoesNotDivideByZero() {
+        WealthPyramidResponse response = service.pyramid(MEMBER);
+
+        assertThat(response.totalAssetsEur()).isEqualByComparingTo("0");
+        assertThat(response.allocatableEur()).isEqualByComparingTo("0");
+        assertThat(response.score().global()).isBetween(0, 100);
+    }
+}

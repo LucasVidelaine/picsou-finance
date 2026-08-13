@@ -48,7 +48,9 @@
     "unknownProfile": "Unknown profile",
     "logout": "Logout",
     "admin": "Administration",
-    "admin.desc": "Instance settings"
+    "admin.desc": "Instance settings",
+    "analysis": "Analysis",
+    "analysis.desc": "Allocation & diversification"
   },
   "auth": {
     "login": "Sign in",
@@ -200,6 +202,57 @@
     },
     "fees": "Fees"
   },
+  "analysis": {
+    "title": "Analysis",
+    "editTargets": "My targets",
+    "error": "Could not load the analysis",
+    "points": "pts",
+    "targetShort": "target {{value}}%",
+    "empty": {
+      "title": "Nothing to analyse yet",
+      "description": "Add accounts so Picsou can judge how your wealth is built."
+    },
+    "tiers": {
+      "SAFETY_NET": "Emergency fund",
+      "REAL_ESTATE": "Real estate",
+      "EQUITY": "Stocks & ETFs",
+      "CRYPTO": "Crypto",
+      "ALTERNATIVE": "Alternative assets"
+    },
+    "score": {
+      "title": "Composition score",
+      "safetyNet": "Emergency fund",
+      "allocation": "Allocation",
+      "cryptoPenalty": "Crypto penalty",
+      "leverageBonus": "Leverage bonus",
+      "notRated": "not rated",
+      "misplaced": "{{value}}% of your wealth would have to move to hit your targets.",
+      "safetyNetUnknownHint": "Set your compulsory monthly expenses so the emergency fund can be scored."
+    },
+    "safetyNet": {
+      "title": "Emergency fund and allocation",
+      "ofTarget": "of a target of",
+      "short": "{{value}}% of target",
+      "covered": "Covered",
+      "excess": "Excess",
+      "excessHint": "Anything beyond the target counts as money to redeploy: it appears in the allocation with a 0% target.",
+      "unknown": "Set your compulsory monthly expenses to define your emergency fund target."
+    },
+    "targets": {
+      "title": "My allocation targets",
+      "description": "The emergency fund is an amount; the rest is a share of whatever exceeds it.",
+      "expenses": "Compulsory monthly expenses",
+      "expensesPlaceholder": "1,850",
+      "expensesHint": "Rent, loans, utilities, food — what goes out every month no matter what.",
+      "suggestion": "Estimated at",
+      "suggestionBasis": "over {{count}} observed months",
+      "useSuggestion": "Use",
+      "months": "Months of expenses to cover",
+      "allocation": "Target split of the rest",
+      "sum": "Total {{value}}% / 100%",
+      "allocationHint": "The four percentages must add up to 100%."
+    }
+  },
   "accountTypes": {
     "checking": "Checking",
     "savings": "Savings",
@@ -215,7 +268,9 @@
     "realEstate": "Real estate",
     "loan": "Loan",
     "other": "Other",
-    "employeeSavings": "Employee savings"
+    "employeeSavings": "Employee savings",
+    "assuranceVie": "Life insurance",
+    "scpi": "SCPI"
   },
   "realEstate": {
     "purchasePrice": "Purchase price",

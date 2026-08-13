@@ -1,0 +1,52 @@
+package com.picsou.model;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.*;
+import lombok.*;
+
+/**
+ * A user's own verdict on what a security actually is, overriding whatever the account type and
+ * the price providers would infer.
+ *
+ * <p>It exists because the wrapper does not determine the asset: a gold ETC and a bitcoin ETP
+ * both live in an ordinary brokerage account, and counting them as listed equity would misstate
+ * two tiers of the pyramid at once.
+ *
+ * <p>Keyed on {@code (member, ticker)} rather than on the holding row, and kept out of
+ * {@code account_holding} entirely: the sync paths delete holding rows a provider stops
+ * reporting, so an override living there would disappear with the first transient gap. Here it
+ * outlives the prune, the re-sync and the account, and one row covers the same ticker held in
+ * several accounts.
+ */
+@Entity
+@Table(
+    name = "holding_classification",
+    uniqueConstraints = @UniqueConstraint(
+        name = "uk_holding_classification_member_ticker",
+        columnNames = {"member_id", "ticker"}
+    )
+)
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class HoldingClassification extends AuditableEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "member_id", nullable = false)
+    private FamilyMember member;
+
+    @Column(nullable = false, length = 30)
+    private String ticker;
+
+    /** {@code null} leaves the inferred tier in place; PR2 adds sector/country beside it. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "wealth_tier", length = 20)
+    private WealthTier wealthTier;
+}
