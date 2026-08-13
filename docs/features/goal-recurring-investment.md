@@ -1,0 +1,187 @@
+# Feature: Recurring investment plans and the wealth projection
+
+> Last updated: 2026-08-13
+
+## Context
+
+Goals modelled one shape: an amount by a deadline. That cannot express "300 € into the PEA every
+month" — a recurrence with no target and no end — which is exactly what a wealth projection is
+built from. `Goal` gains a `type`, and the Analysis page gains a curve.
+
+The same migration drops `chk_goal_deadline`, a constraint that had been silently breaking edits
+to expired goals since V2. See **The bug this fixes** below.
+
+## How it works
+
+### One entity, two shapes
+
+`GoalType` is `SAVINGS_TARGET` (everything Picsou had) or `RECURRING_INVESTMENT`.
+
+They share one table because they share everything around them: member scoping, the M:N link to
+accounts, the contributor breakdown, the GDPR export and four MCP tools. Two tables would have
+duplicated all of that to avoid two nullable columns.
+
+| | `SAVINGS_TARGET` | `RECURRING_INVESTMENT` |
+|---|---|---|
+| `target_amount`, `deadline` | required | null |
+| `monthly_amount` | null | required |
+| `expected_return`, `start_date`, `end_date` | null | optional |
+| accounts | one or more | exactly one |
+
+Per-type integrity is a CHECK, not just nullable columns: dropping the NOT NULLs alone would let
+a savings target be created with no target at all.
+
+### Compatibility, deliberately
+
+Every payload written before this field existed — the frontend's and four MCP tools' — omits
+`type`. Three things keep them working untouched:
+
+- the column has `DEFAULT 'SAVINGS_TARGET'`;
+- the entity field has `@Builder.Default`;
+- `GoalRequest`'s **compact constructor** defaults a null `type`.
+
+The four existing MCP tools keep their exact signatures — agents have prompts written against
+them. A fifth, `create_recurring_investment`, is added beside them.
+(`McpToolCatalogTest` pins the registered set, so adding a tool is a deliberate act.)
+
+### Validation on a record
+
+A record cannot validate a field conditionally on another. Two DTOs behind two endpoints would
+fork the controller, `goalsApi`, four MCP tools and the demo handler table; validation groups
+cannot select themselves from the payload's own content without Hibernate-specific machinery
+that does not work on records. So: one record with `@AssertTrue` methods.
+
+**The 422 body keys those under derived property names** — `savingsTargetComplete`,
+`recurringComplete`, `recurringSingleAccount`, `dateRangeOrdered` — not under a field name.
+Cross-field rules have no single field to attach to. Renaming a method is a breaking change for
+the form that maps messages off those keys.
+
+### Branching
+
+`toProgressResponse` branches at the top, because it runs for every goal on the Goals page **and**
+from `DashboardService`, where `target.subtract(currentTotal)` on a null target is a 500.
+
+Every path that assumes a deadline — the monthly calendar, both backfills, both override setters
+and both deleters — goes through `requireSavingsTarget` and answers 400. An unguarded one would
+be a 500 somewhere deeper.
+
+`DashboardService` filters recurring plans out of `goalSummaries`: that card is built entirely
+around a completion percentage.
+
+### The projection
+
+`ProjectionService`, separate from `GoalService` — that class is about progress against targets,
+is already 450+ lines, and has no business knowing what the portfolio is worth.
+
+**Base**: accounts whose `WealthTier` is `EQUITY`, `CRYPTO` or `SAFETY_NET`, valued and
+share-weighted once. Property, loans and alternatives are out: a house does not compound at 7.5%
+a year, and including it would inflate every scenario by whatever it is worth. The base is
+exposed so the screen states what it is projecting from.
+
+```
+r_m = (1 + r_a)^(1/12) − 1
+C_m = Σ monthly_amount of the plans active in month m
+V_m = V_{m−1} · (1 + r_m) + C_m          ← contribution at month END
+```
+
+Two defences worth keeping:
+
+- **Geometric monthly rate, never `r_a / 12`.** Dividing by twelve compounds to more than the
+  rate on the label — 10% split that way reaches 10.47% over a year — so a line labelled "10 %"
+  would not be one. `Math.pow` on the *rate* is the one place a `double` is acceptable: it is a
+  pure ratio, and every amount stays `BigDecimal`.
+- **Contributions at the end of the month.** At the start, the very first payment earns a month
+  of growth it never saw, and the error compounds across the whole horizon.
+
+Four scenarios — 2 / 5 / 7.5 / 10 % — defined server-side so a labelled line can never disagree
+with the rate that produced it. They **ignore each plan's own `expected_return`**: the chart
+compares one portfolio under four assumptions, and folding a per-goal rate into the line labelled
+"5 %" would make the label false. The field is recorded for the user's own reference.
+
+The maths is monthly, the points are yearly: 480 points × 4 lines is a large payload for a chart
+that cannot render them distinctly anyway.
+
+### Key files
+
+- `backend/src/main/java/com/picsou/model/GoalType.java`, `Goal.java`
+- `backend/src/main/java/com/picsou/dto/GoalRequest.java` — the compact constructor and the `@AssertTrue` rules
+- `backend/src/main/java/com/picsou/service/GoalService.java` — `toRecurringResponse`, `requireSavingsTarget`
+- `backend/src/main/java/com/picsou/service/ProjectionService.java`
+- `backend/src/main/resources/db/migration/V83__goal_recurring_investment.sql`
+- `frontend/src/pages/goals/GoalsPage.tsx` — two sections, two form shapes, `RecurringPlanCard`
+- `frontend/src/pages/analysis/ProjectionSection.tsx`
+
+## The bug this fixes
+
+V2 shipped `CONSTRAINT chk_goal_deadline CHECK (deadline > CURRENT_DATE)`.
+
+`CURRENT_DATE` is **not immutable**, so PostgreSQL re-evaluates that constraint on every UPDATE of
+the row. Any `save()` on a goal whose deadline had passed therefore failed at the database —
+breaking `update`, `extendHistory`, `extendHistoryByMonth`, `setMonthOverride` and
+`setManualContribution` for exactly the goals a user is most likely to revisit: the ones that have
+come due.
+
+It was broken on `main` long before this feature. V83 drops it; `@Future` on
+`GoalRequest.deadline` keeps the rule where it means what the user meant — at creation — instead
+of forbidding every later edit.
+
+`V83GoalTypeMigrationTest` proves both halves: the UPDATE fails before the migration and succeeds
+after.
+
+## Technical choices
+
+| Choice | Why | Rejected alternative |
+|--------|-----|----------------------|
+| One entity with a discriminator | Both shapes share member scoping, accounts, contributors, export and MCP | A separate `investment_plan` table duplicating all of it |
+| Nullable columns **and** a per-type CHECK | Without the CHECK a savings target could be created with no target | Dropping the NOT NULLs alone |
+| Compact constructor defaults the type | Keeps four MCP tools and every existing client working untouched | Requiring `type`, and updating every caller |
+| `@AssertTrue` on the record | One endpoint, one DTO; groups cannot self-select from the payload | Two DTOs and two endpoints |
+| A new MCP tool, existing four untouched | Agent prompts are written against those signatures | Adding parameters to `create_goal` |
+| Geometric monthly rate | `r/12` compounds to 10.47% on a line labelled 10% | Arithmetic division |
+| Contribution at month end | Month start gives the first payment growth it never earned | Beginning-of-month |
+| Scenarios ignore per-goal `expected_return` | A line labelled "5 %" must be 5 % | Blending the user's own rate in |
+| Investable base only | A house does not compound at an equity rate | Projecting total net worth |
+| Yearly points from monthly maths | 480 × 4 points a chart cannot draw distinctly | Monthly points |
+| `monthsLeft`/`isOnTrack` stay primitives | Boxing them would ripple a nullable through every savings-goal call site to say what `type` already says | Making them nullable |
+
+## Gotchas / Pitfalls
+
+- **The 422 keys are derived property names**, not field names. See above.
+- **`monthsLeft` is `0` and `isOnTrack` is `true` for a recurring plan.** They are primitives and
+  cannot be dropped from the JSON. They are meaningless for that type — check `type` before
+  rendering either.
+- **`GoalProgressBar` returns null for a recurring plan.** A progress bar towards no target would
+  be inventing a completion percentage.
+- **The monthly calendar refuses a recurring plan with a 400.** The frontend never links to it
+  from a recurring card, but the guard is the backend's.
+- **`Goal.builder()` in a test now needs `.type(...)`** only when it should be recurring; the
+  `@Builder.Default` covers everything else, which is what keeps the 20 pre-existing
+  `GoalServiceTest` cases untouched.
+- **`GoalsExporter`'s CSV header and rows are positional.** They gained the same five columns in
+  the same order; a mismatch silently misaligns every consumer's file.
+- **Do not re-stub `accessResolver.sharesFor` inside a `GoalServiceTest` case.**
+  `when(mock.method(...))` *invokes* the mock, which runs the class-level `Answer` with null
+  arguments and NPEs. The `@BeforeEach` stub already answers correctly.
+- **`ALTER TABLE ... ADD CONSTRAINT` revalidates existing rows.** The migration test has to add
+  the old constraint back as `NOT VALID` to reproduce production, where the row aged past its
+  deadline while the constraint sat there unvalidated.
+
+## Tests
+
+- `GoalServiceTest` — the 20 savings-target cases unchanged, plus: a recurring plan reports its
+  plan without NPE, the calendar/backfill/overrides refuse it, `create` persists the new fields
+- `GoalRequestTest` — an omitted type means `SAVINGS_TARGET`, each `@AssertTrue`, a past deadline
+  still refused at creation
+- `ProjectionServiceTest` (12) — investable base only, **10% over twelve months lands on ×1.10,
+  not ×1.1047**, contributions at month end, plan windows, shares once, four ordered scenarios,
+  horizon clamped, empty portfolio flat
+- `V83GoalTypeMigrationTest` — the UPDATE fails before the migration and succeeds after; a
+  recurring row needs no target; a savings target still cannot be created without one
+- `McpToolCatalogTest`, `GoalToolsTest` — the fifth tool registered, the four unchanged
+- `ProjectionSection.test.tsx` — rates from the payload, legend in payload order, base stated,
+  empty state; `e2e/goals.spec.ts` — the two sections and the form switch
+
+## Links
+
+- Related: [Savings goals](./goals.md) — the shape that already existed
+- Related: [Wealth pyramid](./wealth-pyramid.md) — where `WealthTier` comes from

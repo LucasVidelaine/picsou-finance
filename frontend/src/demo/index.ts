@@ -5,6 +5,7 @@ import {
   mockAllocationTargets,
   mockDiversification,
   mockExpenseEstimate,
+  mockProjection,
   mockWealthPyramid,
 } from './data/analysis'
 import { mockDashboard } from './data/dashboard'
@@ -49,6 +50,8 @@ handlers.set(key('PUT', '/analysis/allocation-targets'), (config) => {
   return demoAllocationTargets
 })
 handlers.set(key('GET', '/analysis/essential-expenses/estimate'), () => mockExpenseEstimate)
+handlers.set(key('GET', '/analysis/projection'), (config) =>
+  mockProjection(Number(config.params?.years) || 20))
 // Demo mode has no scheduler and no network, so the refresh reports a plausible queue rather
 // than pretending work happened.
 handlers.set(key('POST', '/analysis/security-profiles/refresh'), () => ({
@@ -789,6 +792,9 @@ handlers.set(key('POST', '/finary/api-sync/execute'), () => ({
 }))
 
 function generateMockMonths(goal: GoalProgress) {
+  // Mirrors the backend: the monthly calendar belongs to savings targets only.
+  if (goal.deadline === null || goal.monthlyNeeded === null) return []
+  const monthlyNeeded = goal.monthlyNeeded
   const start = new Date('2025-01-01')
   const end = new Date(goal.deadline)
   const months: { yearMonth: string; objective: number; actual: number | null; manualActual: number | null; override: number | null; effective: number | null }[] = []
@@ -797,10 +803,10 @@ function generateMockMonths(goal: GoalProgress) {
   while (current <= end) {
     const ym = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}`
     const isPast = current <= now
-    const actual = isPast ? Math.round((goal.monthlyNeeded * (0.7 + Math.random() * 0.6)) * 100) / 100 : null
+    const actual = isPast ? Math.round((monthlyNeeded * (0.7 + Math.random() * 0.6)) * 100) / 100 : null
     months.push({
       yearMonth: ym,
-      objective: goal.monthlyNeeded,
+      objective: monthlyNeeded,
       actual,
       manualActual: null,
       override: null,

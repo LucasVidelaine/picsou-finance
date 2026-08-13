@@ -50,7 +50,8 @@ class GoalsExporter implements EntityExporter {
         // (contributors, manual contributions, month overrides) are nested only
         // in the JSON view — CSV consumers can join via goal_id from the other
         // entity CSVs we ship as part of a fuller export later.
-        return List.of("id", "name", "target_amount", "deadline", "account_ids", "created_at", "updated_at");
+        return List.of("id", "name", "type", "target_amount", "deadline", "monthly_amount",
+            "expected_return", "start_date", "end_date", "account_ids", "created_at", "updated_at");
     }
 
     @Override
@@ -61,8 +62,13 @@ class GoalsExporter implements EntityExporter {
             csv.writeRow(List.of(
                 String.valueOf(g.getId()),
                 g.getName() == null ? "" : g.getName(),
+                g.getType() == null ? "" : g.getType().name(),
                 g.getTargetAmount() == null ? "" : g.getTargetAmount().toPlainString(),
                 g.getDeadline() == null ? "" : g.getDeadline().toString(),
+                g.getMonthlyAmount() == null ? "" : g.getMonthlyAmount().toPlainString(),
+                g.getExpectedReturn() == null ? "" : g.getExpectedReturn().toPlainString(),
+                g.getStartDate() == null ? "" : g.getStartDate().toString(),
+                g.getEndDate() == null ? "" : g.getEndDate().toString(),
                 accountIds,
                 g.getCreatedAt() == null ? "" : g.getCreatedAt().toString(),
                 g.getUpdatedAt() == null ? "" : g.getUpdatedAt().toString()
@@ -77,8 +83,13 @@ class GoalsExporter implements EntityExporter {
             json.writeStartObject();
             json.writeNumberField("id", g.getId());
             json.writeStringField("name", g.getName());
+            json.writeStringField("type", g.getType() == null ? null : g.getType().name());
             writeBigDecimal(json, "target_amount", g.getTargetAmount());
             json.writeStringField("deadline", g.getDeadline() == null ? null : g.getDeadline().toString());
+            writeBigDecimal(json, "monthly_amount", g.getMonthlyAmount());
+            writeBigDecimal(json, "expected_return", g.getExpectedReturn());
+            json.writeStringField("start_date", g.getStartDate() == null ? null : g.getStartDate().toString());
+            json.writeStringField("end_date", g.getEndDate() == null ? null : g.getEndDate().toString());
             writeInstant(json, "created_at", g.getCreatedAt());
             writeInstant(json, "updated_at", g.getUpdatedAt());
 

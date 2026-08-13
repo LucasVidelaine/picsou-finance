@@ -667,6 +667,40 @@ portfolio cannot be read as one over all of it. A ticker in `pendingTickers` has
 directly held share contributed its ISIN domicile. The two are different quantities; see the
 [ADR](../../docs/decisions/2026-08-13-equity-domicile-vs-etf-exposure.md).
 
+#### `GET /api/analysis/projection?years={n}`
+
+The investable portfolio projected forward under four return assumptions, fed by the member's
+recurring investment plans. `years` is clamped to 1–40 (default 20).
+
+The base is **investable only** — accounts in the `EQUITY`, `CRYPTO` and `SAFETY_NET` tiers.
+Property, loans and alternative assets are excluded: a house does not compound at an equity rate,
+and including it would inflate every scenario. `baseValueEur` is returned so the client can state
+what it is projecting from rather than letting it be mistaken for net worth.
+
+**Response `200`:**
+```json
+{
+  "baseValueEur": 96400.00,
+  "monthlyInflowEur": 300.00,
+  "years": 20,
+  "scenarios": [
+    {
+      "key": "LIVRET_A", "annualPercent": 2.0,
+      "points": [{ "date": "2026-08-31", "valueEur": 96400.00, "contributedEur": 96400.00 }]
+    }
+  ]
+}
+```
+
+Scenarios are ordered from prudent to optimistic (`LIVRET_A`, `PESSIMISTIC`, `REALISTIC`,
+`OPTIMISTIC`) and carry their own `annualPercent`, so a client never restates a rate. The maths
+is monthly using the **geometric** rate `(1 + r)^(1/12) − 1` with contributions credited at
+month end; the points are yearly.
+
+Each plan's own `expectedReturn` is deliberately **not** used: the chart compares one portfolio
+under four labelled assumptions, and blending a per-goal rate into the "5 %" line would make that
+label false.
+
 #### `GET /api/analysis/allocation-targets`
 
 The member's targets, or the shipped defaults when they have never set any. No row is created
@@ -720,6 +754,33 @@ exceeding it returns `429`.
 ---
 
 ### 7. Goals — `/api/goals`
+
+Goals have a **type**: `SAVINGS_TARGET` (an amount by a deadline — what every goal was before
+2026-08-13, and still is by default) or `RECURRING_INVESTMENT` (an amount every month, no target,
+no deadline; it feeds `/api/analysis/projection`).
+
+`type` may be **omitted** from any request body and defaults to `SAVINGS_TARGET`, so payloads
+written before the field existed keep working unchanged.
+
+| Field | `SAVINGS_TARGET` | `RECURRING_INVESTMENT` |
+|---|---|---|
+| `targetAmount`, `deadline` | required | must be absent |
+| `monthlyAmount` | — | required |
+| `expectedReturn`, `startDate`, `endDate` | — | optional |
+| `accountIds` | one or more | exactly one |
+
+In the response, the target machinery (`targetAmount`, `deadline`, `percentComplete`,
+`monthlyNeeded`, `surplus`) is null for a recurring plan and dropped from the JSON. `monthsLeft`
+and `isOnTrack` are primitives so they still appear, as `0` and `true` — **meaningless for that
+type; discriminate on `type`, not on absence.**
+
+**Errors:** `422` for a type/field mismatch. Those rules are cross-field, so the `errors` map keys
+them under derived property names — `savingsTargetComplete`, `recurringComplete`,
+`recurringSingleAccount`, `dateRangeOrdered` — not under a field name.
+
+The monthly calendar and the history backfill (`/months`, `/history/extend`,
+`/months/{yearMonth}` and their manual-contribution variants) apply to `SAVINGS_TARGET` only and
+answer `400` for a recurring plan: they count towards a deadline it does not have.
 
 #### `GET /api/goals`
 

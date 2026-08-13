@@ -12,6 +12,7 @@ import com.picsou.model.BalanceSnapshot;
 import com.picsou.model.FamilyMember;
 import com.picsou.model.Goal;
 import com.picsou.model.GoalManualContribution;
+import com.picsou.model.GoalType;
 import com.picsou.model.GoalMonthOverride;
 import com.picsou.repository.AccountRepository;
 import com.picsou.repository.BalanceSnapshotRepository;
@@ -92,8 +93,13 @@ public class GoalService {
 
         Goal goal = Goal.builder()
             .name(req.name())
+            .type(req.type())
             .targetAmount(req.targetAmount())
             .deadline(req.deadline())
+            .monthlyAmount(req.monthlyAmount())
+            .expectedReturn(req.expectedReturn())
+            .startDate(req.startDate())
+            .endDate(req.endDate())
             .member(member)
             .accounts(new ArrayList<>(accounts))
             .build();
@@ -112,8 +118,13 @@ public class GoalService {
         }
 
         goal.setName(req.name());
+        goal.setType(req.type());
         goal.setTargetAmount(req.targetAmount());
         goal.setDeadline(req.deadline());
+        goal.setMonthlyAmount(req.monthlyAmount());
+        goal.setExpectedReturn(req.expectedReturn());
+        goal.setStartDate(req.startDate());
+        goal.setEndDate(req.endDate());
         goal.setAccounts(new ArrayList<>(accounts));
 
         return toProgressResponse(goalRepository.save(goal));
@@ -125,9 +136,48 @@ public class GoalService {
         goalRepository.delete(goal);
     }
 
+
+    /**
+     * The monthly calendar, the backfill and the per-month overrides all assume a deadline to
+     * count towards. A recurring plan has none, so they refuse it rather than dividing by a null
+     * somewhere deeper — an unguarded path here is a 500, not a 400.
+     */
+    private static Goal requireSavingsTarget(Goal goal) {
+        if (goal.getType() == GoalType.RECURRING_INVESTMENT) {
+            throw new IllegalArgumentException(
+                "This operation applies to savings goals, not to a recurring investment plan");
+        }
+        return goal;
+    }
+
     // ─── Progress calculation ─────────────────────────────────────────────────
 
+    /**
+     * Called for every goal on the goals page <em>and</em> by {@code DashboardService}, so the
+     * branch has to live here rather than at the call sites: a recurring plan has no target, and
+     * {@code target.subtract(currentTotal)} on a null target is a 500.
+     */
     GoalProgressResponse toProgressResponse(Goal goal) {
+        return goal.getType() == GoalType.RECURRING_INVESTMENT
+            ? toRecurringResponse(goal)
+            : toSavingsTargetResponse(goal);
+    }
+
+    private GoalProgressResponse toRecurringResponse(Goal goal) {
+        List<AccountResponse> accountResponses = goal.getAccounts().stream()
+            .map(accountService::toResponse)
+            .toList();
+        Long goalMemberId = goal.getMember().getId();
+        Map<Long, BigDecimal> shares = accessResolver.sharesFor(goal.getAccounts(), goalMemberId);
+        BigDecimal currentTotal = goal.getAccounts().stream()
+            .map(a -> AccountAccessResolver.weigh(
+                accountService.signedLiveBalanceEur(a), shares.get(a.getId())))
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return GoalProgressResponse.recurring(goal, accountResponses, currentTotal);
+    }
+
+    private GoalProgressResponse toSavingsTargetResponse(Goal goal) {
         List<AccountResponse> accountResponses = goal.getAccounts().stream()
             .map(accountService::toResponse)
             .toList();
@@ -288,7 +338,7 @@ public class GoalService {
     // ─── Monthly history ──────────────────────────────────────────────────────
 
     public List<GoalMonthEntryResponse> getMonthlyEntries(Long goalId, Long memberId) {
-        Goal goal = getOrThrow(goalId, memberId);
+        Goal goal = requireSavingsTarget(getOrThrow(goalId, memberId));
         BigDecimal objective = toProgressResponse(goal).monthlyNeeded();
 
         Map<String, BigDecimal> overrideMap = overrideRepository.findByGoalId(goalId).stream()
@@ -336,7 +386,7 @@ public class GoalService {
      */
     @Transactional
     public GoalProgressResponse extendHistory(Long goalId, Long memberId) {
-        Goal goal = getOrThrow(goalId, memberId);
+        Goal goal = requireSavingsTarget(getOrThrow(goalId, memberId));
         YearMonth extended = effectiveStartMonth(goal).minusYears(1);
         goal.setHistoryStartMonth(extended.toString());
         return toProgressResponse(goalRepository.save(goal));
@@ -350,7 +400,7 @@ public class GoalService {
      */
     @Transactional
     public GoalProgressResponse extendHistoryByMonth(Long goalId, Long memberId) {
-        Goal goal = getOrThrow(goalId, memberId);
+        Goal goal = requireSavingsTarget(getOrThrow(goalId, memberId));
         YearMonth extended = effectiveStartMonth(goal).minusMonths(1);
         goal.setHistoryStartMonth(extended.toString());
         return toProgressResponse(goalRepository.save(goal));
@@ -358,7 +408,7 @@ public class GoalService {
 
     @Transactional
     public GoalMonthEntryResponse setMonthOverride(Long goalId, String yearMonth, BigDecimal amount, Long memberId) {
-        Goal goal = getOrThrow(goalId, memberId);
+        Goal goal = requireSavingsTarget(getOrThrow(goalId, memberId));
         GoalMonthOverride entry = overrideRepository
             .findByGoalIdAndYearMonth(goalId, yearMonth)
             .orElseGet(GoalMonthOverride::new);
@@ -376,7 +426,7 @@ public class GoalService {
 
     @Transactional
     public GoalMonthEntryResponse deleteMonthOverride(Long goalId, String yearMonth, Long memberId) {
-        Goal goal = getOrThrow(goalId, memberId);
+        Goal goal = requireSavingsTarget(getOrThrow(goalId, memberId));
         overrideRepository.findByGoalIdAndYearMonth(goal.getId(), yearMonth)
             .ifPresent(overrideRepository::delete);
         BigDecimal objective = toProgressResponse(goal).monthlyNeeded();
@@ -389,7 +439,7 @@ public class GoalService {
 
     @Transactional
     public GoalMonthEntryResponse setManualContribution(Long goalId, String yearMonth, BigDecimal amount, Long memberId) {
-        Goal goal = getOrThrow(goalId, memberId);
+        Goal goal = requireSavingsTarget(getOrThrow(goalId, memberId));
         GoalManualContribution entry = manualContributionRepository
             .findByGoalIdAndYearMonth(goalId, yearMonth)
             .orElseGet(GoalManualContribution::new);
@@ -411,7 +461,7 @@ public class GoalService {
 
     @Transactional
     public GoalMonthEntryResponse deleteManualContribution(Long goalId, String yearMonth, Long memberId) {
-        Goal goal = getOrThrow(goalId, memberId);
+        Goal goal = requireSavingsTarget(getOrThrow(goalId, memberId));
         manualContributionRepository.findByGoalIdAndYearMonth(goal.getId(), yearMonth)
             .ifPresent(manualContributionRepository::delete);
         BigDecimal objective = toProgressResponse(goal).monthlyNeeded();

@@ -269,8 +269,11 @@ export function DashboardPage() {
             <p className="text-sm text-muted-foreground">{t('dashboard.noGoals')}</p>
           ) : (
             <ItemGroup className="gap-3">
-              {[...data.goalSummaries]
-                .sort((a, b) => b.percentComplete - a.percentComplete)
+              {/* Savings targets only — the backend already filters recurring plans out of
+                  goalSummaries, and this card is built entirely around a completion percentage. */}
+              {data.goalSummaries
+                .filter((g) => g.percentComplete !== null && g.targetAmount !== null)
+                .sort((a, b) => (b.percentComplete ?? 0) - (a.percentComplete ?? 0))
                 .slice(0, 3)
                 .map((goal) => (
                 <Item
@@ -287,14 +290,14 @@ export function DashboardPage() {
                       value={goal.currentTotal}
                       className="text-3xl font-semibold tabular-nums"
                     />
-                    <Progress value={goal.percentComplete} className="h-2.5 [&_[data-slot=progress-indicator]]:bg-emerald-500" />
+                    <Progress value={goal.percentComplete ?? 0} className="h-2.5 [&_[data-slot=progress-indicator]]:bg-emerald-500" />
                   </ItemContent>
                   <ItemFooter>
                     <span className="text-sm text-muted-foreground">
-                      {Math.round(goal.percentComplete)}% {t('dashboard.achieved')}
+                      {Math.round(goal.percentComplete ?? 0)}% {t('dashboard.achieved')}
                     </span>
                     <CurrencyDisplay
-                      value={goal.targetAmount}
+                      value={goal.targetAmount ?? 0}
                       className="text-sm font-medium tabular-nums"
                     />
                   </ItemFooter>

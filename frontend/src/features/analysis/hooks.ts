@@ -19,6 +19,14 @@ export function useDiversification() {
   })
 }
 
+export function useProjection(years: number) {
+  return useQuery({
+    queryKey: ['analysis', 'projection', years],
+    queryFn: () => analysisApi.projection(years),
+    staleTime: QUERY_STALE_TIMES.analysis,
+  })
+}
+
 export function useAllocationTargets() {
   return useQuery({
     queryKey: ['analysis', 'targets'],

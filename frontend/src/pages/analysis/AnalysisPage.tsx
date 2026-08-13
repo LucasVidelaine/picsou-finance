@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useAllocationTargets, useDiversification, useWealthPyramid } from '@/features/analysis/hooks'
 import { PyramidSection } from './PyramidSection'
 import { DiversificationSection } from './DiversificationSection'
+import { ProjectionSection } from './ProjectionSection'
 import { AllocationTargetsModal } from './AllocationTargetsModal'
 
 export function AnalysisPage() {
@@ -59,6 +60,7 @@ export function AnalysisPage() {
         <div className="space-y-4">
           <PyramidSection pyramid={pyramid.data} />
           {diversification.data && <DiversificationSection data={diversification.data} />}
+          <ProjectionSection />
         </div>
       )}
 

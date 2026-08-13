@@ -28,4 +28,21 @@ test.describe('Goals page', () => {
     await page.getByRole('button', { name: 'Annuler' }).click()
     await expect(page.getByRole('dialog')).not.toBeVisible()
   })
+
+  test('should list recurring investment plans in their own section', async ({ page }) => {
+    await expect(page.getByText('Investissements récurrents')).toBeVisible()
+    await expect(page.getByText('DCA mensuel PEA')).toBeVisible()
+    // A recurring plan has no target, so it must not render a completion percentage.
+    await expect(page.getByText('Montant mensuel')).toBeVisible()
+  })
+
+  test('should switch the create dialog between the two goal shapes', async ({ page }) => {
+    await page.getByRole('button', { name: 'Nouvel objectif' }).click()
+    await expect(page.getByLabel('Montant cible')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Investissement mensuel' }).click()
+    // The target machinery is replaced, not merely hidden alongside.
+    await expect(page.getByLabel('Montant mensuel')).toBeVisible()
+    await expect(page.getByLabel('Montant cible')).toHaveCount(0)
+  })
 })

@@ -267,6 +267,20 @@
       "noHoldings": "Aucune ligne d'actions ou d'ETF à analyser.",
       "basisNote": "Pour un ETF, le pays est l'exposition réelle de l'indice ; pour une action détenue en direct, c'est le pays d'émission de l'ISIN. Ce sont deux grandeurs différentes, additionnées ici."
     },
+    "projection": {
+      "title": "Projection du patrimoine",
+      "years": "{{count}} ans",
+      "basis": "Base investissable",
+      "monthly": "versements",
+      "nothingToProject": "Définissez un investissement mensuel dans Objectifs pour voir une projection.",
+      "disclaimer": "Projection à partir de vos versements récurrents, capitalisée mensuellement. Hors immobilier, prêts et actifs alternatifs. Ce n'est pas une prévision.",
+      "scenarios": {
+        "LIVRET_A": "Livret A ({{value}} %)",
+        "PESSIMISTIC": "Pessimiste ({{value}} %)",
+        "REALISTIC": "Réaliste ({{value}} %)",
+        "OPTIMISTIC": "Optimiste ({{value}} %)"
+      }
+    },
     "classification": {
       "title": "Classer ce titre",
       "action": "Classer",
@@ -502,7 +516,25 @@
     "futureMonth": "···",
     "linkedAccounts": "Comptes liés",
     "history": "Historique",
-    "atCurrentPace": "Au rythme actuel"
+    "atCurrentPace": "Au rythme actuel",
+    "goalType": "Type d'objectif",
+    "namePlaceholder": "Apport immobilier",
+    "includedAccounts": "Comptes inclus",
+    "monthlyAmount": "Montant mensuel",
+    "expectedReturn": "Rendement attendu (%)",
+    "startDate": "Début",
+    "endDate": "Fin",
+    "until": "jusqu'au {{date}}",
+    "recurringHint": "Sans date de fin, le versement est considéré comme indéfini. Le rendement attendu est enregistré mais n'entre pas dans la projection, qui compare quatre hypothèses.",
+    "types": {
+      "SAVINGS_TARGET": "Épargne à échéance",
+      "RECURRING_INVESTMENT": "Investissement mensuel"
+    },
+    "sections": {
+      "savings": "Objectifs d'épargne",
+      "recurring": "Investissements récurrents",
+      "recurringHint": "Ce que vous investissez chaque mois — c'est ce qui alimente la projection dans Analyse."
+    }
   },
   "addAccount": {
     "title": "Ajouter un compte",

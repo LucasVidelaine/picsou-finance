@@ -2,6 +2,7 @@ import type {
   AllocationTargets,
   Diversification,
   EssentialExpenseEstimate,
+  Projection,
   WealthPyramid,
 } from '@/types/api'
 
@@ -156,4 +157,50 @@ export const mockDiversification: Diversification = {
       { label: 'CH', percent: 2.6 },
     ],
   },
+}
+
+/**
+ * Generated rather than hand-written: twenty years x four scenarios is 84 points, and the shape
+ * that matters (each curve above the previous, contributions growing linearly) is the arithmetic
+ * itself.
+ */
+export function mockProjection(years: number): Projection {
+  const base = 96400
+  const monthly = 300
+  const rates: { key: Projection['scenarios'][number]['key']; annualPercent: number }[] = [
+    { key: 'LIVRET_A', annualPercent: 2 },
+    { key: 'PESSIMISTIC', annualPercent: 5 },
+    { key: 'REALISTIC', annualPercent: 7.5 },
+    { key: 'OPTIMISTIC', annualPercent: 10 },
+  ]
+
+  return {
+    baseValueEur: base,
+    monthlyInflowEur: monthly,
+    years,
+    scenarios: rates.map(({ key, annualPercent }) => {
+      const monthlyRate = Math.pow(1 + annualPercent / 100, 1 / 12) - 1
+      let value = base
+      let contributed = base
+      const points = [{ date: isoMonthEnd(0), valueEur: base, contributedEur: base }]
+      for (let i = 1; i <= years * 12; i++) {
+        value = value * (1 + monthlyRate) + monthly
+        contributed += monthly
+        if (i % 12 === 0) {
+          points.push({
+            date: isoMonthEnd(i),
+            valueEur: Math.round(value * 100) / 100,
+            contributedEur: Math.round(contributed * 100) / 100,
+          })
+        }
+      }
+      return { key, annualPercent, points }
+    }),
+  }
+}
+
+function isoMonthEnd(monthsFromNow: number): string {
+  const now = new Date()
+  const d = new Date(now.getFullYear(), now.getMonth() + monthsFromNow + 1, 0)
+  return d.toISOString().slice(0, 10)
 }

@@ -267,6 +267,20 @@
       "noHoldings": "No stock or ETF line to analyse.",
       "basisNote": "For an ETF the country is the index's actual exposure; for a directly held share it is the ISIN's country of issuance. These are different quantities, added together here."
     },
+    "projection": {
+      "title": "Wealth projection",
+      "years": "{{count}} years",
+      "basis": "Investable base",
+      "monthly": "contributions",
+      "nothingToProject": "Set a monthly investment under Goals to see a projection.",
+      "disclaimer": "Projected from your recurring contributions, compounded monthly. Excludes property, loans and alternative assets. This is not a forecast.",
+      "scenarios": {
+        "LIVRET_A": "Livret A ({{value}}%)",
+        "PESSIMISTIC": "Pessimistic ({{value}}%)",
+        "REALISTIC": "Realistic ({{value}}%)",
+        "OPTIMISTIC": "Optimistic ({{value}}%)"
+      }
+    },
     "classification": {
       "title": "Classify this security",
       "action": "Classify",
@@ -502,7 +516,25 @@
     "futureMonth": "···",
     "linkedAccounts": "Linked accounts",
     "history": "History",
-    "atCurrentPace": "At current pace"
+    "atCurrentPace": "At current pace",
+    "goalType": "Goal type",
+    "namePlaceholder": "House deposit",
+    "includedAccounts": "Included accounts",
+    "monthlyAmount": "Monthly amount",
+    "expectedReturn": "Expected return (%)",
+    "startDate": "Start",
+    "endDate": "End",
+    "until": "until {{date}}",
+    "recurringHint": "With no end date the plan runs indefinitely. The expected return is recorded but does not feed the projection, which compares four assumptions.",
+    "types": {
+      "SAVINGS_TARGET": "Savings target",
+      "RECURRING_INVESTMENT": "Monthly investment"
+    },
+    "sections": {
+      "savings": "Savings goals",
+      "recurring": "Recurring investments",
+      "recurringHint": "What you invest every month — this is what feeds the projection in Analysis."
+    }
   },
   "addAccount": {
     "title": "Add account",

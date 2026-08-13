@@ -326,28 +326,75 @@ export interface BalanceSnapshot {
   createdAt?: string
 }
 
+export type GoalType = 'SAVINGS_TARGET' | 'RECURRING_INVESTMENT'
+
 export interface GoalProgress {
   id: number
   name: string
-  targetAmount: number
-  deadline: string
+  type: GoalType
   createdAt: string
   historyStartMonth: string | null
   accounts: Account[]
   currentTotal: number
-  percentComplete: number
-  monthsLeft: number
-  monthlyNeeded: number
+
+  /**
+   * The target machinery. All null for a RECURRING_INVESTMENT — discriminate on `type`, which is
+   * always present, rather than on which of these happens to be missing.
+   */
+  targetAmount: number | null
+  deadline: string | null
+  percentComplete: number | null
+  monthlyNeeded: number | null
   avgMonthlyContribution: number | null
+  surplus: number | null
+
+  /**
+   * Primitives on the backend, so they cannot be dropped from the JSON: a recurring plan reports
+   * 0 and true. Meaningless for it — never render them without checking `type` first.
+   */
+  monthsLeft: number
   isOnTrack: boolean
-  surplus: number
+
+  /** RECURRING_INVESTMENT only. */
+  monthlyAmount: number | null
+  expectedReturn: number | null
+  startDate: string | null
+  endDate: string | null
 }
 
 export interface GoalRequest {
   name: string
-  targetAmount: number
-  deadline: string
+  type: GoalType
+  targetAmount: number | null
+  deadline: string | null
+  monthlyAmount: number | null
+  expectedReturn: number | null
+  startDate: string | null
+  endDate: string | null
   accountIds: number[]
+}
+
+// --- Analysis: wealth projection ---
+
+export interface ProjectionPoint {
+  date: string
+  valueEur: number
+  /** Capital in — the base plus everything paid in since, so the chart can shade the gain. */
+  contributedEur: number
+}
+
+export interface ProjectionScenario {
+  key: 'LIVRET_A' | 'PESSIMISTIC' | 'REALISTIC' | 'OPTIMISTIC'
+  annualPercent: number
+  points: ProjectionPoint[]
+}
+
+export interface Projection {
+  /** Investable only: no property, no loans, no alternative assets. */
+  baseValueEur: number
+  monthlyInflowEur: number
+  years: number
+  scenarios: ProjectionScenario[]
 }
 
 export interface GoalMonthEntry {

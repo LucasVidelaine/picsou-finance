@@ -4,6 +4,7 @@ import com.picsou.dto.AllocationTargetsRequest;
 import com.picsou.dto.AllocationTargetsResponse;
 import com.picsou.dto.DiversificationResponse;
 import com.picsou.dto.EssentialExpenseEstimateResponse;
+import com.picsou.dto.ProjectionResponse;
 import com.picsou.dto.SecurityProfileRefreshResponse;
 import com.picsou.dto.WealthPyramidResponse;
 import com.picsou.config.RateLimitConfig;
@@ -11,6 +12,7 @@ import com.picsou.config.ClientIp;
 import com.picsou.service.AllocationTargetService;
 import com.picsou.service.EssentialExpenseEstimator;
 import com.picsou.service.PortfolioDiversificationService;
+import com.picsou.service.ProjectionService;
 import com.picsou.service.SecurityProfileRefreshRunner;
 import com.picsou.service.UserContext;
 import com.picsou.service.WealthPyramidService;
@@ -37,6 +39,7 @@ public class AnalysisController {
 
     private final WealthPyramidService pyramidService;
     private final PortfolioDiversificationService diversificationService;
+    private final ProjectionService projectionService;
     private final AllocationTargetService allocationTargetService;
     private final EssentialExpenseEstimator expenseEstimator;
     private final SecurityProfileRefreshRunner profileRefreshRunner;
@@ -45,6 +48,7 @@ public class AnalysisController {
 
     public AnalysisController(WealthPyramidService pyramidService,
                               PortfolioDiversificationService diversificationService,
+                              ProjectionService projectionService,
                               AllocationTargetService allocationTargetService,
                               EssentialExpenseEstimator expenseEstimator,
                               SecurityProfileRefreshRunner profileRefreshRunner,
@@ -52,6 +56,7 @@ public class AnalysisController {
                               @Qualifier("syncBuckets") Map<String, Bucket> syncBuckets) {
         this.pyramidService = pyramidService;
         this.diversificationService = diversificationService;
+        this.projectionService = projectionService;
         this.allocationTargetService = allocationTargetService;
         this.expenseEstimator = expenseEstimator;
         this.profileRefreshRunner = profileRefreshRunner;
@@ -74,6 +79,18 @@ public class AnalysisController {
     @GetMapping("/diversification")
     public DiversificationResponse diversification() {
         return diversificationService.diversification(userContext.currentMemberId());
+    }
+
+    /**
+     * The investable portfolio projected forward under four return assumptions, fed by the
+     * member's recurring investment plans.
+     *
+     * <p>Property, loans and alternative assets are excluded from the base — a house does not
+     * compound at 7.5% a year, and including it would inflate every scenario.
+     */
+    @GetMapping("/projection")
+    public ProjectionResponse projection(@RequestParam(defaultValue = "20") int years) {
+        return projectionService.project(userContext.currentMemberId(), years);
     }
 
     /** The member's targets, or the shipped defaults when they have never set any. */

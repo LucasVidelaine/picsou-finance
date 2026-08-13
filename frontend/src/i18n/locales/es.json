@@ -267,6 +267,20 @@
       "noHoldings": "No hay línea de acciones o ETF que analizar.",
       "basisNote": "En un ETF el país es la exposición real del índice; en una acción en directo es el país de emisión del ISIN. Son magnitudes distintas, sumadas aquí."
     },
+    "projection": {
+      "title": "Proyección del patrimonio",
+      "years": "{{count}} años",
+      "basis": "Base invertible",
+      "monthly": "aportaciones",
+      "nothingToProject": "Define una inversión mensual en Objetivos para ver una proyección.",
+      "disclaimer": "Proyectado a partir de tus aportaciones recurrentes, capitalizado mensualmente. Excluye inmuebles, préstamos y activos alternativos. No es una previsión.",
+      "scenarios": {
+        "LIVRET_A": "Livret A ({{value}} %)",
+        "PESSIMISTIC": "Pesimista ({{value}} %)",
+        "REALISTIC": "Realista ({{value}} %)",
+        "OPTIMISTIC": "Optimista ({{value}} %)"
+      }
+    },
     "classification": {
       "title": "Clasificar este valor",
       "action": "Clasificar",
@@ -502,7 +516,25 @@
     "futureMonth": "···",
     "linkedAccounts": "Cuentas vinculadas",
     "history": "Historial",
-    "atCurrentPace": "Al ritmo actual"
+    "atCurrentPace": "Al ritmo actual",
+    "goalType": "Tipo de objetivo",
+    "namePlaceholder": "Entrada de la vivienda",
+    "includedAccounts": "Cuentas incluidas",
+    "monthlyAmount": "Importe mensual",
+    "expectedReturn": "Rentabilidad esperada (%)",
+    "startDate": "Inicio",
+    "endDate": "Fin",
+    "until": "hasta el {{date}}",
+    "recurringHint": "Sin fecha de fin el plan es indefinido. La rentabilidad esperada se guarda pero no alimenta la proyección, que compara cuatro hipótesis.",
+    "types": {
+      "SAVINGS_TARGET": "Objetivo de ahorro",
+      "RECURRING_INVESTMENT": "Inversión mensual"
+    },
+    "sections": {
+      "savings": "Objetivos de ahorro",
+      "recurring": "Inversiones recurrentes",
+      "recurringHint": "Lo que inviertes cada mes — es lo que alimenta la proyección en Análisis."
+    }
   },
   "addAccount": {
     "title": "Añadir cuenta",

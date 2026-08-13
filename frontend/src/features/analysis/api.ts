@@ -7,6 +7,7 @@ import type {
   HoldingClassificationRequest,
   HoldingClassificationResponse,
   HoldingClassificationView,
+  Projection,
   SecurityProfileRefresh,
   WealthPyramid,
 } from '@/types/api'
@@ -16,6 +17,9 @@ export const analysisApi = {
 
   diversification: () =>
     api.get<Diversification>('/analysis/diversification').then(r => r.data),
+
+  projection: (years: number) =>
+    api.get<Projection>('/analysis/projection', { params: { years } }).then(r => r.data),
 
   targets: () => api.get<AllocationTargets>('/analysis/allocation-targets').then(r => r.data),
 

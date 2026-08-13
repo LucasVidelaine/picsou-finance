@@ -267,6 +267,20 @@
       "noHoldings": "Keine Aktien- oder ETF-Position zu analysieren.",
       "basisNote": "Bei einem ETF ist das Land die tatsächliche Indexausrichtung; bei einer direkt gehaltenen Aktie das Emissionsland der ISIN. Das sind zwei verschiedene Größen, die hier addiert werden."
     },
+    "projection": {
+      "title": "Vermögensprojektion",
+      "years": "{{count}} Jahre",
+      "basis": "Anlagefähige Basis",
+      "monthly": "Einzahlungen",
+      "nothingToProject": "Lege unter Ziele eine monatliche Anlage an, um eine Projektion zu sehen.",
+      "disclaimer": "Projiziert aus deinen wiederkehrenden Einzahlungen, monatlich verzinst. Ohne Immobilien, Kredite und alternative Anlagen. Das ist keine Prognose.",
+      "scenarios": {
+        "LIVRET_A": "Livret A ({{value}} %)",
+        "PESSIMISTIC": "Pessimistisch ({{value}} %)",
+        "REALISTIC": "Realistisch ({{value}} %)",
+        "OPTIMISTIC": "Optimistisch ({{value}} %)"
+      }
+    },
     "classification": {
       "title": "Wertpapier einordnen",
       "action": "Einordnen",
@@ -502,7 +516,25 @@
     "futureMonth": "···",
     "linkedAccounts": "Verknüpfte Konten",
     "history": "Verlauf",
-    "atCurrentPace": "Beim aktuellen Tempo"
+    "atCurrentPace": "Beim aktuellen Tempo",
+    "goalType": "Zielart",
+    "namePlaceholder": "Eigenkapital Immobilie",
+    "includedAccounts": "Einbezogene Konten",
+    "monthlyAmount": "Monatlicher Betrag",
+    "expectedReturn": "Erwartete Rendite (%)",
+    "startDate": "Beginn",
+    "endDate": "Ende",
+    "until": "bis {{date}}",
+    "recurringHint": "Ohne Enddatum läuft der Plan unbefristet. Die erwartete Rendite wird gespeichert, fließt aber nicht in die Projektion ein, die vier Annahmen vergleicht.",
+    "types": {
+      "SAVINGS_TARGET": "Sparziel",
+      "RECURRING_INVESTMENT": "Monatliche Anlage"
+    },
+    "sections": {
+      "savings": "Sparziele",
+      "recurring": "Wiederkehrende Anlagen",
+      "recurringHint": "Was du jeden Monat anlegst — das speist die Projektion in der Analyse."
+    }
   },
   "addAccount": {
     "title": "Konto hinzufügen",

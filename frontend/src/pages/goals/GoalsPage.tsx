@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { NumericInput } from '@/components/shared/NumericInput'
 import { DateInput } from '@/components/shared/DateInput'
-import { parseAmount } from '@/lib/utils'
+import { formatDate, parseAmount } from '@/lib/utils'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
@@ -35,12 +35,17 @@ import {
   TrendingUp,
   TrendingDown,
 } from 'lucide-react'
-import type { GoalProgress } from '@/types/api'
+import type { GoalProgress, GoalType } from '@/types/api'
 
 const emptyForm = {
   name: '',
+  type: 'SAVINGS_TARGET' as GoalType,
   targetAmount: '',
   deadline: '',
+  monthlyAmount: '',
+  expectedReturn: '',
+  startDate: '',
+  endDate: '',
   accountIds: [] as number[],
 }
 
@@ -70,8 +75,13 @@ export function GoalsPage() {
     setEditingGoal(goal)
     setForm({
       name: goal.name,
-      targetAmount: String(goal.targetAmount),
-      deadline: goal.deadline,
+      type: goal.type,
+      targetAmount: goal.targetAmount === null ? '' : String(goal.targetAmount),
+      deadline: goal.deadline ?? '',
+      monthlyAmount: goal.monthlyAmount === null ? '' : String(goal.monthlyAmount),
+      expectedReturn: goal.expectedReturn === null ? '' : String(goal.expectedReturn),
+      startDate: goal.startDate ?? '',
+      endDate: goal.endDate ?? '',
       accountIds: goal.accounts.map((a) => a.id),
     })
     setShowForm(true)
@@ -84,10 +94,18 @@ export function GoalsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    // The two shapes send different halves; the backend defaults an omitted type, but being
+    // explicit here keeps the payload readable in the network tab.
+    const recurring = form.type === 'RECURRING_INVESTMENT'
     const data = {
       name: form.name,
-      targetAmount: parseAmount(form.targetAmount),
-      deadline: form.deadline,
+      type: form.type,
+      targetAmount: recurring ? null : parseAmount(form.targetAmount),
+      deadline: recurring ? null : form.deadline,
+      monthlyAmount: recurring ? parseAmount(form.monthlyAmount) : null,
+      expectedReturn: recurring && form.expectedReturn ? parseAmount(form.expectedReturn) : null,
+      startDate: recurring && form.startDate ? form.startDate : null,
+      endDate: recurring && form.endDate ? form.endDate : null,
       accountIds: form.accountIds,
     }
     if (editingGoal) {
@@ -99,12 +117,19 @@ export function GoalsPage() {
   }
 
   const toggleAccount = (id: number) => {
-    setForm((f) => ({
-      ...f,
-      accountIds: f.accountIds.includes(id)
-        ? f.accountIds.filter((a) => a !== id)
-        : [...f.accountIds, id],
-    }))
+    setForm((f) => {
+      // A recurring plan funds exactly one account — the backend refuses more, so the picker
+      // behaves like a radio group rather than letting the user build an invalid request.
+      if (f.type === 'RECURRING_INVESTMENT') {
+        return { ...f, accountIds: f.accountIds.includes(id) ? [] : [id] }
+      }
+      return {
+        ...f,
+        accountIds: f.accountIds.includes(id)
+          ? f.accountIds.filter((a) => a !== id)
+          : [...f.accountIds, id],
+      }
+    })
   }
 
   const handleConfirmDelete = () => {
@@ -117,6 +142,10 @@ export function GoalsPage() {
   if (isLoading) return <LoadingSkeleton />
 
   const goalList = goals ?? []
+  // Two shapes, two sections: a savings target has a percentage and a deadline, a recurring plan
+  // has neither, and one list would have to render an empty progress bar for half its rows.
+  const savingsTargets = goalList.filter((g) => g.type !== 'RECURRING_INVESTMENT')
+  const recurringPlans = goalList.filter((g) => g.type === 'RECURRING_INVESTMENT')
 
   return (
     <div className="space-y-6">
@@ -138,17 +167,39 @@ export function GoalsPage() {
           action={{ label: t('goals.addGoal'), onClick: openCreate }}
         />
       ) : (
-        <div className="flex flex-col gap-4">
-          {goalList.map((goal) => (
-            <GoalCard
-              key={goal.id}
-              goal={goal}
-              onEdit={() => openEdit(goal)}
-              onDelete={() => setDeleteId(goal.id)}
-              onCalendar={() => navigate(`/goals/${goal.id}/calendar`)}
-              onOpenDetail={() => setDetailGoalId(goal.id)}
-            />
-          ))}
+        <div className="flex flex-col gap-8">
+          {savingsTargets.length > 0 && (
+            <section className="flex flex-col gap-4">
+              <h2 className="text-sm text-muted-foreground">{t('goals.sections.savings')}</h2>
+              {savingsTargets.map((goal) => (
+                <GoalCard
+                  key={goal.id}
+                  goal={goal}
+                  onEdit={() => openEdit(goal)}
+                  onDelete={() => setDeleteId(goal.id)}
+                  onCalendar={() => navigate(`/goals/${goal.id}/calendar`)}
+                  onOpenDetail={() => setDetailGoalId(goal.id)}
+                />
+              ))}
+            </section>
+          )}
+
+          {recurringPlans.length > 0 && (
+            <section className="flex flex-col gap-4">
+              <div>
+                <h2 className="text-sm text-muted-foreground">{t('goals.sections.recurring')}</h2>
+                <p className="text-xs text-muted-foreground">{t('goals.sections.recurringHint')}</p>
+              </div>
+              {recurringPlans.map((goal) => (
+                <RecurringPlanCard
+                  key={goal.id}
+                  goal={goal}
+                  onEdit={() => openEdit(goal)}
+                  onDelete={() => setDeleteId(goal.id)}
+                />
+              ))}
+            </section>
+          )}
         </div>
       )}
 
@@ -168,6 +219,25 @@ export function GoalsPage() {
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            {!editingGoal && (
+              <div className="flex flex-col gap-1.5">
+                <Label>{t('goals.goalType')}</Label>
+                <div className="flex gap-2">
+                  {(['SAVINGS_TARGET', 'RECURRING_INVESTMENT'] as GoalType[]).map((type) => (
+                    <Button
+                      key={type}
+                      type="button"
+                      variant={form.type === type ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setForm((f) => ({ ...f, type, accountIds: [] }))}
+                    >
+                      {t(`goals.types.${type}`)}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="goal-name">{t('goals.title')}</Label>
               <Input
@@ -175,34 +245,79 @@ export function GoalsPage() {
                 required
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="Apport immobilier"
+                placeholder={t('goals.namePlaceholder')}
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="goal-target">{t('goals.targetAmount')}</Label>
-                <NumericInput
-                  id="goal-target"
-                  required
-                  value={form.targetAmount}
-                  onChange={(e) => setForm((f) => ({ ...f, targetAmount: e.target.value }))}
-                  placeholder="50000"
-                />
+            {form.type === 'SAVINGS_TARGET' ? (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="goal-target">{t('goals.targetAmount')}</Label>
+                  <NumericInput
+                    id="goal-target"
+                    required
+                    value={form.targetAmount}
+                    onChange={(e) => setForm((f) => ({ ...f, targetAmount: e.target.value }))}
+                    placeholder="50000"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="goal-deadline">{t('goals.deadline')}</Label>
+                  <DateInput
+                    id="goal-deadline"
+                    required
+                    value={form.deadline}
+                    onChange={(iso) => setForm((f) => ({ ...f, deadline: iso }))}
+                  />
+                </div>
               </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="goal-deadline">{t('goals.deadline')}</Label>
-                <DateInput
-                  id="goal-deadline"
-                  required
-                  value={form.deadline}
-                  onChange={(iso) => setForm((f) => ({ ...f, deadline: iso }))}
-                />
-              </div>
-            </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="goal-monthly">{t('goals.monthlyAmount')}</Label>
+                    <NumericInput
+                      id="goal-monthly"
+                      required
+                      value={form.monthlyAmount}
+                      onChange={(e) => setForm((f) => ({ ...f, monthlyAmount: e.target.value }))}
+                      placeholder="300"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="goal-return">{t('goals.expectedReturn')}</Label>
+                    <NumericInput
+                      id="goal-return"
+                      value={form.expectedReturn}
+                      onChange={(e) => setForm((f) => ({ ...f, expectedReturn: e.target.value }))}
+                      placeholder="7.5"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="goal-start">{t('goals.startDate')}</Label>
+                    <DateInput
+                      id="goal-start"
+                      value={form.startDate}
+                      onChange={(iso) => setForm((f) => ({ ...f, startDate: iso }))}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="goal-end">{t('goals.endDate')}</Label>
+                    <DateInput
+                      id="goal-end"
+                      value={form.endDate}
+                      onChange={(iso) => setForm((f) => ({ ...f, endDate: iso }))}
+                    />
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground">{t('goals.recurringHint')}</p>
+              </>
+            )}
 
             <div className="flex flex-col gap-2">
-              <Label>Comptes inclus</Label>
+              <Label>{t('goals.includedAccounts')}</Label>
               <div className="flex flex-col gap-2 max-h-40 overflow-y-auto">
                 {(accounts ?? []).map((a) => (
                   <label
@@ -266,6 +381,62 @@ export function GoalsPage() {
   )
 }
 
+/**
+ * A recurring plan has no target, no deadline and no progress bar — showing an empty one would
+ * be inventing a completion percentage for something with no end. It shows what goes in every
+ * month, into which account, and what that account is worth today.
+ */
+function RecurringPlanCard({
+  goal,
+  onEdit,
+  onDelete,
+}: {
+  goal: GoalProgress
+  onEdit: () => void
+  onDelete: () => void
+}) {
+  const { t } = useTranslation()
+  const account = goal.accounts[0]
+
+  return (
+    <Card>
+      <CardContent className="flex flex-wrap items-center justify-between gap-4 py-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="truncate text-foreground">{goal.name}</span>
+            {account && <Badge variant="secondary">{account.name}</Badge>}
+            {goal.endDate && (
+              <Badge variant="outline">
+                {t('goals.until', { date: formatDate(goal.endDate) })}
+              </Badge>
+            )}
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t('goals.currentTotal')} <CurrencyDisplay value={goal.currentTotal} />
+          </p>
+        </div>
+
+        <div className="flex items-center gap-6">
+          <div className="text-right">
+            <p className="mb-0.5 text-xs text-muted-foreground">{t('goals.monthlyAmount')}</p>
+            <p className="text-sm font-semibold">
+              <CurrencyDisplay value={goal.monthlyAmount ?? 0} />
+            </p>
+          </div>
+          <div className="flex gap-1">
+            <Button variant="ghost" size="icon" onClick={onEdit} aria-label={t('common.edit')}>
+              <Pencil className="size-4" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={onDelete} aria-label={t('common.delete')}>
+              <Trash2 className="size-4" />
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 interface GoalCardProps {
   goal: GoalProgress
   onEdit: () => void
@@ -278,7 +449,7 @@ function GoalCard({ goal, onEdit, onDelete, onCalendar, onOpenDetail }: GoalCard
   const { t } = useTranslation()
 
   const statusBadge = (() => {
-    if (goal.monthlyNeeded <= 0) {
+    if ((goal.monthlyNeeded ?? 0) <= 0) {
       return (
         <Badge className="gap-1">
           <TrendingUp className="size-3" />
@@ -357,10 +528,10 @@ function GoalCard({ goal, onEdit, onDelete, onCalendar, onOpenDetail }: GoalCard
         {/* Footer: percent + target */}
         <div className="flex items-center justify-between mt-3">
           <span className="text-sm text-muted-foreground">
-            {Math.round(goal.percentComplete)}% {t('dashboard.achieved')}
+            {Math.round(goal.percentComplete ?? 0)}% {t('dashboard.achieved')}
           </span>
           <CurrencyDisplay
-            value={goal.targetAmount}
+            value={goal.targetAmount ?? 0}
             className="text-sm font-medium tabular-nums"
           />
         </div>
@@ -374,7 +545,7 @@ function GoalCard({ goal, onEdit, onDelete, onCalendar, onOpenDetail }: GoalCard
           <div>
             <p className="text-xs text-muted-foreground mb-0.5">{t('goals.monthlyNeeded')}</p>
             <p className="text-sm font-semibold">
-              <CurrencyDisplay value={goal.monthlyNeeded} />
+              <CurrencyDisplay value={goal.monthlyNeeded ?? 0} />
             </p>
           </div>
           <div>

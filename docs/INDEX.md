@@ -82,6 +82,7 @@
 | Crypto tracking | 2026-08-11 | [crypto-tracking.md](./features/crypto-tracking.md) |
 | Wealth pyramid (Analysis) | 2026-08-13 | [wealth-pyramid.md](./features/wealth-pyramid.md) |
 | Portfolio diversification (sector + geography) | 2026-08-14 | [portfolio-diversification.md](./features/portfolio-diversification.md) |
+| Recurring investment plans + wealth projection | 2026-08-13 | [goal-recurring-investment.md](./features/goal-recurring-investment.md) |
 | Savings goals | 2026-06-02 | [goals.md](./features/goals.md) |
 | Goals — Grid view (donuts) | 2026-06-02 | [goal-calendar-donut.md](./features/goal-calendar-donut.md) |
 | Price service | 2026-08-07 | [price-service.md](./features/price-service.md) |

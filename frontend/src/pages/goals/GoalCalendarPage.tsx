@@ -587,7 +587,7 @@ export function GoalCalendarPage() {
       {/* Summary bar */}
       <div className="flex items-center gap-3 text-sm">
         <span className="text-muted-foreground">
-          {t('goals.monthlyObjective')}: <CurrencyDisplay value={goal.monthlyNeeded} />
+          {t('goals.monthlyObjective')}: <CurrencyDisplay value={goal.monthlyNeeded ?? 0} />
         </span>
         {pastMonths.length > 0 && (
           <Badge variant="secondary">

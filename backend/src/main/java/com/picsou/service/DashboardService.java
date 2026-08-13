@@ -7,6 +7,7 @@ import com.picsou.dto.GoalProgressResponse;
 import com.picsou.model.Account;
 import com.picsou.model.AccountHolding;
 import com.picsou.model.AccountType;
+import com.picsou.model.GoalType;
 import com.picsou.repository.AccountHoldingRepository;
 import com.picsou.repository.AccountRepository;
 import com.picsou.repository.GoalRepository;
@@ -139,7 +140,12 @@ public class DashboardService {
         List<DistributionItem> liabilities = buildDistribution(
             accounts, totalLiabilities, holdingsByAccount, accountValues, true);
 
+        // Savings targets only. The dashboard card shows progress towards an amount, which a
+        // recurring investment plan does not have — it would render as an empty row with no
+        // percentage and no deadline. Recurring plans live on the Goals page and in the
+        // projection instead.
         List<GoalProgressResponse> goals = goalRepository.findAllByMemberIdOrderByCreatedAtAsc(memberId).stream()
+            .filter(goal -> goal.getType() != GoalType.RECURRING_INVESTMENT)
             .map(goalService::toProgressResponse)
             .toList();
 

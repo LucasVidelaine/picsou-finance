@@ -7,6 +7,7 @@ import com.picsou.model.Account;
 import com.picsou.model.AccountType;
 import com.picsou.model.FamilyMember;
 import com.picsou.model.Goal;
+import com.picsou.model.GoalType;
 import com.picsou.model.GoalManualContribution;
 import com.picsou.model.GoalMonthOverride;
 import com.picsou.repository.AccountRepository;
@@ -215,10 +216,81 @@ class GoalServiceTest {
     // member's account. The account lookup must be member-scoped, never the
     // inherited, unscoped findAllById.
 
+    // ─── Recurring investment plans ───────────────────────────────────────────
+    // The savings-target tests above must all stay green: this type is additive, and the
+    // existing shape is what every goal written before V83 still is.
+
+    private Goal recurringPlan() {
+        return Goal.builder()
+            .id(9L).member(GOAL_OWNER).name("PEA monthly")
+            .type(GoalType.RECURRING_INVESTMENT)
+            .monthlyAmount(new BigDecimal("300"))
+            .accounts(new java.util.ArrayList<>())
+            .build();
+    }
+
+    @Test
+    void recurringPlan_reportsItsPlanWithoutATargetAndWithoutNpe() {
+        // toProgressResponse runs for every goal on the goals page AND from DashboardService,
+        // where target.subtract(currentTotal) on a null target would be a 500.
+        Goal plan = recurringPlan();
+
+        GoalProgressResponse response = goalService.toProgressResponse(plan);
+
+        assertThat(response.type()).isEqualTo(GoalType.RECURRING_INVESTMENT);
+        assertThat(response.monthlyAmount()).isEqualByComparingTo("300");
+        assertThat(response.targetAmount()).isNull();
+        assertThat(response.deadline()).isNull();
+        assertThat(response.percentComplete()).isNull();
+        assertThat(response.monthlyNeeded()).isNull();
+    }
+
+    @Test
+    void recurringPlan_isRefusedByTheMonthlyCalendar() {
+        // The calendar counts towards a deadline the plan does not have. Refusing explicitly is
+        // a 400; letting it through is a 500 somewhere deeper.
+        when(goalRepository.findByIdAndMemberId(9L, 42L)).thenReturn(java.util.Optional.of(recurringPlan()));
+
+        assertThatThrownBy(() -> goalService.getMonthlyEntries(9L, 42L))
+            .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void recurringPlan_isRefusedByTheBackfillAndTheOverrides() {
+        when(goalRepository.findByIdAndMemberId(9L, 42L))
+            .thenReturn(java.util.Optional.of(recurringPlan()));
+
+        assertThatThrownBy(() -> goalService.extendHistory(9L, 42L))
+            .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> goalService.extendHistoryByMonth(9L, 42L))
+            .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> goalService.setMonthOverride(9L, "2026-01", BigDecimal.TEN, 42L))
+            .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> goalService.setManualContribution(9L, "2026-01", BigDecimal.TEN, 42L))
+            .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void create_persistsTheRecurringFields() {
+        FamilyMember member = FamilyMember.builder().id(42L).build();
+        Account account = Account.builder()
+            .id(1L).name("PEA").type(AccountType.PEA).currency("EUR")
+            .currentBalance(BigDecimal.ZERO).build();
+        when(accountRepository.findByIdInAndMemberId(List.of(1L), 42L)).thenReturn(List.of(account));
+        when(goalRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        GoalProgressResponse response = goalService.create(GoalRequest.recurringInvestment(
+            "PEA monthly", new BigDecimal("300"), new BigDecimal("7.5"), null, null, 1L), member);
+
+        assertThat(response.type()).isEqualTo(GoalType.RECURRING_INVESTMENT);
+        assertThat(response.monthlyAmount()).isEqualByComparingTo("300");
+        assertThat(response.expectedReturn()).isEqualByComparingTo("7.5");
+    }
+
     @Test
     void create_isMemberScoped_andRejectsForeignAccounts() {
         FamilyMember member = FamilyMember.builder().id(42L).build();
-        GoalRequest req = new GoalRequest(
+        GoalRequest req = GoalRequest.savingsTarget(
             "Trip", new BigDecimal("1000"), LocalDate.now().plusMonths(3), List.of(1L, 2L));
         // Account 2 belongs to someone else → the member-scoped finder returns only the owned one.
         Account owned = Account.builder()
@@ -243,7 +315,7 @@ class GoalServiceTest {
             .deadline(LocalDate.now().plusMonths(3))
             .accounts(new java.util.ArrayList<>()).build();
         when(goalRepository.findByIdAndMemberId(5L, 42L)).thenReturn(java.util.Optional.of(goal));
-        GoalRequest req = new GoalRequest(
+        GoalRequest req = GoalRequest.savingsTarget(
             "Trip", new BigDecimal("1000"), LocalDate.now().plusMonths(3), List.of(1L, 2L));
         Account owned = Account.builder()
             .id(1L).name("LEP").type(AccountType.LEP).currency("EUR")
