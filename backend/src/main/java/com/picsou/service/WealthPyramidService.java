@@ -142,7 +142,7 @@ public class WealthPyramidService {
             BigDecimal accountTotal = AccountAccessResolver.weigh(
                 accountService.valuation(account).liveEur(), share);
 
-            if (!holdingRepository.existsByAccount_Id(account.getId())) {
+            if (!holdingRepository.existsForReadableAccount(account.getId(), memberId)) {
                 totalAssets = totalAssets.add(accountTotal);
                 if (currentAccount && accountTier == WealthTier.SAFETY_NET) {
                     dailyCash = dailyCash.add(accountTotal);
