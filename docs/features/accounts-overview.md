@@ -72,7 +72,7 @@ the free-text `property_type` column — never on the raw string.
 
 ### Summary card
 
-A `Card` at the top of the page shows the total balance for the filtered accounts. If the current filter contains investment accounts (PEA, COMPTE_TITRES, CRYPTO), it also displays the aggregate PnL (total balance - total invested) with a green/red trend icon and percentage, using the same style as the Dashboard net worth card.
+A `Card` at the top of the page shows the total balance for the filtered accounts. If the current filter contains investment accounts — whatever `AccountType.isInvestment()` returns, today PEA, COMPTE_TITRES, ASSURANCE_VIE and CRYPTO — it also displays the aggregate PnL (total balance - total invested) with a green/red trend icon and percentage, using the same style as the Dashboard net worth card.
 
 PnL values come from the `invested` dataset in `useAllAccountsHistory` — the last point's invested amounts are summed for all filtered accounts.
 

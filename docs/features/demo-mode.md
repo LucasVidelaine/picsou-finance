@@ -1,6 +1,6 @@
 # Feature: Demo mode
 
-> Last updated: 2026-04-08
+> Last updated: 2026-08-13
 
 ## Context
 

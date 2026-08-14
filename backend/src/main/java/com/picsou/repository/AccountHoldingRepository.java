@@ -17,6 +17,15 @@ public interface AccountHoldingRepository extends JpaRepository<AccountHolding, 
 
     List<AccountHolding> findByAccount_Id(Long accountId);
 
+    /**
+     * Whether an account holds any line at all.
+     *
+     * <p>Separate from {@link #findByAccount_Id} because the aggregations only need the yes/no
+     * to pick a branch, and the branch that says yes re-reads the lines through
+     * {@code AccountService.getHoldings} anyway — materialising them twice per account.
+     */
+    boolean existsByAccount_Id(Long accountId);
+
     Optional<AccountHolding> findByAccountIdAndTicker(Long accountId, String ticker);
 
     void deleteByAccountId(Long accountId);

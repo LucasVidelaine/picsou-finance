@@ -19,8 +19,12 @@ export const mockAllocationTargets: AllocationTargets = {
 }
 
 export const mockWealthPyramid: WealthPyramid = {
-  totalAssetsEur: 337400,
-  allocatableEur: 314900,
+  // Every figure below is what WealthPyramidService would actually produce from these accounts:
+  // total assets include the current-account cash, allocatable removes both the cushion and that
+  // cash, and each tier's percentages divide allocatable. A fixture whose arithmetic disagrees
+  // with the service teaches the UI to render an impossible payload.
+  totalAssetsEur: 341700,
+  allocatableEur: 319200,
   safetyNet: {
     valueEur: 18200,
     dailyCashEur: 4300,
@@ -33,20 +37,20 @@ export const mockWealthPyramid: WealthPyramid = {
   tiers: [
     {
       tier: 'REAL_ESTATE',
-      targetEur: 94470,
+      targetEur: 95760,
       valueEur: 138000,
-      actualPercent: 42.29,
+      actualPercent: 43.23,
       targetPercent: 30,
-      gapPercent: 12.29,
+      gapPercent: 13.23,
       accounts: [{ accountId: 8, name: 'Appartement Lyon', color: '#a855f7', valueEur: 138000 }],
     },
     {
       tier: 'EQUITY',
-      targetEur: 157450,
+      targetEur: 159600,
       valueEur: 142400,
-      actualPercent: 43.64,
+      actualPercent: 44.61,
       targetPercent: 50,
-      gapPercent: -6.36,
+      gapPercent: -5.39,
       accounts: [
         { accountId: 2, name: 'PEA', color: '#6366f1', valueEur: 96400 },
         { accountId: 5, name: 'Assurance vie', color: '#8b5cf6', valueEur: 46000 },
@@ -54,29 +58,29 @@ export const mockWealthPyramid: WealthPyramid = {
     },
     {
       tier: 'CRYPTO',
-      targetEur: 31490,
+      targetEur: 31920,
       valueEur: 32800,
-      actualPercent: 10.05,
+      actualPercent: 10.28,
       targetPercent: 10,
-      gapPercent: 0.05,
+      gapPercent: 0.28,
       accounts: [{ accountId: 3, name: 'Binance', color: '#f97316', valueEur: 32800 }],
     },
     {
       tier: 'ALTERNATIVE',
-      targetEur: 31490,
+      targetEur: 31920,
       valueEur: 6000,
-      actualPercent: 1.84,
+      actualPercent: 1.88,
       targetPercent: 10,
-      gapPercent: -8.16,
+      gapPercent: -8.12,
       accounts: [{ accountId: 7, name: 'Or physique', color: '#eab308', valueEur: 6000 }],
     },
   ],
   score: {
-    global: 79,
+    global: 91,
     allocation: 86,
-    misplacedPercent: 14.42,
-    cryptoPenalty: 0.6,
-    leverageBonus: 4.2,
+    misplacedPercent: 13.51,
+    cryptoPenalty: 0.1,
+    leverageBonus: 4.28,
     cryptoTopTenShare: 72.5,
     loanToValue: 51.4,
   },

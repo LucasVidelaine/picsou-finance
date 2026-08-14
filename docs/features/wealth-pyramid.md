@@ -72,7 +72,7 @@ and scored nowhere.
 
 Everything cash-like then sits **outside** the allocation:
 
-```
+```text
 allocatable = totalAssets - safetyNetValue - dailyCash
 excess      = max(0, safetyNetValue - target)
 ```
@@ -99,7 +99,7 @@ a member can act on, and "the target here is 157 450 €" is.
 | Safety net | `100·r` for `r ≤ 1`; `100 − 40·min(1, (r−1)/2)` above, flooring at 60 | Asymmetric: falling short is dangerous and scores in proportion, overshooting is only a drag on yield |
 | Allocation | `100 · (1 − ½Σ\|actual − target\|)` | Half the L1 distance is literally *the fraction of allocatable wealth sitting in the wrong tier*, so the UI can state it and be telling the truth |
 | Crypto penalty | `10 · w_crypto · max(0, (0.80 − topTenShare)/0.80)`, 0–10 | Scaled by weight: a 2 %-crypto sleeve of small caps loses 0.2 points, a 30 % one loses 3 |
-| Leverage bonus | `5 · clamp(ltv/0.60,0,1) · (1 − max(0,(ltv−0.85)/0.15))`, 0–5 | Rewards borrowing against property, peaks 60–85 % LTV, back to 0 at 100 % |
+| Leverage bonus | `5 · clamp(ltv/0.60,0,1) · max(0, 1 − max(0,(ltv−0.85)/0.15))`, 0–5 | Rewards borrowing against property, peaks 60–85 % LTV, back to 0 at 100 %. The outer `max` is what keeps an LTV above 100 % at zero rather than negative |
 
 `global = clamp(0, 100, 0.40·safety + 0.60·allocation − cryptoPenalty + leverageBonus)`
 
@@ -154,7 +154,7 @@ Frontend:
 
 ### Flow
 
-```
+```text
 GET /api/analysis/pyramid
   └─ WealthPyramidService.pyramid(memberId)
        ├─ accessResolver.readableAccounts + sharesFor          (the dashboard's contract)
@@ -170,7 +170,7 @@ GET /api/analysis/pyramid
 
 | Choice | Why | Rejected alternative |
 |--------|-----|----------------------|
-| Assets only, not net worth | The dashboard's rule already; counting property net of its mortgage would penalise exactly the leverage the pyramid wants maximised — LTV is surfaced beside the tier instead | Net-worth-based tiers |
+| Assets only, not net worth | The dashboard's rule already; counting property net of its mortgage would penalise exactly the leverage the pyramid is intended to maximise — LTV is surfaced beside the tier instead | Net-worth-based tiers |
 | Absolute safety-net target | Six months of rent does not scale with the portfolio | A percentage target like the other four |
 | Passbooks only in the cushion | A current account holds money already committed to this month | Counting every liquid euro |
 | Cushion kept out of the allocation bars | It is measured in euros; a second line as a share of something else contradicts it on screen | A `SAFETY_NET` line carrying the excess at target 0 |

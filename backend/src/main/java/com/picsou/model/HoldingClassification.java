@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.Locale;
+
 /**
  * A user's own verdict on what a security actually is, overriding whatever the account type and
  * the price providers would infer.
@@ -44,6 +46,23 @@ public class HoldingClassification extends AuditableEntity {
 
     @Column(nullable = false, length = 30)
     private String ticker;
+
+    /**
+     * Upper-cases the ticker on the way in, because the uniqueness that matters is
+     * case-insensitive and the database constraint is not.
+     *
+     * <p>{@code UNIQUE (member_id, ticker)} would accept both {@code gold} and {@code GOLD} for
+     * one member, while every reader keys its override map by the upper-cased ticker — so the
+     * tier that won would depend on the order rows came back in. Normalising here rather than
+     * widening the constraint to {@code UPPER(ticker)} keeps the invariant at the only gate that
+     * writes this table, and leaves a migration that is already applied on running instances
+     * alone.
+     */
+    @PrePersist
+    @PreUpdate
+    private void normaliseTicker() {
+        if (ticker != null) ticker = ticker.trim().toUpperCase(Locale.ROOT);
+    }
 
     /** {@code null} leaves the inferred tier in place; PR2 adds sector/country beside it. */
     @Enumerated(EnumType.STRING)

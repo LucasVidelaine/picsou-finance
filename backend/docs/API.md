@@ -520,26 +520,31 @@ something a member can act on.
 **Response `200`:**
 ```json
 {
-  "totalAssetsEur": 337400.00,
-  "allocatableEur": 326300.00,
+  "totalAssetsEur": 341700.00,
+  "allocatableEur": 319200.00,
   "safetyNet": {
     "valueEur": 18200.00, "dailyCashEur": 4300.00, "targetEur": 11100.00,
     "coverage": 1.6396, "excessEur": 7100.00, "known": true, "score": 87
   },
   "tiers": [
     {
-      "tier": "EQUITY", "valueEur": 142400.00, "actualPercent": 43.64,
-      "targetPercent": 50.00, "targetEur": 157450.00, "gapPercent": -6.36,
+      "tier": "EQUITY", "valueEur": 142400.00, "actualPercent": 44.61,
+      "targetPercent": 50.00, "targetEur": 159600.00, "gapPercent": -5.39,
       "accounts": [{ "accountId": 2, "name": "PEA", "color": "#6366f1", "valueEur": 96400.00 }]
     }
   ],
   "score": {
-    "global": 79, "allocation": 86, "misplacedPercent": 14.42,
-    "cryptoPenalty": 0.60, "leverageBonus": 4.20,
+    "global": 91, "allocation": 86, "misplacedPercent": 13.51,
+    "cryptoPenalty": 0.10, "leverageBonus": 4.28,
     "cryptoTopTenShare": 72.50, "loanToValue": 51.40
   }
 }
 ```
+
+`allocatableEur` is `totalAssetsEur - safetyNet.valueEur - safetyNet.dailyCashEur`; current-account
+cash counts in the total and then leaves the allocation, so the four tiers divide `allocatableEur`
+and their `actualPercent` sum to 100. The figures above are one consistent portfolio — the same one
+`frontend/src/demo/data/analysis.ts` serves.
 
 `safetyNet.known` is `false` when the member has never stated their monthly expenses. The tier
 is then **unrated, not scored zero**: `safetyNet.score` is `null` and `score.global` falls back

@@ -134,20 +134,22 @@ public class WealthPyramidService {
 
             BigDecimal share = shares.get(account.getId());
             WealthTier accountTier = WealthTier.of(account.getType());
-            List<AccountHolding> holdings = holdingRepository.findByAccount_Id(account.getId());
 
             boolean currentAccount = account.getType() == AccountType.CHECKING;
 
-            if (holdings.isEmpty()) {
-                BigDecimal value = AccountAccessResolver.weigh(
-                    accountService.valuation(account).liveEur(), share);
-                totalAssets = totalAssets.add(value);
+            // The account's own valuation is the figure both branches reconcile against, and it
+            // is what keeps this total equal to the dashboard's.
+            BigDecimal accountTotal = AccountAccessResolver.weigh(
+                accountService.valuation(account).liveEur(), share);
+
+            if (!holdingRepository.existsByAccount_Id(account.getId())) {
+                totalAssets = totalAssets.add(accountTotal);
                 if (currentAccount && accountTier == WealthTier.SAFETY_NET) {
-                    dailyCash = dailyCash.add(value);
+                    dailyCash = dailyCash.add(accountTotal);
                 } else {
-                    byTier.merge(accountTier, value, BigDecimal::add);
+                    byTier.merge(accountTier, accountTotal, BigDecimal::add);
                     accountsByTier.get(accountTier).add(new WealthPyramidResponse.TierAccount(
-                        account.getId(), account.getName(), account.getColor(), value));
+                        account.getId(), account.getName(), account.getColor(), accountTotal));
                 }
                 continue;
             }
@@ -157,8 +159,6 @@ public class WealthPyramidService {
             // line by line, then reconcile against the account's own valuation so the pyramid's
             // total still matches the dashboard's.
             List<HoldingResponse> lines = accountService.getHoldings(account.getId(), memberId);
-            BigDecimal accountTotal = AccountAccessResolver.weigh(
-                accountService.valuation(account).liveEur(), share);
             BigDecimal linesTotal = BigDecimal.ZERO;
             Map<WealthTier, BigDecimal> perTier = new EnumMap<>(WealthTier.class);
 

@@ -52,7 +52,9 @@ class WealthPyramidServiceTest {
         lenient().when(allocationTargetService.profileFor(MEMBER))
             .thenReturn(MemberAllocationProfile.builder().build());
         lenient().when(realEstateSummaryService.summarize(MEMBER)).thenReturn(noProperty());
-        lenient().when(holdingRepository.findByAccount_Id(anyLong())).thenReturn(List.of());
+        // The service asks only whether an account holds anything; the lines themselves come back
+        // through AccountService.getHoldings.
+        lenient().when(holdingRepository.existsByAccount_Id(anyLong())).thenReturn(false);
         lenient().when(coinGecko.supports(any())).thenReturn(false);
     }
 
@@ -78,8 +80,7 @@ class WealthPyramidServiceTest {
     /** An account holding positions; {@code lines} are ticker/value pairs summing to {@code value}. */
     private Account withHoldings(AccountType type, String value, Map<String, String> lines) {
         Account account = cash(type, value);
-        lenient().when(holdingRepository.findByAccount_Id(account.getId()))
-            .thenReturn(List.of(AccountHolding.builder().ticker("ANY").build()));
+        lenient().when(holdingRepository.existsByAccount_Id(account.getId())).thenReturn(true);
         lenient().when(accountService.getHoldings(account.getId(), MEMBER)).thenReturn(
             lines.entrySet().stream().map(e -> new HoldingResponse(
                 e.getKey(), e.getKey(), BigDecimal.ONE, null, null, "EUR",

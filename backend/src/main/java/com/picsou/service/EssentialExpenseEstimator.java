@@ -104,15 +104,12 @@ public class EssentialExpenseEstimator {
         Set<Long> consumedCredits = new HashSet<>();
 
         Map<YearMonth, BigDecimal> monthlyTotals = new HashMap<>();
-        Set<YearMonth> monthsWithData = new HashSet<>();
         int excludedTransfers = 0;
 
         for (Transaction t : all) {
             Account account = byId.get(t.getAccount().getId());
             if (account.getType() != AccountType.CHECKING) continue;
             if (t.getAmount() == null || t.getAmount().signum() >= 0) continue;
-
-            monthsWithData.add(YearMonth.from(t.getDate()));
 
             if (t.getTicker() != null && !t.getTicker().isBlank()) continue;
             if (t.getTxType() != null && INVESTMENT_TYPES.contains(t.getTxType())) continue;
@@ -133,10 +130,15 @@ public class EssentialExpenseEstimator {
             BigDecimal eur = priceService.toEur(t.getAmount().abs(), t.getNativeCurrency(), null);
             if (eur == null) continue;
             BigDecimal weighted = AccountAccessResolver.weigh(eur, shares.get(account.getId()));
+            // Registered here rather than before the filters above, so the divisor counts only
+            // months that fed the numerator. A month whose sole debit was an internal transfer
+            // is not a month of near-zero spending, it is a month with nothing to learn from,
+            // and dividing by it halves the estimate — the one direction this class must not err
+            // in, since a safety net too small is the failure mode.
             monthlyTotals.merge(YearMonth.from(t.getDate()), weighted, BigDecimal::add);
         }
 
-        int monthsObserved = monthsWithData.size();
+        int monthsObserved = monthlyTotals.size();
         if (monthsObserved == 0) {
             return new EssentialExpenseEstimateResponse(null, 0, excludedTransfers);
         }

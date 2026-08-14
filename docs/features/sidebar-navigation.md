@@ -4,7 +4,7 @@
 
 ## Context
 
-Navigation adapts to screen size: a vertical sidebar on desktop (>=768px) and a horizontal bottom navbar on mobile (<768px). Desktop shows the primary app navigation, including Family, and exposes settings through the bottom account area. Admin users also get a visible profile switcher there so a managed-member override can never stay hidden. Mobile keeps the compact 4-item bottom bar and active state logic.
+Navigation adapts to screen size: a vertical sidebar on desktop (>=768px) and a horizontal bottom navbar on mobile (<768px). Desktop shows the primary app navigation, including Family, and exposes settings through the bottom account area. Admin users also get a visible profile switcher there so a managed-member override can never stay hidden. Mobile keeps the compact bottom bar — five items since Analysis joined — and active state logic.
 
 ## How it works
 
@@ -27,7 +27,7 @@ The switcher loads family members through `useFamilyMembers({ enabled: canSwitch
 
 A fixed bottom bar with five evenly spaced nav items:
 
-```
+```text
 [Dashboard] [Accounts] [Analysis] [Goals] [Settings]
 ```
 

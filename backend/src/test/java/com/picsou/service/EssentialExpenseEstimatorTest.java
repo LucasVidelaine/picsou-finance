@@ -21,6 +21,7 @@ import java.util.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -95,6 +96,36 @@ class EssentialExpenseEstimatorTest {
         // Divided by the three months observed, never by the six looked at: an account synced two
         // months ago would otherwise report a third of what the member really spends.
         assertThat(response.monthsObserved()).isEqualTo(3);
+        assertThat(response.estimate()).isEqualByComparingTo("1000.00");
+    }
+
+    @Test
+    void aMonthWhoseOnlyDebitWasExcludedDoesNotDivideTheAverage() {
+        tx(current, 1, 5, "-1000");
+        // The whole of month 2 is one internal transfer: its counterpart lands on the livret.
+        tx(current, 2, 5, "-500");
+        tx(livret, 2, 6, "500");
+
+        EssentialExpenseEstimateResponse response = estimator.estimate(MEMBER);
+
+        // Two months carried transactions but only one carried spending. Counting the other
+        // would report 750 for someone who spends 1000, and a safety net sized on the low side
+        // is the one failure this estimator must not produce.
+        assertThat(response.monthsObserved()).isEqualTo(1);
+        assertThat(response.estimate()).isEqualByComparingTo("1000.00");
+        assertThat(response.excludedTransferCount()).isEqualTo(1);
+    }
+
+    @Test
+    void aMonthWhoseAmountsCouldNotBeConvertedDoesNotDivideTheAverageEither() {
+        tx(current, 1, 5, "-1000");
+        Transaction unconvertible = tx(current, 2, 5, "-9999");
+        when(priceService.toEur(unconvertible.getAmount().abs(), "EUR", null)).thenReturn(null);
+
+        EssentialExpenseEstimateResponse response = estimator.estimate(MEMBER);
+
+        // Same reasoning as above: a month dropped from the numerator must leave the divisor.
+        assertThat(response.monthsObserved()).isEqualTo(1);
         assertThat(response.estimate()).isEqualByComparingTo("1000.00");
     }
 
@@ -210,6 +241,9 @@ class EssentialExpenseEstimatorTest {
         accounts.clear();
 
         assertThat(estimator.estimate(MEMBER).estimate()).isNull();
+        // A null estimate also comes back when the query runs and finds nothing, so without this
+        // the test name is the only thing claiming the early return happened.
+        verifyNoInteractions(transactionRepository);
     }
 
     @Test

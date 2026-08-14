@@ -30,11 +30,18 @@ handlers.set(key('GET', '/dashboard'), () => mockDashboard)
 
 // Analysis
 handlers.set(key('GET', '/analysis/pyramid'), () => mockWealthPyramid)
-handlers.set(key('GET', '/analysis/allocation-targets'), () => mockAllocationTargets)
-handlers.set(key('PUT', '/analysis/allocation-targets'), (config) => ({
-  ...mockAllocationTargets,
-  ...(typeof config.data === 'string' ? JSON.parse(config.data) : {}),
-}))
+// Held in a mutable copy, because saving targets invalidates the whole ['analysis'] namespace:
+// a PUT that only echoed the merge back would be undone by the refetch that follows it, and the
+// demo would show the form silently reverting.
+let demoAllocationTargets = { ...mockAllocationTargets }
+handlers.set(key('GET', '/analysis/allocation-targets'), () => demoAllocationTargets)
+handlers.set(key('PUT', '/analysis/allocation-targets'), (config) => {
+  demoAllocationTargets = {
+    ...demoAllocationTargets,
+    ...(typeof config.data === 'string' ? JSON.parse(config.data) : {}),
+  }
+  return demoAllocationTargets
+})
 handlers.set(key('GET', '/analysis/essential-expenses/estimate'), () => mockExpenseEstimate)
 
 // Accounts
