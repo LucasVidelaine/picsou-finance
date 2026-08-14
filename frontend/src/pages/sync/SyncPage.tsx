@@ -11,7 +11,9 @@ import { IbkrTab } from './IbkrTab'
 import { FinaryTab } from './FinaryTab'
 import { BourseDirectTab } from './BourseDirectTab'
 import { AccountsVisibilityTab } from './AccountsVisibilityTab'
-// BoursoTab hidden for 1.0.0 — sidecar integration not finished.
+import { DegiroTab } from './DegiroTab'
+import { AmundiTab } from './AmundiTab'
+import { BoursoTab } from './BoursoTab'
 
 export function SyncPage() {
   const { t } = useTranslation()
@@ -28,8 +30,11 @@ export function SyncPage() {
           <TabsTrigger value="wallets">{t('sync.wallets.title')}</TabsTrigger>
           <TabsTrigger value="tr">{t('sync.tr.title')}</TabsTrigger>
           <TabsTrigger value="revolut">{t('sync.revolut.title')}</TabsTrigger>
+          <TabsTrigger value="bourso">{t('sync.bourso.title')}</TabsTrigger>
           <TabsTrigger value="bourse-direct">{t('sync.bourseDirect.title')}</TabsTrigger>
+          <TabsTrigger value="degiro">{t('sync.degiro.title')}</TabsTrigger>
           <TabsTrigger value="ibkr">{t('sync.ibkr.title')}</TabsTrigger>
+          <TabsTrigger value="amundi">{t('sync.amundi.title')}</TabsTrigger>
           <TabsTrigger value="finary">{t('sync.finary.title')}</TabsTrigger>
           <TabsTrigger value="visibility">{t('sync.visibility.title')}</TabsTrigger>
         </TabsList>
@@ -48,11 +53,20 @@ export function SyncPage() {
         <TabsContent value="revolut" className="mt-6">
           <RevolutTab />
         </TabsContent>
+        <TabsContent value="bourso" className="mt-6">
+          <BoursoTab />
+        </TabsContent>
         <TabsContent value="bourse-direct" className="mt-6">
           <BourseDirectTab />
         </TabsContent>
+        <TabsContent value="degiro" className="mt-6">
+          <DegiroTab />
+        </TabsContent>
         <TabsContent value="ibkr" className="mt-6">
           <IbkrTab />
+        </TabsContent>
+        <TabsContent value="amundi" className="mt-6">
+          <AmundiTab />
         </TabsContent>
         <TabsContent value="finary" className="mt-6">
           <FinaryTab />

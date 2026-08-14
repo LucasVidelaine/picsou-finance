@@ -10,6 +10,7 @@ import com.picsou.repository.DebtRepository;
 import com.picsou.repository.GoalRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.BeforeEach;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -18,6 +19,8 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -34,7 +37,25 @@ class DashboardServiceTest {
     @Mock LoanAmortizationService loanAmortizationService;
     @Mock AccountService accountService;
 
+    @Mock AccountAccessResolver accessResolver;
+
     @InjectMocks DashboardService dashboardService;
+
+    @BeforeEach
+    void stubOwnershipShares() {
+        // Fixtures own their accounts outright, so readableAccounts mirrors the repository
+        // and every share is 100% -- weighting becomes the identity.
+        lenient().when(accessResolver.readableAccounts(any())).thenAnswer(inv ->
+            accountRepository.findAllByMemberIdOrderByCreatedAtAsc(inv.getArgument(0)));
+        lenient().when(accessResolver.sharesFor(any(), any())).thenAnswer(inv -> {
+            java.util.Collection<Account> accounts = inv.getArgument(0);
+            java.util.Map<Long, java.math.BigDecimal> shares = new java.util.HashMap<>();
+            for (Account a : accounts) {
+                shares.put(a.getId(), new java.math.BigDecimal("100"));
+            }
+            return shares;
+        });
+    }
 
     @Test
     void getDashboard_usesSharedAccountValuation_whenHoldingHasNoLivePrice() {
@@ -46,9 +67,14 @@ class DashboardServiceTest {
             .averageBuyIn(new BigDecimal("100"))
             .currentPrice(new BigDecimal("999"))
             .build();
-        when(accountRepository.findAllByMemberIdAndHiddenFalseOrderByCreatedAtAsc(42L)).thenReturn(List.of(account));
+        when(accountRepository.findAllByMemberIdOrderByCreatedAtAsc(42L)).thenReturn(List.of(account));
         when(holdingRepository.findByAccount_Id(1L)).thenReturn(List.of(holding));
-        when(accountService.liveBalanceEur(account)).thenReturn(new BigDecimal("5000"));
+        // Unpriced on both sides: valuation() drops the holding from the value *and* the cost
+        // basis, which is the whole point -- keeping its 1000 EUR cost while its value is gone
+        // is what booked an untouched account as a loss.
+        when(accountService.valuation(account))
+            .thenReturn(new AccountService.Valuation(
+                new BigDecimal("5000"), new BigDecimal("5000"), false, true, false));
         when(historyService.buildHistory(List.of(1L), 12, 42L)).thenReturn(List.of());
         when(goalRepository.findAllByMemberIdOrderByCreatedAtAsc(42L)).thenReturn(List.of());
 
@@ -57,7 +83,9 @@ class DashboardServiceTest {
         assertThat(response.totalNetWorth()).isEqualByComparingTo("5000");
         assertThat(response.distribution()).hasSize(1);
         assertThat(response.distribution().getFirst().balanceEur()).isEqualByComparingTo("5000");
-        verify(accountService).liveBalanceEur(account);
+        // The dashboard must take both figures from one pass, not pair liveBalanceEur with its
+        // own cost-basis loop -- see docs/features/price-service.md.
+        verify(accountService).valuation(account);
     }
 
     @Test
@@ -70,9 +98,11 @@ class DashboardServiceTest {
             .averageBuyIn(new BigDecimal("100"))
             .currentPrice(new BigDecimal("999"))
             .build();
-        when(accountRepository.findAllByMemberIdAndHiddenFalseOrderByCreatedAtAsc(42L)).thenReturn(List.of(account));
+        when(accountRepository.findAllByMemberIdOrderByCreatedAtAsc(42L)).thenReturn(List.of(account));
         when(holdingRepository.findByAccount_Id(1L)).thenReturn(List.of(holding));
-        when(accountService.liveBalanceEur(account)).thenReturn(new BigDecimal("2000"));
+        when(accountService.valuation(account))
+            .thenReturn(new AccountService.Valuation(
+                new BigDecimal("2000"), new BigDecimal("1000"), true, true, false));
         when(historyService.buildHistory(List.of(1L), 12, 42L)).thenReturn(List.of());
         when(goalRepository.findAllByMemberIdOrderByCreatedAtAsc(42L)).thenReturn(List.of());
 
@@ -129,7 +159,7 @@ class DashboardServiceTest {
             .color("#22c55e")
             .build();
         Account loanAcc = loanAccount();               // id 10, LOAN 10000
-        when(accountRepository.findAllByMemberIdAndHiddenFalseOrderByCreatedAtAsc(42L))
+        when(accountRepository.findAllByMemberIdOrderByCreatedAtAsc(42L))
             .thenReturn(List.of(cashAcc, savingsAcc, loanAcc));
         when(holdingRepository.findByAccount_Id(1L)).thenReturn(List.of());
         when(holdingRepository.findByAccount_Id(2L)).thenReturn(List.of());
@@ -154,7 +184,7 @@ class DashboardServiceTest {
     void getDashboard_loanValuation_usesAmortizedLiveBalance_notStoredBalance() {
         Account loanAcc = loanAccount();               // stored balance 10000
         Account cashAcc = cashAccount();
-        when(accountRepository.findAllByMemberIdAndHiddenFalseOrderByCreatedAtAsc(42L)).thenReturn(List.of(loanAcc, cashAcc));
+        when(accountRepository.findAllByMemberIdOrderByCreatedAtAsc(42L)).thenReturn(List.of(loanAcc, cashAcc));
         when(holdingRepository.findByAccount_Id(10L)).thenReturn(List.of());
         when(holdingRepository.findByAccount_Id(1L)).thenReturn(List.of());
         // Amortization has progressed: remaining capital 9500 < stored 10000.
@@ -175,7 +205,7 @@ class DashboardServiceTest {
     @Test
     void getDashboard_rangeSwitch_mapsMonths() {
         Account cashAcc = cashAccount();
-        when(accountRepository.findAllByMemberIdAndHiddenFalseOrderByCreatedAtAsc(42L)).thenReturn(List.of(cashAcc));
+        when(accountRepository.findAllByMemberIdOrderByCreatedAtAsc(42L)).thenReturn(List.of(cashAcc));
         when(holdingRepository.findByAccount_Id(1L)).thenReturn(List.of());
         when(priceService.toEur(new BigDecimal("2000"), "EUR", null)).thenReturn(new BigDecimal("2000"));
         when(historyService.buildHistory(List.of(1L), 3, 42L)).thenReturn(List.of());
@@ -191,7 +221,7 @@ class DashboardServiceTest {
     private void stubLoanAndCashFixture() {
         Account loanAcc = loanAccount();
         Account cashAcc = cashAccount();
-        when(accountRepository.findAllByMemberIdAndHiddenFalseOrderByCreatedAtAsc(42L)).thenReturn(List.of(loanAcc, cashAcc));
+        when(accountRepository.findAllByMemberIdOrderByCreatedAtAsc(42L)).thenReturn(List.of(loanAcc, cashAcc));
         when(holdingRepository.findByAccount_Id(10L)).thenReturn(List.of());
         when(holdingRepository.findByAccount_Id(1L)).thenReturn(List.of());
         // Loans are valued through AccountService.liveBalanceEur (amortized when a Debt

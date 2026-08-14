@@ -47,6 +47,101 @@ information architecture.
   (`GET /api/merchants/{id}/logo`) fetches logos from DuckDuckGo's keyless icon service behind a
   port/adapter, with an in-memory TTL cache, a per-IP rate limit, and a per-member gate; the
   monogram is always the fallback, and logos never feed categorization.
+- **The French regulated passbooks each get their own account type.** Livret A,
+  LDDS, Livret Jeune, PEL and CEL sit alongside the existing LEP instead of all
+  collapsing into the generic "Livret d'épargne", so a household holding several
+  can tell them apart on the Accounts page — they still total together under the
+  Savings filter. The BoursoBank sidecar recognises each of them from the label
+  the bank prints, so synced livrets arrive typed rather than lumped; a bank's
+  own house passbook (Livret Bourso+) stays the generic type, since it is not a
+  regulated product. A new check runs every `AccountType` against the real
+  PostgreSQL enum, so a type added without its migration can no longer pass a
+  green build and fail on first save.
+- **Manual accounts can show their bank's logo.** The bank field of the
+  hand-entered account form now searches the institution catalog as you type:
+  pick your bank and its real logo lands on the account card, the same one a
+  connected account gets. The account still stores only the bank's name — the
+  server re-resolves the logo itself from the institution's id, so no
+  client-supplied image URL is ever persisted or fetched by a family member's
+  browser. Loans get it too, from their lender. The field stays free text
+  throughout: a bank the catalog doesn't list, or an Enable Banking install
+  that was never configured, simply means no suggestions and the color circle it
+  showed before. See [feature notes](docs/features/bank-logos.md).
+- **BoursoBank sync — current accounts, livrets and, above all, the PEA.**
+  Enable Banking cannot reach a securities account (PSD2 covers payment accounts
+  only), so the envelope that often holds the largest balance was invisible.
+  Picsou now signs in to BoursoBank directly and imports the current accounts,
+  the livrets and the PEA/CTO with their cash, their total and every open
+  position. A browserless Python sidecar handles the login: BoursoBank hands out
+  its one anti-bot token in the page itself, so no Chromium is needed. The
+  virtual keyboard — whose digits are images rather than text, on purpose — is
+  decoded by matching each button's SVG. Only app validation is supported as a
+  second factor; an SMS prompt is reported as such rather than as a wrong
+  password, since every failed attempt counts toward a lockout. Credentials are
+  never persisted, only the encrypted session. A portfolio whose total does not
+  reconcile with its lines is refused wholesale and the last valid data kept.
+  Accounts BoursoBank aggregates from *other* banks are deliberately left out —
+  they would duplicate an Enable Banking connection. Reachable from the Sync
+  page, the Add-account modal and the setup wizard, in all four locales, and its
+  accounts carry the BoursoBank mark rather than a color circle. Validated
+  end-to-end against a live account, PEA included.
+  See [feature notes](docs/features/bourso-bank.md) and the
+  [ADR](docs/decisions/2026-08-11-boursobank-httpx-sidecar.md).
+- **Amundi Épargne Salariale sync.** Connect an Amundi account and import every
+  funded employee savings plan — PEE/PEG, PERCO, PER Collectif — as its own
+  account, leaving emptied and closed dispositifs out,
+  with each FCPE line's units, unit value, valuation and unrealized gain. A
+  dedicated read-only Playwright sidecar handles the captcha-gated login and the
+  mandatory second factor, either an approval in the "Mon Épargne" app or an SMS
+  code; credentials and codes are never persisted, only the encrypted session.
+  Valuations come from Amundi rather than a price feed, since no FCPE is quotable
+  on Yahoo. Imports expose queued/running/success/failure progress, reject plans
+  whose total does not reconcile with their lines, and preserve the last valid
+  holdings on failure. Reachable from the Sync page and the Add-account modal, in
+  all four locales, and its accounts carry the Amundi logo rather than a color
+  circle. See [feature notes](docs/features/amundi-epargne-salariale.md)
+  and the [ADR](docs/decisions/2026-08-09-amundi-epargne-salariale-sidecar.md).
+- **Meria crypto exchange sync.** Connect a Meria account with the single
+  read-only API key from `dashboard.meria.com/account/api` — no API secret, and
+  the add-exchange form now hides that field for exchanges that don't use one
+  (`CryptoExchangePort.requiresApiSecret()`, enforced server-side in all four
+  locales). Picsou sums spot wallets, staking and lending contracts per coin,
+  counting a contract as its held amount — Meria's `reward` is cumulative
+  interest already reflected there — then
+  values the total in EUR through the existing price path; coins were added
+  to the CoinGecko ticker map so Meria balances aren't silently unvalued. A
+  failed sub-call fails the whole sync rather than writing a shrunken balance
+  into the net-worth history. The account page groups its positions by product —
+  Spot / Staking / Lending — and shows principal, accrued interest and total for
+  each yield-bearing line. See [feature notes](docs/features/crypto-tracking.md).
+- **Automatic real-estate valuation from open data.** Properties now describe themselves
+  (type, category, geocoded address, living and land area, rooms, construction year, floor
+  and lift, garage/parking, garden/terrace/balcony, energy rating, and acquisition costs)
+  and are re-valued monthly from **free, unauthenticated, Licence Ouverte 2.0** sources:
+  DGFiP transaction data via the Cerema DV3F indicators, address geocoding via the IGN
+  Géoplateforme, and re-indexing on the INSEE housing price index. No API key and no
+  subscription — the estimate writes the account balance, so net worth and the gain curve
+  follow automatically, and a MANUAL mode freezes a user's own figure. Every heuristic
+  applied to the commune median is disclosed in the UI, along with the confidence band,
+  sample size and data vintage. Alsace-Moselle and Mayotte are explicitly reported as
+  uncovered rather than given a plausible-looking wrong number. See
+  [feature notes](docs/features/real-estate-valuation.md) and the
+  [ADR](docs/decisions/2026-08-01-open-data-property-valuation.md).
+- **Ownership shares on properties and loans.** A house or a mortgage can be split between
+  family members; each member's net worth, history and goals count only their share, and the
+  family view stops double-counting a jointly-owned property. A split may total under 100%,
+  with the remainder reported as held outside Picsou. Reading a co-owned account is allowed,
+  editing it stays with the owner. See
+  [feature notes](docs/features/account-ownership-shares.md) and the
+  [ADR](docs/decisions/2026-08-01-account-ownership-shares.md).
+- **A guided "Immobilier" flow for adding a property.** A dedicated entry in "Ajouter un
+  compte" replaces hunting for your house under "Manuel", and with the Immobilier filter
+  active the page's primary button targets it directly. Three steps — what it is, where it is,
+  what it cost — then the account, its description and its first estimate are created in one
+  pass. Bathroom count is now recorded too, and feeds a small declared heuristic.
+- **Mortgage-to-property linking.** A loan can be attached to the property it finances,
+  giving gross property value, outstanding debt and net equity, both per property and across
+  the portfolio.
 - **Bourse Direct brokerage sync.** A dedicated read-only Playwright sidecar
   handles login and the six-digit security code, then imports PEA/CTO positions,
   average cost, current price, valuation and account cash. Credentials and OTPs
@@ -97,6 +192,13 @@ information architecture.
   locale registry (`SUPPORTED_LOCALES`); selectors and `Intl` formatting derive
   from it (#32).
 - **Build version surfaced** in Settings → About and `/actuator/info`.
+- **More logos on account cards.** Trade Republic accounts now carry the broker's
+  mark, and on-chain wallets — whose provider is a bare ticker, so no provider
+  logo can match — show a blockchain mark by default. A wallet held on a Ledger
+  can be switched to the Ledger logo from the account form, next to the color
+  picker; the choice is stored on the account, so it follows every device and
+  family member. Existing wallets are backfilled by a migration.
+  See [feature notes](docs/features/bank-logos.md).
 
 ### Changed
 
@@ -130,6 +232,65 @@ information architecture.
 
 ### Fixed
 
+- **A PEA held through ETFs could display 0 €, graph included.** Picsou asked OpenFIGI
+  which listings an ISIN maps to and picked one by exchange priority — but OpenFIGI
+  returns every listing of an instrument and knows nothing about which one Yahoo quotes,
+  and no ordering predicts it: `IE000BI8OT95` (Amundi Core MSCI World) resolved to a US
+  OTC ticker Yahoo has delisted, while two other Irish ETFs need exactly that US OTC
+  listing to be priced at all. A holding that cannot be priced is excluded from its
+  account's total, so an account whose every line resolved that way was worth nothing —
+  which is what a PEA of UCITS ETFs, all domiciled in Ireland or Luxembourg, looks like.
+  The pick is now verified against Yahoo, and when it has no quote, Yahoo's own search
+  for the ISIN decides; a pick is only ever replaced by a symbol that actually quotes, so
+  a rate-limited Yahoo can never downgrade a working one. Positions already stored with a
+  raw ISIN as their ticker — what an OpenFIGI outage or its 25 requests/min keyless limit
+  leaves behind, and which nothing ever revisited — are re-resolved once at startup.
+  See [feature notes](docs/features/ISIN_TO_TICKER_CONVERSION.md) and the
+  [ADR](docs/decisions/2026-08-10-yahoo-verified-isin-tickers.md).
+- **Business-oriented banks never appeared in the bank search.** Picsou asked
+  Enable Banking only for retail (`personal`) institutions, so BaaS and
+  professional banks — Swan among them — were invisible in the picker even
+  though the account existed and the credentials were valid, with nothing to
+  distinguish that from a misconfiguration. The catalog is now fetched
+  unfiltered, each bank's PSU type is read from the provider and carried through
+  the connection flow so the consent page presents the right login, and
+  business-only banks are marked with a **Pro** badge in both bank pickers.
+  See [feature notes](docs/features/bank-sync.md).
+- **Property valuation failed for every commune.** The Cerema response is ~265 KB, just past
+  the HTTP client's 256 KB default buffer, so the body was never assembled. Worse, the error
+  was swallowed and reported as "no comparable transactions in this municipality" — pointing
+  at the address rather than at the transport. The buffer is raised, and a source that cannot
+  be reached now says so instead of impersonating an empty market.
+- **A property with no valuation showed 0 € and a 100% loss.** It now falls back to its cost
+  basis until an estimate succeeds; the fallback only ever lifts a zero.
+- **Real-estate gain/loss ignored acquisition costs.** Account cards measured the gain against
+  the purchase price alone; French notary fees alone run 7-8% of a purchase, so every property
+  overstated its gain by that much. It is now measured against the full cost basis.
+- **Saving real-estate metadata on a property that had none violated a NOT NULL constraint**
+  (`real_estate_metadata.member_id`). Never surfaced because no client called the endpoint.
+- **A price provider outage no longer blanks positions, invents a loss, or writes
+  a zero into your history.** After a restart, a rate-limited CoinGecko left the
+  largest lines of a crypto account with no price: they dropped out of the account's
+  value while their full purchase cost stayed in the cost basis, so an untouched
+  account reported **-85%** — and a sync running at that moment stamped a **0 €**
+  balance into that day's net-worth snapshot, which nothing later corrected. Three
+  changes: prices now fall back to the last one recorded (up to 7 days old, shown
+  with a marker and its date instead of a dash); an asset that cannot be valued at
+  all is excluded from the cost basis as well as the value, so the percentage stays
+  honest; and a sync that can value nothing refuses rather than recording a zero.
+  A resync repairs an already-recorded zero for the current day. See the
+  [ADR](docs/decisions/2026-08-01-last-known-price-fallback.md).
+- **Picsou stops provoking the rate limits it then suffers from.** Reads used to
+  issue one price request per holding on every page render and retry immediately on
+  failure, so a brief 429 sustained itself for hours. Prices are now resolved one
+  batch per page, a failed ticker is left alone for a minute, CoinGecko calls pause
+  while a 429 is in force, the hourly refresh finally covers tickers held *inside*
+  accounts (previously only account-level ones, i.e. never the crypto ones), and the
+  startup backfill skips history it already has instead of re-downloading a year of
+  it at every boot.
+- **The GitHub link in Settings → About now points to the right repository.** It
+  linked to `github.com/zoeille/picsou`, which does not exist; the repository is
+  `github.com/zoeille/picsou-finance`.
 - **Restoring several tabs at once no longer logs you out everywhere.** When
   multiple tabs were restored together they each presented the same "Remember
   Me" token; the first request rotated it and the rest looked like a replayed
