@@ -70,6 +70,25 @@ public class SecurityProfile extends AuditableEntity {
     @Column(name = "refreshed_at")
     private Instant refreshedAt;
 
+    /** What the last lookup did. Separates "nothing to find" from "the lookup broke". */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 16)
+    @Builder.Default
+    private SecurityProfileStatus status = SecurityProfileStatus.NEVER_FETCHED;
+
+    /** Why the last attempt failed, truncated. Diagnostic only — never shown to a member. */
+    @Column(name = "last_error", length = 200)
+    private String lastError;
+
+    /**
+     * When we last <em>tried</em>, successful or not.
+     *
+     * <p>Distinct from {@link #refreshedAt}, which only moves on success. Keeping the two apart
+     * is what lets a failure be retried in days without a success being re-scraped weekly.
+     */
+    @Column(name = "last_attempt_at")
+    private Instant lastAttemptAt;
+
     @OneToMany(mappedBy = "profile", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     private List<SecurityCompositionSlice> slices = new ArrayList<>();

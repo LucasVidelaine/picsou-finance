@@ -123,7 +123,7 @@ public class PortfolioDiversificationService {
                 placedCountry = true;
             }
 
-            if (profile == null) {
+            if (!wasLookedUp(profile)) {
                 // Never looked up, so whatever the override did not cover is missing.
                 // profileLooked=false is what lets the UI offer a refresh instead of sending
                 // someone to fill in a form the scheduler would have filled itself.
@@ -196,6 +196,18 @@ public class PortfolioDiversificationService {
 
     /** Where a ticker was first seen, so an unclassified line can be named and reached. */
     private record HoldingOrigin(Long accountId, String name) {}
+
+    /**
+     * Whether a provider has actually been asked about this security.
+     *
+     * <p>Not {@code profile != null}: a sync seeds a row carrying an ISIN and nothing else, so a
+     * profile can exist without anything ever having been looked up. Reading nullity would tell
+     * the member "we looked, classify it by hand" about a security nobody has queried yet — and
+     * a hand-made override then permanently masks whatever the lookup would have found.
+     */
+    private static boolean wasLookedUp(SecurityProfile profile) {
+        return profile != null && profile.getStatus() != SecurityProfileStatus.NEVER_FETCHED;
+    }
 
     private static void record(List<DiversificationResponse.UnclassifiedLine> into,
                                Map<String, HoldingOrigin> origins, String ticker,

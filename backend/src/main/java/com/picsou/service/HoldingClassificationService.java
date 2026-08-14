@@ -4,6 +4,7 @@ import com.picsou.dto.HoldingClassificationRequest;
 import com.picsou.dto.HoldingClassificationView;
 import com.picsou.model.Account;
 import com.picsou.model.SecurityProfile;
+import com.picsou.model.SecurityProfileStatus;
 import com.picsou.model.HoldingClassification;
 import com.picsou.repository.HoldingClassificationRepository;
 import org.springframework.stereotype.Service;
@@ -56,7 +57,10 @@ public class HoldingClassificationService {
             override == null ? null : override.getCountryKey(),
             profile == null ? null : profile.getSectorKey(),
             profile == null ? null : profile.getCountryKey(),
-            profile != null);
+            // Not "a profile row exists": a sync seeds one from an ISIN alone, and calling that
+            // "looked up" would send the member to classify by hand a security nobody has asked
+            // a provider about yet.
+            profile != null && profile.getStatus() != SecurityProfileStatus.NEVER_FETCHED);
     }
 
     @Transactional

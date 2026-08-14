@@ -7,6 +7,7 @@ import com.picsou.model.AccountType;
 import com.picsou.model.FamilyMember;
 import com.picsou.model.HoldingClassification;
 import com.picsou.model.SecurityProfile;
+import com.picsou.model.SecurityProfileStatus;
 import com.picsou.model.WealthTier;
 import com.picsou.repository.HoldingClassificationRepository;
 import org.junit.jupiter.api.Test;
@@ -54,7 +55,8 @@ class HoldingClassificationServiceTest {
         when(profileService.load(List.of("AAPL"))).thenReturn(Map.of("AAPL",
             SecurityProfile.builder().ticker("AAPL").assetType("STOCK")
                 .sectorKey("technology").countryKey("US")
-                .refreshedAt(Instant.now()).slices(new ArrayList<>()).build()));
+                .refreshedAt(Instant.now()).status(SecurityProfileStatus.OK)
+                .slices(new ArrayList<>()).build()));
 
         HoldingClassificationView view = service.view(ACCOUNT, MEMBER, "aapl");
 

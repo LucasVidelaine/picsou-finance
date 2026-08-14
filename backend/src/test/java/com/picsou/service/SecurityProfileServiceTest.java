@@ -9,6 +9,16 @@ import com.picsou.model.SecuritySliceKind;
 import com.picsou.port.EquityProfileProvider;
 import com.picsou.repository.SecurityProfileRepository;
 import org.junit.jupiter.api.BeforeEach;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.SimpleTransactionStatus;
+import org.springframework.transaction.support.TransactionTemplate;
+import com.picsou.model.SecurityCompositionSlice;
+import com.picsou.model.SecurityProfileStatus;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.util.ArrayList;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -53,8 +63,26 @@ class SecurityProfileServiceTest {
         };
     }
 
+    /**
+     * Runs callbacks straight through while counting boundaries, so a test can assert that each
+     * ticker gets its own transaction instead of sharing one across a network-bound loop.
+     * Same shape as {@code PropertyValuationServiceTest}'s.
+     */
+    private static final class CountingTxManager implements PlatformTransactionManager {
+        int started;
+        @Override public TransactionStatus getTransaction(TransactionDefinition definition) {
+            started++;
+            return new SimpleTransactionStatus();
+        }
+        @Override public void commit(TransactionStatus status) { }
+        @Override public void rollback(TransactionStatus status) { }
+    }
+
+    private CountingTxManager txManager = new CountingTxManager();
+
     private SecurityProfileService serviceWith(EquityProfileProvider... providers) {
-        return new SecurityProfileService(repository, insightService, identityService, List.of(providers));
+        return new SecurityProfileService(repository, insightService, identityService,
+            List.of(providers), new TransactionTemplate(txManager));
     }
 
     @Test
@@ -153,5 +181,84 @@ class SecurityProfileServiceTest {
             .thenReturn(new SecurityInsightResponse("FINE", "UNKNOWN", null));
 
         assertThat(serviceWith().refreshStale(List.of("BOOM", "FINE"), 10)).isEqualTo(1);
+    }
+
+    @Test
+    void aFailedLookupKeepsTheLastGoodProfileInsteadOfWipingIt() {
+        SecurityProfile existing = SecurityProfile.builder()
+            .ticker("CW8.PA").assetType("ETF").source("Boursorama")
+            .asOf(LocalDate.of(2026, 6, 30))
+            .refreshedAt(Instant.parse("2026-08-01T00:00:00Z"))
+            .status(SecurityProfileStatus.OK)
+            .slices(new ArrayList<>(List.of(SecurityCompositionSlice.builder()
+                .kind(SecuritySliceKind.COUNTRY).label("US").percent(new BigDecimal("69.70")).build())))
+            .build();
+        when(repository.findByTicker("CW8.PA")).thenReturn(Optional.of(existing));
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(insightService.getInsight(eq("CW8.PA"), any(), any()))
+            .thenThrow(new RuntimeException("boursorama 502"));
+
+        SecurityProfile saved = serviceWith().refresh("CW8.PA");
+
+        // The whole point. A transient scrape failure used to call replaceSlices(List.of()) and
+        // stamp refreshedAt anyway, so a good look-through was destroyed and not retried for a
+        // month, while source/asOf still advertised the last success.
+        assertThat(saved.getSlices()).hasSize(1);
+        assertThat(saved.getSource()).isEqualTo("Boursorama");
+        assertThat(saved.getAsOf()).isEqualTo(LocalDate.of(2026, 6, 30));
+        assertThat(saved.getRefreshedAt()).isEqualTo(Instant.parse("2026-08-01T00:00:00Z"));
+        assertThat(saved.getStatus()).isEqualTo(SecurityProfileStatus.FAILED);
+        assertThat(saved.getLastError()).contains("502");
+        assertThat(saved.getLastAttemptAt()).isNotNull();
+    }
+
+    @Test
+    void aFailureComesBackRoundInDaysWhereASuccessWaitsAMonth() {
+        Instant now = Instant.now();
+        SecurityProfile failedYesterday = SecurityProfile.builder()
+            .ticker("A").assetType("ETF").status(SecurityProfileStatus.FAILED)
+            .refreshedAt(now.minus(Duration.ofDays(2)))
+            .lastAttemptAt(now.minus(Duration.ofDays(1))).build();
+        SecurityProfile failedLastWeek = SecurityProfile.builder()
+            .ticker("B").assetType("ETF").status(SecurityProfileStatus.FAILED)
+            .refreshedAt(now.minus(Duration.ofDays(8)))
+            .lastAttemptAt(now.minus(Duration.ofDays(7))).build();
+        SecurityProfile okLastWeek = SecurityProfile.builder()
+            .ticker("C").assetType("ETF").status(SecurityProfileStatus.OK)
+            .refreshedAt(now.minus(Duration.ofDays(7)))
+            .lastAttemptAt(now.minus(Duration.ofDays(7))).build();
+        SecurityProfile seeded = SecurityProfile.builder()
+            .ticker("D").assetType("UNKNOWN").isin("LU1681043599")
+            .status(SecurityProfileStatus.NEVER_FETCHED).build();
+        when(repository.findAllWithSlicesByTickerIn(any()))
+            .thenReturn(List.of(failedYesterday, failedLastWeek, okLastWeek, seeded));
+        when(insightService.getInsight(any(), any(), any()))
+            .thenReturn(new SecurityInsightResponse("X", "UNKNOWN", null));
+        when(repository.findByTicker(any())).thenReturn(Optional.empty());
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        serviceWith().refreshStale(List.of("A", "B", "C", "D"), 10);
+
+        // B is retried (failed a week ago, past the 3-day retry) and D is due immediately as a
+        // seeded row. A failed yesterday so it waits; C succeeded a week ago so it waits a month.
+        verify(insightService, never()).getInsight(eq("A"), any(), any());
+        verify(insightService).getInsight(eq("B"), any(), any());
+        verify(insightService, never()).getInsight(eq("C"), any(), any());
+        verify(insightService).getInsight(eq("D"), any(), any());
+    }
+
+    @Test
+    void eachTickerGetsItsOwnTransaction() {
+        when(repository.findAllWithSlicesByTickerIn(any())).thenReturn(List.of());
+        when(insightService.getInsight(any(), any(), any()))
+            .thenReturn(new SecurityInsightResponse("X", "UNKNOWN", null));
+        when(repository.findByTicker(any())).thenReturn(Optional.empty());
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        serviceWith().refreshStale(List.of("A", "B", "C"), 10);
+
+        // Not one transaction around a network-bound loop: that holds a connection open for the
+        // whole burst and lets one constraint violation roll back the entire batch.
+        assertThat(txManager.started).isEqualTo(3);
     }
 }

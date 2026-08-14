@@ -6,6 +6,7 @@ import com.picsou.dto.SecurityInsightResponse;
 import com.picsou.dto.WeightedSlice;
 import com.picsou.model.SecurityCompositionSlice;
 import com.picsou.model.SecurityProfile;
+import com.picsou.model.SecurityProfileStatus;
 import com.picsou.model.SecuritySliceKind;
 import com.picsou.port.EquityProfileProvider;
 import com.picsou.repository.SecurityProfileRepository;
@@ -13,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -39,19 +41,28 @@ public class SecurityProfileService {
     /** A sector does not change. Anything older than this is refreshed by the weekly pass. */
     public static final Duration REFRESH_AFTER = Duration.ofDays(30);
 
+    /** A failure is usually transient, so it comes back round far sooner than a success. */
+    public static final Duration RETRY_AFTER_FAILURE = Duration.ofDays(3);
+
+    /** Delay between tickers within a pass. See {@link #pause()}. */
+    static final Duration PACING = Duration.ofMillis(500);
+
     private final SecurityProfileRepository repository;
     private final SecurityInsightService insightService;
     private final SecurityIdentityService identityService;
     private final List<EquityProfileProvider> equityProviders;
+    private final TransactionTemplate txTemplate;
 
     public SecurityProfileService(SecurityProfileRepository repository,
                                   SecurityInsightService insightService,
                                   SecurityIdentityService identityService,
-                                  List<EquityProfileProvider> equityProviders) {
+                                  List<EquityProfileProvider> equityProviders,
+                                  TransactionTemplate txTemplate) {
         this.repository = repository;
         this.insightService = insightService;
         this.identityService = identityService;
         this.equityProviders = equityProviders;
+        this.txTemplate = txTemplate;
     }
 
     /** Persisted profiles for the tickers asked for, keyed uppercase. Never fetches. */
@@ -88,59 +99,137 @@ public class SecurityProfileService {
         if (isin != null && profile.getIsin() == null) {
             profile.setIsin(isin);
         }
-        SecurityInsightResponse insight = insightService.getInsight(upper, null, isin);
-        profile.setAssetType(insight.assetType());
-        profile.setRefreshedAt(Instant.now());
+        profile.setLastAttemptAt(Instant.now());
+
+        SecurityInsightResponse insight;
+        try {
+            insight = insightService.getInsight(upper, null, isin);
+        } catch (Exception ex) {
+            // Never overwrite on failure. The old code wiped the slices here and stamped
+            // refreshedAt anyway, so one transient 502 destroyed a good look-through and then
+            // locked the ticker out of retry for thirty days.
+            return repository.save(markFailed(profile, ex));
+        }
 
         EtfComposition composition = insight.composition();
+        boolean resolved;
         if (composition != null) {
             profile.setSource(composition.source());
             profile.setAsOf(composition.asOf());
             profile.replaceSlices(slicesOf(composition));
             profile.setSectorKey(null);
             profile.setCountryKey(null);
+            resolved = true;
         } else if ("STOCK".equals(insight.assetType())) {
-            EquityProfile merged = resolveEquity(upper);
-            profile.setSectorKey(merged.sectorKey());
-            profile.setCountryKey(merged.countryKey());
-            profile.setSource(merged.source());
-            profile.replaceSlices(List.of());
+            EquityProfile merged;
+            try {
+                merged = resolveEquity(upper);
+            } catch (Exception ex) {
+                return repository.save(markFailed(profile, ex));
+            }
+            resolved = merged.sectorKey() != null || merged.countryKey() != null;
+            if (resolved) {
+                profile.setSectorKey(merged.sectorKey());
+                profile.setCountryKey(merged.countryKey());
+                profile.setSource(merged.source());
+                profile.replaceSlices(List.of());
+            }
         } else {
-            profile.replaceSlices(List.of());
+            // Not a fund, and not a share we can profile — crypto, or something Yahoo does not
+            // quote. Nothing to store, and nothing to destroy either.
+            resolved = false;
         }
+
+        profile.setAssetType(insight.assetType());
+        profile.setLastError(null);
+        profile.setStatus(resolved ? SecurityProfileStatus.OK : SecurityProfileStatus.NO_DATA);
+        // Only a real answer advances the weekly clock. NO_DATA still counts as resolved: the
+        // source was reachable and had nothing, which is worth remembering for a month.
+        profile.setRefreshedAt(Instant.now());
 
         return repository.save(profile);
     }
 
-    /** Refreshes the stalest tickers, capped. Returns how many were actually refreshed. */
-    @Transactional
+    private static SecurityProfile markFailed(SecurityProfile profile, Exception ex) {
+        profile.setStatus(SecurityProfileStatus.FAILED);
+        String message = ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage();
+        profile.setLastError(message.length() > 200 ? message.substring(0, 200) : message);
+        log.warn("Security profile lookup failed for {}: {}", profile.getTicker(), message);
+        return profile;
+    }
+
+    /**
+     * Refreshes the stalest tickers, capped. Returns how many were actually refreshed.
+     *
+     * <p>Deliberately <strong>not</strong> {@code @Transactional}. The loop is network-bound —
+     * several blocking HTTP calls per ticker against two unofficial sources — and wrapping it
+     * would hold one database connection open for the whole burst and let a single constraint
+     * violation roll back the entire batch. Each ticker commits on its own, the pattern
+     * {@code IsinTickerRepairRunner} already established here.
+     */
     public int refreshStale(Collection<String> tickers, int limit) {
         Map<String, SecurityProfile> known = load(tickers);
-        Instant cutoff = Instant.now().minus(REFRESH_AFTER);
+        Instant now = Instant.now();
+        Instant successCutoff = now.minus(REFRESH_AFTER);
+        Instant failureCutoff = now.minus(RETRY_AFTER_FAILURE);
 
         List<String> due = tickers.stream()
             .filter(Objects::nonNull)
             .map(t -> t.toUpperCase(Locale.ROOT))
             .distinct()
-            .filter(t -> {
-                SecurityProfile p = known.get(t);
-                return p == null || p.getRefreshedAt() == null || p.getRefreshedAt().isBefore(cutoff);
-            })
+            .filter(t -> isDue(known.get(t), successCutoff, failureCutoff))
             .limit(limit)
             .toList();
 
         int refreshed = 0;
+        int attempted = 0;
         for (String ticker : due) {
+            // Paced on attempts, not successes: a run of failures is exactly when a source is
+            // most likely to be rate-limiting us.
+            if (attempted++ > 0) pause();
             // One bad ticker must not abort the pass — the same discipline dailySnapshots uses
-            // per account.
+            // per account. refresh() records a provider failure rather than throwing, so the
+            // catch here is for everything below it: a repository or transaction failure.
             try {
-                refresh(ticker);
-                refreshed++;
+                SecurityProfile result = txTemplate.execute(status -> refresh(ticker));
+                if (result != null && result.getStatus() != SecurityProfileStatus.FAILED) {
+                    refreshed++;
+                }
             } catch (Exception ex) {
                 log.warn("Security profile refresh failed for {}: {}", ticker, ex.getMessage());
             }
         }
         return refreshed;
+    }
+
+    /**
+     * Two cutoffs, not one.
+     *
+     * <p>A failure has to come back round sooner than a success, or "retry later" is just the
+     * thirty-day lockout under another name. A profile that has never been resolved — the row a
+     * sync seeds from an ISIN alone — is due immediately.
+     */
+    private static boolean isDue(SecurityProfile p, Instant successCutoff, Instant failureCutoff) {
+        if (p == null || p.getRefreshedAt() == null) return true;
+        if (p.getStatus() == SecurityProfileStatus.FAILED) {
+            return p.getLastAttemptAt() == null || p.getLastAttemptAt().isBefore(failureCutoff);
+        }
+        return p.getRefreshedAt().isBefore(successCutoff);
+    }
+
+    /**
+     * Breathing room between tickers.
+     *
+     * <p>Forty back-to-back requests from one residential IP is exactly the shape that gets a
+     * source to start refusing — measurably so: Yahoo's crumb endpoint answers "Too Many
+     * Requests" to it. The pass is a weekly background job; it can afford to be slow.
+     */
+    private void pause() {
+        try {
+            Thread.sleep(PACING.toMillis());
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     /**

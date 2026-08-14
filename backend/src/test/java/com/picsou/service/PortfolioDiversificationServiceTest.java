@@ -66,7 +66,8 @@ class PortfolioDiversificationServiceTest {
     private void stockProfile(String ticker, String sector, String country) {
         profiles.put(ticker, SecurityProfile.builder()
             .ticker(ticker).assetType("STOCK").sectorKey(sector).countryKey(country)
-            .refreshedAt(Instant.now()).slices(new ArrayList<>()).build());
+            .refreshedAt(Instant.now()).status(SecurityProfileStatus.OK)
+            .slices(new ArrayList<>()).build());
     }
 
     private void etfProfile(String ticker, Map<String, String> sectors, Map<String, String> countries) {
@@ -76,7 +77,8 @@ class PortfolioDiversificationServiceTest {
         countries.forEach((label, pct) -> slices.add(SecurityCompositionSlice.builder()
             .kind(SecuritySliceKind.COUNTRY).label(label).percent(new BigDecimal(pct)).build()));
         profiles.put(ticker, SecurityProfile.builder()
-            .ticker(ticker).assetType("ETF").refreshedAt(Instant.now()).slices(slices).build());
+            .ticker(ticker).assetType("ETF").refreshedAt(Instant.now())
+            .status(SecurityProfileStatus.OK).slices(slices).build());
     }
 
     private static BigDecimal sliceOf(DiversificationResponse.Breakdown b, String label) {
@@ -183,7 +185,8 @@ class PortfolioDiversificationServiceTest {
         Account account = equityAccount(Map.of("AAPL", "5000"));
         profiles.put("AAPL", SecurityProfile.builder()
             .ticker("AAPL").assetType("STOCK").sectorKey("technology").countryKey(null)
-            .refreshedAt(Instant.now()).slices(new ArrayList<>()).build());
+            .refreshedAt(Instant.now()).status(SecurityProfileStatus.OK)
+            .slices(new ArrayList<>()).build());
 
         DiversificationResponse response = service.diversification(MEMBER);
 
