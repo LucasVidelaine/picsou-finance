@@ -74,7 +74,7 @@ public class PortfolioDiversificationService {
 
         for (Account account : accounts) {
             if (WealthTier.of(account.getType()) != WealthTier.EQUITY) continue;
-            if (holdingRepository.findByAccount_Id(account.getId()).isEmpty()) continue;
+            if (!holdingRepository.existsForReadableAccount(account.getId(), memberId)) continue;
 
             BigDecimal share = shares.get(account.getId());
             for (HoldingResponse line : accountService.getHoldings(account.getId(), memberId)) {

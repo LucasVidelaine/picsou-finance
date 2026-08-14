@@ -54,8 +54,8 @@ class PortfolioDiversificationServiceTest {
             .build();
         accounts.add(account);
         shares.put(account.getId(), new BigDecimal("100"));
-        lenient().when(holdingRepository.findByAccount_Id(account.getId()))
-            .thenReturn(List.of(AccountHolding.builder().ticker("ANY").build()));
+        lenient().when(holdingRepository.existsForReadableAccount(account.getId(), MEMBER))
+            .thenReturn(true);
         lenient().when(accountService.getHoldings(account.getId(), MEMBER)).thenReturn(
             lines.entrySet().stream().map(e -> new HoldingResponse(
                 e.getKey(), e.getKey(), BigDecimal.ONE, null, null, "EUR",
