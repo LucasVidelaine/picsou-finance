@@ -3,6 +3,7 @@ package com.picsou.service;
 import com.picsou.adapter.CoinGeckoPriceProvider;
 import com.picsou.adapter.YahooFinancePriceProvider;
 import com.picsou.dto.EtfComposition;
+import com.picsou.dto.SecurityRef;
 import com.picsou.dto.SecurityInsightResponse;
 import com.picsou.dto.WeightedSlice;
 import com.picsou.port.EtfCompositionProvider;
@@ -34,8 +35,8 @@ class SecurityInsightServiceTest {
 
     private static EtfCompositionProvider fakeProvider(boolean supports, EtfComposition comp) {
         return new EtfCompositionProvider() {
-            @Override public boolean supports(String ticker, String name) { return supports; }
-            @Override public Optional<EtfComposition> fetch(String ticker, String name) {
+            @Override public boolean supports(SecurityRef ref) { return supports; }
+            @Override public Optional<EtfComposition> fetch(SecurityRef ref) {
                 return Optional.ofNullable(comp);
             }
         };

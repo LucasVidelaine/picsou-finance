@@ -28,6 +28,7 @@ class SecurityProfileServiceTest {
 
     @Mock SecurityProfileRepository repository;
     @Mock SecurityInsightService insightService;
+    @Mock SecurityIdentityService identityService;
 
     @BeforeEach
     void echoSaves() {
@@ -53,7 +54,7 @@ class SecurityProfileServiceTest {
     }
 
     private SecurityProfileService serviceWith(EquityProfileProvider... providers) {
-        return new SecurityProfileService(repository, insightService, List.of(providers));
+        return new SecurityProfileService(repository, insightService, identityService, List.of(providers));
     }
 
     @Test
@@ -61,7 +62,7 @@ class SecurityProfileServiceTest {
         // The decisive behaviour: no single source has both halves. Yahoo answers the sector and
         // only Boursorama has the ISIN the country comes from, so first-provider-wins would
         // throw the country away every time the sector arrived first.
-        when(insightService.getInsight("AI.PA", null))
+        when(insightService.getInsight("AI.PA", null, null))
             .thenReturn(new SecurityInsightResponse("AI.PA", "STOCK", null));
 
         SecurityProfile saved = serviceWith(
@@ -76,7 +77,7 @@ class SecurityProfileServiceTest {
 
     @Test
     void skipsAProviderThatKnowsNothingAndKeepsAsking() {
-        when(insightService.getInsight("AI.PA", null))
+        when(insightService.getInsight("AI.PA", null, null))
             .thenReturn(new SecurityInsightResponse("AI.PA", "STOCK", null));
 
         SecurityProfile saved = serviceWith(silent(), fake("technology", "US", "Yahoo Finance"))
@@ -87,7 +88,7 @@ class SecurityProfileServiceTest {
 
     @Test
     void anEtfIsStoredAsSlicesRatherThanASingleSector() {
-        when(insightService.getInsight("CW8.PA", null)).thenReturn(new SecurityInsightResponse(
+        when(insightService.getInsight("CW8.PA", null, null)).thenReturn(new SecurityInsightResponse(
             "CW8.PA", "ETF", new EtfComposition(
                 List.of(new WeightedSlice("Apple", new BigDecimal("5.1"))),
                 List.of(new WeightedSlice("US", new BigDecimal("70"))),
@@ -107,7 +108,7 @@ class SecurityProfileServiceTest {
     void aRepeatedLabelDoesNotBreakTheWholeSave() {
         // The unique key is (profile, kind, label); a provider echoing a label twice must lose
         // the duplicate line, not the entire security.
-        when(insightService.getInsight("DUP", null)).thenReturn(new SecurityInsightResponse(
+        when(insightService.getInsight("DUP", null, null)).thenReturn(new SecurityInsightResponse(
             "DUP", "ETF", new EtfComposition(List.of(), List.of(),
                 List.of(new WeightedSlice("technology", new BigDecimal("20")),
                         new WeightedSlice("technology", new BigDecimal("30"))),
@@ -120,7 +121,7 @@ class SecurityProfileServiceTest {
 
     @Test
     void anUnknownSecurityIsStillRecordedSoItIsNotRetriedEveryWeek() {
-        when(insightService.getInsight("XYZ", null))
+        when(insightService.getInsight("XYZ", null, null))
             .thenReturn(new SecurityInsightResponse("XYZ", "UNKNOWN", null));
 
         SecurityProfile saved = serviceWith().refresh("XYZ");
@@ -135,20 +136,20 @@ class SecurityProfileServiceTest {
         SecurityProfile fresh = SecurityProfile.builder()
             .ticker("FRESH").assetType("STOCK").refreshedAt(Instant.now()).build();
         when(repository.findAllWithSlicesByTickerIn(any())).thenReturn(List.of(fresh));
-        when(insightService.getInsight(any(), any()))
+        when(insightService.getInsight(any(), any(), any()))
             .thenReturn(new SecurityInsightResponse("X", "UNKNOWN", null));
 
         int refreshed = serviceWith().refreshStale(List.of("FRESH", "STALE", "OTHER"), 1);
 
         assertThat(refreshed).isEqualTo(1);
-        verify(insightService, never()).getInsight(eq("FRESH"), any());
+        verify(insightService, never()).getInsight(eq("FRESH"), any(), any());
     }
 
     @Test
     void oneBadTickerDoesNotAbortThePass() {
         when(repository.findAllWithSlicesByTickerIn(any())).thenReturn(List.of());
-        when(insightService.getInsight(eq("BOOM"), any())).thenThrow(new RuntimeException("provider down"));
-        when(insightService.getInsight(eq("FINE"), any()))
+        when(insightService.getInsight(eq("BOOM"), any(), any())).thenThrow(new RuntimeException("provider down"));
+        when(insightService.getInsight(eq("FINE"), any(), any()))
             .thenReturn(new SecurityInsightResponse("FINE", "UNKNOWN", null));
 
         assertThat(serviceWith().refreshStale(List.of("BOOM", "FINE"), 10)).isEqualTo(1);

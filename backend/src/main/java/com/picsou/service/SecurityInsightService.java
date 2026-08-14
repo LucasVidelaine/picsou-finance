@@ -4,6 +4,7 @@ import com.picsou.adapter.CoinGeckoPriceProvider;
 import com.picsou.adapter.YahooFinancePriceProvider;
 import com.picsou.dto.EtfComposition;
 import com.picsou.dto.SecurityInsightResponse;
+import com.picsou.dto.SecurityRef;
 import com.picsou.port.EtfCompositionProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,21 +45,35 @@ public class SecurityInsightService {
     }
 
     public SecurityInsightResponse getInsight(String ticker, String name) {
+        return getInsight(ticker, name, null);
+    }
+
+    /**
+     * As above, but told which ISIN the ticker came from.
+     *
+     * <p>The ISIN is part of the cache key rather than ignored: a call from the security
+     * controller has none, and letting its thinner answer occupy the same entry would deny the
+     * refresh path the identifier that makes the lookup succeed.
+     */
+    public SecurityInsightResponse getInsight(String ticker, String name, String isin) {
         if (ticker == null || ticker.isBlank()) {
             return new SecurityInsightResponse(ticker, "UNKNOWN", null);
         }
         String upper = ticker.toUpperCase();
+        String cacheKey = isin == null || isin.isBlank() ? upper : upper + '|' + isin;
 
-        CachedInsight cached = cache.get(upper);
+        CachedInsight cached = cache.get(cacheKey);
         if (cached != null && !cached.isExpired()) {
             return cached.response();
         }
 
         String assetType = classify(upper);
-        EtfComposition composition = "ETF".equals(assetType) ? resolveComposition(ticker, name) : null;
+        EtfComposition composition = "ETF".equals(assetType)
+            ? resolveComposition(new SecurityRef(ticker, name, isin))
+            : null;
 
         SecurityInsightResponse response = new SecurityInsightResponse(upper, assetType, composition);
-        cache.put(upper, new CachedInsight(response, Instant.now()));
+        cache.put(cacheKey, new CachedInsight(response, Instant.now()));
         return response;
     }
 
@@ -80,17 +95,17 @@ public class SecurityInsightService {
     }
 
     /** First supporting provider that returns a non-empty composition wins; null otherwise. */
-    private EtfComposition resolveComposition(String ticker, String name) {
+    private EtfComposition resolveComposition(SecurityRef ref) {
         for (EtfCompositionProvider provider : compositionProviders) {
-            if (!provider.supports(ticker, name)) {
+            if (!provider.supports(ref)) {
                 continue;
             }
-            Optional<EtfComposition> composition = provider.fetch(ticker, name);
+            Optional<EtfComposition> composition = provider.fetch(ref);
             if (composition.isPresent() && hasAnyData(composition.get())) {
                 return composition.get();
             }
         }
-        log.debug("No provider resolved composition for {} ({})", ticker, name);
+        log.debug("No provider resolved composition for {} ({})", ref.ticker(), ref.isin());
         return null;
     }
 

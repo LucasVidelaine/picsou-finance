@@ -41,13 +41,16 @@ public class SecurityProfileService {
 
     private final SecurityProfileRepository repository;
     private final SecurityInsightService insightService;
+    private final SecurityIdentityService identityService;
     private final List<EquityProfileProvider> equityProviders;
 
     public SecurityProfileService(SecurityProfileRepository repository,
                                   SecurityInsightService insightService,
+                                  SecurityIdentityService identityService,
                                   List<EquityProfileProvider> equityProviders) {
         this.repository = repository;
         this.insightService = insightService;
+        this.identityService = identityService;
         this.equityProviders = equityProviders;
     }
 
@@ -75,10 +78,17 @@ public class SecurityProfileService {
     @Transactional
     public SecurityProfile refresh(String ticker) {
         String upper = ticker.toUpperCase(Locale.ROOT);
-        SecurityInsightResponse insight = insightService.getInsight(upper, null);
 
         SecurityProfile profile = repository.findByTicker(upper)
             .orElseGet(() -> SecurityProfile.builder().ticker(upper).build());
+
+        // The ISIN a sync recorded, or the ticker itself when it is one. Passing it on is what
+        // lets Boursorama resolve a fund whose ticker OpenFIGI picked from a US OTC listing.
+        String isin = identityService.isinOf(upper).orElse(null);
+        if (isin != null && profile.getIsin() == null) {
+            profile.setIsin(isin);
+        }
+        SecurityInsightResponse insight = insightService.getInsight(upper, null, isin);
         profile.setAssetType(insight.assetType());
         profile.setRefreshedAt(Instant.now());
 
