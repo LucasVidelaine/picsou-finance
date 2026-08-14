@@ -52,6 +52,7 @@ class DegiroSyncServiceTest {
     @Mock FamilyMemberRepository memberRepository;
     @Mock AccountService accountService;
     @Mock OpenFigiIsinConverter isinConverter;
+    @Mock SecurityIdentityService identityService;
     @Mock CryptoEncryption encryption;
     @Mock DegiroSessionStatusWriter statusWriter;
     @Captor ArgumentCaptor<AccountHolding> holdingCaptor;
@@ -64,7 +65,7 @@ class DegiroSyncServiceTest {
     void setUp() {
         service = new DegiroSyncService(
             port, sessionRepository, accountRepository, holdingRepository,
-            memberRepository, accountService, isinConverter, encryption, statusWriter);
+            memberRepository, accountService, isinConverter, identityService, encryption, statusWriter);
     }
 
     private FamilyMember member() {

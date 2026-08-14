@@ -45,6 +45,16 @@ public class SecurityProfile extends AuditableEntity {
     @Column(name = "country_key", length = 2)
     private String countryKey;
 
+    /**
+     * The security's ISIN, when a sync supplied one or a lookup recovered it.
+     *
+     * <p>Kept because it is the identifier the sources actually resolve: Boursorama's search
+     * maps an ISIN to the same symbol as the ticker, and it is the only key a fund-facts lookup
+     * has. Holdings store a Yahoo ticker converted from it and drop the original.
+     */
+    @Column(length = 12)
+    private String isin;
+
     @Column(length = 60)
     private String source;
 
@@ -52,8 +62,12 @@ public class SecurityProfile extends AuditableEntity {
     @Column(name = "as_of")
     private LocalDate asOf;
 
-    /** When we last asked. Drives the weekly refresh, and is not the same as {@link #asOf}. */
-    @Column(name = "refreshed_at", nullable = false)
+    /**
+     * When we last asked. Drives the weekly refresh, and is not the same as {@link #asOf}.
+     *
+     * <p>Null on a row a sync seeded from an ISIN alone — never resolved, and therefore due.
+     */
+    @Column(name = "refreshed_at")
     private Instant refreshedAt;
 
     @OneToMany(mappedBy = "profile", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
