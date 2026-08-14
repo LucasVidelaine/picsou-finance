@@ -465,6 +465,25 @@ appears twice, or if the account is not a property or a loan.
 
 ---
 
+#### `GET /api/accounts/{id}/holdings/{ticker}/classification`
+
+What the classification editor opens on. Returns the member's override **and** what the providers
+inferred, as separate fields — merged into one "effective" value the form could not tell you
+whether you are confirming a guess or reading your own earlier decision.
+
+**Response `200`:**
+```json
+{
+  "ticker": "AAPL", "wealthTier": null, "sectorKey": null, "countryKey": null,
+  "inferredSectorKey": "technology", "inferredCountryKey": "US", "profileLooked": true
+}
+```
+
+`profileLooked` is false when no lookup has run for the ticker, so "no sector" reads as "not
+asked yet" rather than "unknowable". Readable-gated, not owner-gated: looking is not a write.
+
+---
+
 #### `PUT /api/accounts/{id}/holdings/{ticker}/classification`
 
 The member's own verdict on what a holding is, overriding whatever was inferred from the account
@@ -574,6 +593,28 @@ to the allocation score plus the modifiers. `cryptoTopTenShare` is `null` when n
 was seen line by line — an exchange tracked as a single balance draws no penalty, because its
 composition is unknown rather than poor.
 
+#### `POST /api/analysis/security-profiles/refresh`
+
+Warms the security profiles the diversification breakdown reads from, now rather than on the
+weekly schedule. Exists because nothing warms the table on first read: a fresh install would show
+a wholly unclassified breakdown until the following Sunday.
+
+**Response `202`:**
+```json
+{ "queuedTickers": 36, "alreadyRunning": false }
+```
+
+`202`, never `200` — the scraping outlives the request by design (one or two HTTP calls per
+ticker, no pacing), so it runs on a background thread. One pass at a time across the whole
+instance: a call made while one is running returns `alreadyRunning: true` and `queuedTickers: 0`
+rather than starting a rival pass. Capped at 40 tickers, like the scheduled pass, and
+rate-limited per IP on the sync bucket since it reaches two unofficial sources.
+
+Profiles are global reference data, so the pass covers every distinct ticker in the instance
+rather than only the caller's.
+
+---
+
 #### `GET /api/analysis/diversification`
 
 How the equity sleeve spreads across sectors and regions. ETFs are looked through to their
@@ -589,7 +630,12 @@ scrape. `SchedulerService` warms the table weekly.
   "classifiedValueEur": 131800.00,
   "unclassifiedValueEur": 10600.00,
   "coveragePercent": 92.56,
-  "pendingTickers": ["MC.PA"],
+  "unclassified": [
+    {
+      "ticker": "MC.PA", "name": "LVMH", "accountId": 3, "valueEur": 10600.00,
+      "sectorMissing": false, "countryMissing": true, "profileLooked": true
+    }
+  ],
   "sectors": {
     "score": 78, "effectiveCount": 4.68, "targetCount": 6, "basis": "MIXED",
     "slices": [{ "label": "technology", "percent": 31.40 }]
@@ -606,8 +652,14 @@ client-side under `holdings.insight.sectorNames.*` / `countryNames.*`, with the 
 fallback. `score` is `min(100, 100 × N_eff / targetCount)` where `N_eff = 1/Σw²`, the effective
 number of positions: it separates 20/20/20/20/20 from 96/1/1/1/1, which counting buckets cannot.
 
+`unclassified` lists the lines a breakdown could not fully place, biggest first, with what the
+editor needs to fix them: `accountId` because the write is account-scoped, and `profileLooked` to
+separate "never looked up" (a refresh may still resolve it) from "looked up and still unknown"
+(only a manual override can). The two axes are reported independently — a share often has a
+sector and no domicile.
+
 Both scores are computed over the **classified** part only. `coveragePercent`,
-`unclassifiedValueEur` and `pendingTickers` travel with them so a breakdown over part of a
+`unclassifiedValueEur` and `unclassified` travel with them so a breakdown over part of a
 portfolio cannot be read as one over all of it. A ticker in `pendingTickers` has no profile yet —
 "not looked up", not "unknowable".
 

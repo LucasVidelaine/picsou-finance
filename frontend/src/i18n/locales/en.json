@@ -263,10 +263,28 @@
       "effective": "{{value}} effective positions / {{target}} targeted",
       "coverage": "Computed over {{value}}% of the stocks & ETFs sleeve",
       "unclassified": "unclassified",
-      "pending": "Awaiting classification: {{tickers}}",
       "noData": "No breakdown data available",
       "noHoldings": "No stock or ETF line to analyse.",
       "basisNote": "For an ETF the country is the index's actual exposure; for a directly held share it is the ISIN's country of issuance. These are different quantities, added together here."
+    },
+    "classification": {
+      "title": "Classify this security",
+      "action": "Classify",
+      "sector": "Sector",
+      "country": "Region",
+      "tier": "Wealth tier",
+      "inherit": "Let Picsou decide",
+      "inferred": "Detected automatically: {{value}}",
+      "tierHint": "Only set this when the security does not belong to its account's tier — a gold ETC or a bitcoin ETP held in a brokerage account, for instance.",
+      "scopeHint": "This classification applies to {{ticker}} wherever you hold it, and survives syncing.",
+      "listTitle": "Lines to classify",
+      "missing": "missing: {{fields}}",
+      "notLookedUp": "not looked up yet",
+      "refresh": "Look up now",
+      "refreshQueued": "Lookup started for {{count}} securities. Check back in a minute.",
+      "refreshAlready": "A lookup is already running.",
+      "editAria": "Classify {{ticker}}",
+      "andMore": "and {{count}} more."
     }
   },
   "accountTypes": {

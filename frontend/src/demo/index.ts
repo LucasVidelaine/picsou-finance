@@ -49,6 +49,44 @@ handlers.set(key('PUT', '/analysis/allocation-targets'), (config) => {
   return demoAllocationTargets
 })
 handlers.set(key('GET', '/analysis/essential-expenses/estimate'), () => mockExpenseEstimate)
+// Demo mode has no scheduler and no network, so the refresh reports a plausible queue rather
+// than pretending work happened.
+handlers.set(key('POST', '/analysis/security-profiles/refresh'), () => ({
+  queuedTickers: 2,
+  alreadyRunning: false,
+}))
+
+// Classification is keyed on (account, ticker) and the demo lookup is exact-match, so every pair
+// the UI can open has to be registered. The unregistered fallback returns {}, which would render
+// the editor with undefined fields instead of failing visibly.
+const demoClassifiable: [number, string][] = [
+  ...Object.entries(mockHoldings).flatMap(([accountId, lines]) =>
+    (lines as { ticker: string }[]).map(
+      (line): [number, string] => [Number(accountId), line.ticker],
+    ),
+  ),
+  ...mockDiversification.unclassified
+    .filter((line) => line.accountId !== null)
+    .map((line): [number, string] => [line.accountId as number, line.ticker]),
+]
+for (const [accountId, ticker] of demoClassifiable) {
+  const path = `/accounts/${accountId}/holdings/${encodeURIComponent(ticker)}/classification`
+  // Nothing overridden by default: the demo shows the providers' own answer, which is what a
+  // real instance looks like before anyone corrects anything.
+  handlers.set(key('GET', path), () => ({
+    ticker,
+    wealthTier: null,
+    sectorKey: null,
+    countryKey: null,
+    inferredSectorKey: null,
+    inferredCountryKey: null,
+    profileLooked: true,
+  }))
+  handlers.set(key('PUT', path), (config) => ({
+    ticker,
+    ...(typeof config.data === 'string' ? JSON.parse(config.data) : {}),
+  }))
+}
 
 // Accounts
 handlers.set(key('GET', '/accounts'), () => mockAccounts)

@@ -263,10 +263,28 @@
       "effective": "{{value}} posiciones efectivas / {{target}} previstas",
       "coverage": "Calculado sobre el {{value}} % de la bolsa de acciones y ETF",
       "unclassified": "sin clasificar",
-      "pending": "Pendiente de clasificar: {{tickers}}",
       "noData": "No hay datos de reparto disponibles",
       "noHoldings": "No hay línea de acciones o ETF que analizar.",
       "basisNote": "En un ETF el país es la exposición real del índice; en una acción en directo es el país de emisión del ISIN. Son magnitudes distintas, sumadas aquí."
+    },
+    "classification": {
+      "title": "Clasificar este valor",
+      "action": "Clasificar",
+      "sector": "Sector",
+      "country": "Región",
+      "tier": "Nivel patrimonial",
+      "inherit": "Dejar que Picsou decida",
+      "inferred": "Detectado automáticamente: {{value}}",
+      "tierHint": "Indíquelo solo si el valor no pertenece al nivel de su cuenta — por ejemplo un ETC de oro o un ETP de bitcoin en una cuenta de valores.",
+      "scopeHint": "Esta clasificación se aplica a {{ticker}} allá donde lo tenga, y sobrevive a las sincronizaciones.",
+      "listTitle": "Líneas por clasificar",
+      "missing": "falta: {{fields}}",
+      "notLookedUp": "aún sin consultar",
+      "refresh": "Consultar ahora",
+      "refreshQueued": "Consulta iniciada para {{count}} valores. Vuelva en un minuto.",
+      "refreshAlready": "Ya hay una consulta en curso.",
+      "editAria": "Clasificar {{ticker}}",
+      "andMore": "y {{count}} más."
     }
   },
   "accountTypes": {

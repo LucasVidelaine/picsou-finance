@@ -1,7 +1,9 @@
 package com.picsou.service;
 
 import com.picsou.dto.HoldingClassificationRequest;
+import com.picsou.dto.HoldingClassificationView;
 import com.picsou.model.Account;
+import com.picsou.model.SecurityProfile;
 import com.picsou.model.HoldingClassification;
 import com.picsou.repository.HoldingClassificationRepository;
 import org.springframework.stereotype.Service;
@@ -24,11 +26,37 @@ public class HoldingClassificationService {
 
     private final HoldingClassificationRepository repository;
     private final AccountAccessResolver accessResolver;
+    private final SecurityProfileService profileService;
 
     public HoldingClassificationService(HoldingClassificationRepository repository,
-                                        AccountAccessResolver accessResolver) {
+                                        AccountAccessResolver accessResolver,
+                                        SecurityProfileService profileService) {
         this.repository = repository;
         this.accessResolver = accessResolver;
+        this.profileService = profileService;
+    }
+
+    /**
+     * What the editor opens on: the override in force plus what the providers inferred.
+     *
+     * <p>Readable, not owner-gated — looking at how a shared holding is classified is not a write.
+     */
+    public HoldingClassificationView view(Long accountId, Long memberId, String ticker) {
+        accessResolver.requireReadable(accountId, memberId);
+        String upper = ticker.toUpperCase(Locale.ROOT);
+
+        HoldingClassification override =
+            repository.findByMemberIdAndTicker(memberId, upper).orElse(null);
+        SecurityProfile profile = profileService.load(java.util.List.of(upper)).get(upper);
+
+        return new HoldingClassificationView(
+            upper,
+            override == null ? null : override.getWealthTier(),
+            override == null ? null : override.getSectorKey(),
+            override == null ? null : override.getCountryKey(),
+            profile == null ? null : profile.getSectorKey(),
+            profile == null ? null : profile.getCountryKey(),
+            profile != null);
     }
 
     @Transactional

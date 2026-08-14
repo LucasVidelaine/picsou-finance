@@ -4,14 +4,26 @@ import com.picsou.dto.AllocationTargetsRequest;
 import com.picsou.dto.AllocationTargetsResponse;
 import com.picsou.dto.DiversificationResponse;
 import com.picsou.dto.EssentialExpenseEstimateResponse;
+import com.picsou.dto.SecurityProfileRefreshResponse;
 import com.picsou.dto.WealthPyramidResponse;
+import com.picsou.config.RateLimitConfig;
+import com.picsou.config.ClientIp;
 import com.picsou.service.AllocationTargetService;
 import com.picsou.service.EssentialExpenseEstimator;
 import com.picsou.service.PortfolioDiversificationService;
+import com.picsou.service.SecurityProfileRefreshRunner;
 import com.picsou.service.UserContext;
 import com.picsou.service.WealthPyramidService;
+import io.github.bucket4j.Bucket;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 /**
  * Wealth analysis: how the portfolio is built, rather than what it is worth.
@@ -27,18 +39,24 @@ public class AnalysisController {
     private final PortfolioDiversificationService diversificationService;
     private final AllocationTargetService allocationTargetService;
     private final EssentialExpenseEstimator expenseEstimator;
+    private final SecurityProfileRefreshRunner profileRefreshRunner;
     private final UserContext userContext;
+    private final Map<String, Bucket> syncBuckets;
 
     public AnalysisController(WealthPyramidService pyramidService,
                               PortfolioDiversificationService diversificationService,
                               AllocationTargetService allocationTargetService,
                               EssentialExpenseEstimator expenseEstimator,
-                              UserContext userContext) {
+                              SecurityProfileRefreshRunner profileRefreshRunner,
+                              UserContext userContext,
+                              @Qualifier("syncBuckets") Map<String, Bucket> syncBuckets) {
         this.pyramidService = pyramidService;
         this.diversificationService = diversificationService;
         this.allocationTargetService = allocationTargetService;
         this.expenseEstimator = expenseEstimator;
+        this.profileRefreshRunner = profileRefreshRunner;
         this.userContext = userContext;
+        this.syncBuckets = syncBuckets;
     }
 
     /** The five tiers, their weights against the member's targets, and the resulting score. */
@@ -77,5 +95,29 @@ public class AnalysisController {
     @GetMapping("/essential-expenses/estimate")
     public EssentialExpenseEstimateResponse expenseEstimate() {
         return expenseEstimator.estimate(userContext.currentMemberId());
+    }
+
+    /**
+     * Warms the security profiles the diversification breakdown reads from, now rather than on
+     * the weekly schedule.
+     *
+     * <p>202, never 200: the scraping outlives the request by design. Rate-limited on the sync
+     * bucket because it reaches two unofficial sources, and idempotent while a pass is running —
+     * a second call reports {@code alreadyRunning} instead of starting a rival pass.
+     */
+    @PostMapping("/security-profiles/refresh")
+    public ResponseEntity<?> refreshSecurityProfiles(HttpServletRequest request) {
+        String ip = ClientIp.resolve(request);
+        Bucket bucket = syncBuckets.computeIfAbsent(ip, k -> RateLimitConfig.createSyncBucket());
+        if (!bucket.tryConsume(1)) {
+            ProblemDetail detail = ProblemDetail.forStatus(HttpStatus.TOO_MANY_REQUESTS);
+            detail.setDetail("Too many refresh requests. Please wait a moment.");
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(detail);
+        }
+
+        int queued = profileRefreshRunner.trigger();
+        return ResponseEntity.accepted().body(queued < 0
+            ? new SecurityProfileRefreshResponse(0, true)
+            : new SecurityProfileRefreshResponse(queued, false));
     }
 }

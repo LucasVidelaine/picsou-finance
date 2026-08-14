@@ -17,8 +17,9 @@ import java.util.*;
  * Spreads the equity sleeve across sectors and regions.
  *
  * <p>Reads only persisted profiles — never the network. A ticker nobody has warmed yet counts as
- * unclassified and is named in {@code pendingTickers}, which is honest and keeps a page render
- * off an unofficial HTML endpoint.
+ * unclassified and is listed in {@code unclassified}, which is honest and keeps a page render off
+ * an unofficial HTML endpoint. The list carries enough to correct the line by hand, because the
+ * securities that land there are largely the ones no provider will ever resolve.
  */
 @Service
 @Transactional(readOnly = true)
@@ -66,6 +67,9 @@ public class PortfolioDiversificationService {
 
         // One pass to collect the equity lines, so profiles can be loaded in a single query.
         Map<String, BigDecimal> valueByTicker = new LinkedHashMap<>();
+        // Where each ticker was first seen. Kept only so an unclassified line can be named and
+        // linked back to an account the member owns; the classification itself is per-ticker.
+        Map<String, HoldingOrigin> originByTicker = new HashMap<>();
         BigDecimal total = BigDecimal.ZERO;
 
         for (Account account : accounts) {
@@ -78,7 +82,10 @@ public class PortfolioDiversificationService {
                 BigDecimal value = AccountAccessResolver.weigh(line.currentValueEur(), share);
                 if (value.signum() == 0) continue;
                 // The same ticker held in two accounts is one position for this purpose.
-                valueByTicker.merge(line.ticker().toUpperCase(Locale.ROOT), value, BigDecimal::add);
+                String ticker = line.ticker().toUpperCase(Locale.ROOT);
+                valueByTicker.merge(ticker, value, BigDecimal::add);
+                originByTicker.putIfAbsent(ticker,
+                    new HoldingOrigin(account.getId(), line.name()));
                 total = total.add(value);
             }
         }
@@ -87,7 +94,7 @@ public class PortfolioDiversificationService {
 
         Map<String, BigDecimal> sectorTotals = new HashMap<>();
         Map<String, BigDecimal> countryTotals = new HashMap<>();
-        List<String> pending = new ArrayList<>();
+        List<DiversificationResponse.UnclassifiedLine> unclassifiedLines = new ArrayList<>();
         BigDecimal sectorClassified = BigDecimal.ZERO;
         BigDecimal countryClassified = BigDecimal.ZERO;
         boolean sectorMixed = false;
@@ -117,7 +124,17 @@ public class PortfolioDiversificationService {
             }
 
             if (profile == null) {
-                if (!placedSector && !placedCountry) pending.add(ticker);
+                // Never looked up, so whatever the override did not cover is missing.
+                // profileLooked=false is what lets the UI offer a refresh instead of sending
+                // someone to fill in a form the scheduler would have filled itself.
+                //
+                // Guarded, because an override can cover both axes on its own: a security no
+                // provider carries — an employee-savings FCPE — is fully classified by hand and
+                // has no profile, and listing it again would make the correction look ignored.
+                if (!placedSector || !placedCountry) {
+                    record(unclassifiedLines, originByTicker, ticker, value,
+                        !placedSector, !placedCountry, false);
+                }
                 continue;
             }
 
@@ -126,23 +143,34 @@ public class PortfolioDiversificationService {
                 BigDecimal placed = spread(slices, SecuritySliceKind.SECTOR, value, sectorTotals);
                 if (placed.signum() > 0) {
                     sectorClassified = sectorClassified.add(placed);
+                    placedSector = true;
                 } else if (profile.getSectorKey() != null) {
                     sectorTotals.merge(profile.getSectorKey(), value, BigDecimal::add);
                     sectorClassified = sectorClassified.add(value);
                     // A single share contributes one sector; mixing it with a fund's
                     // look-through is a different quantity, and the UI says so.
                     sectorMixed = true;
+                    placedSector = true;
                 }
             }
             if (!placedCountry) {
                 BigDecimal placed = spread(slices, SecuritySliceKind.COUNTRY, value, countryTotals);
                 if (placed.signum() > 0) {
                     countryClassified = countryClassified.add(placed);
+                    placedCountry = true;
                 } else if (profile.getCountryKey() != null) {
                     countryTotals.merge(profile.getCountryKey(), value, BigDecimal::add);
                     countryClassified = countryClassified.add(value);
                     countryMixed = true;
+                    placedCountry = true;
                 }
+            }
+
+            // Looked up and still short of one axis: a profile exists, so this one is only fixable
+            // by hand. Reported per axis because a share often has a sector and no domicile.
+            if (!placedSector || !placedCountry) {
+                record(unclassifiedLines, originByTicker, ticker, value,
+                    !placedSector, !placedCountry, true);
             }
         }
 
@@ -156,10 +184,32 @@ public class PortfolioDiversificationService {
             scale2(classified),
             scale2(unclassified),
             scale2(percentOf(classified, total)),
-            pending,
+            // Biggest first: the line worth correcting by hand is the one moving the most money.
+            unclassifiedLines.stream()
+                .sorted(Comparator.comparing(
+                    DiversificationResponse.UnclassifiedLine::valueEur).reversed())
+                .toList(),
             breakdown(sectorTotals, sectorClassified, SECTOR_TARGET, sectorMixed),
             breakdown(countryTotals, countryClassified, COUNTRY_TARGET, countryMixed)
         );
+    }
+
+    /** Where a ticker was first seen, so an unclassified line can be named and reached. */
+    private record HoldingOrigin(Long accountId, String name) {}
+
+    private static void record(List<DiversificationResponse.UnclassifiedLine> into,
+                               Map<String, HoldingOrigin> origins, String ticker,
+                               BigDecimal value, boolean sectorMissing, boolean countryMissing,
+                               boolean profileLooked) {
+        HoldingOrigin origin = origins.get(ticker);
+        into.add(new DiversificationResponse.UnclassifiedLine(
+            ticker,
+            origin == null ? null : origin.name(),
+            origin == null ? null : origin.accountId(),
+            scale2(value),
+            sectorMissing,
+            countryMissing,
+            profileLooked));
     }
 
     /**

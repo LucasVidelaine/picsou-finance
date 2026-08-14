@@ -4,6 +4,15 @@ import { render, screen } from '@testing-library/react'
 import { DiversificationSection } from './DiversificationSection'
 import type { Diversification } from '@/types/api'
 
+// No QueryClient here: the section and the editor it embeds both reach for TanStack Query, and
+// this suite is about what the card renders, not about fetching. Same approach as
+// AnalysisPage.test.tsx.
+vi.mock('@/features/analysis/hooks', () => ({
+  useRefreshSecurityProfiles: () => ({ mutate: vi.fn(), isPending: false }),
+  useHoldingClassification: () => ({ data: undefined, isPending: true }),
+  useClassifyHolding: () => ({ mutate: vi.fn(), isPending: false }),
+}))
+
 // Translate the two label namespaces the way the app does, and fall back to the raw value —
 // that fallback is the contract for a sector or country key the locales do not map.
 const LABELS: Record<string, string> = {
@@ -29,7 +38,7 @@ function data(overrides: Partial<Diversification> = {}): Diversification {
     classifiedValueEur: 10000,
     unclassifiedValueEur: 0,
     coveragePercent: 100,
-    pendingTickers: [],
+    unclassified: [],
     sectors: {
       score: 80, effectiveCount: 4.8, targetCount: 6, basis: 'EXPOSURE',
       slices: [
@@ -63,21 +72,53 @@ describe('DiversificationSection', () => {
     expect(screen.getByText('analysis.diversification.effective:4.8,6')).toBeInTheDocument()
   })
 
-  it('states the coverage and names what is still pending', () => {
+  it('states the coverage and lists what could not be placed', () => {
     render(
       <DiversificationSection
         data={data({
           classifiedValueEur: 6000,
           unclassifiedValueEur: 4000,
           coveragePercent: 60,
-          pendingTickers: ['MC.PA'],
+          unclassified: [
+            {
+              ticker: 'MC.PA',
+              name: 'LVMH',
+              accountId: 3,
+              valueEur: 4000,
+              sectorMissing: false,
+              countryMissing: true,
+              profileLooked: true,
+            },
+          ],
         })}
       />,
     )
 
     // A bar computed over 60% of the portfolio must not read as one computed over all of it.
     expect(screen.getByText('analysis.diversification.coverage:60')).toBeInTheDocument()
-    expect(screen.getByText('analysis.diversification.pending:MC.PA')).toBeInTheDocument()
+    // Naming the line is the point: a bare total says the score is wrong without saying why.
+    expect(screen.getByText('LVMH')).toBeInTheDocument()
+    expect(screen.getByText('MC.PA')).toBeInTheDocument()
+  })
+
+  it('offers the lookup only when something has never been looked up', () => {
+    const looked = {
+      ticker: 'MC.PA', name: 'LVMH', accountId: 3, valueEur: 4000,
+      sectorMissing: false, countryMissing: true, profileLooked: true,
+    }
+    const { rerender } = render(
+      <DiversificationSection data={data({ unclassified: [looked] })} />,
+    )
+    // Already looked up and still unplaced: only a human can fix it, so promising a refresh
+    // would promise a fix that cannot come.
+    expect(screen.queryByText('analysis.classification.refresh')).not.toBeInTheDocument()
+
+    rerender(
+      <DiversificationSection
+        data={data({ unclassified: [{ ...looked, profileLooked: false }] })}
+      />,
+    )
+    expect(screen.getByText('analysis.classification.refresh')).toBeInTheDocument()
   })
 
   it('notes the mixed basis only when a directly held share contributed', () => {

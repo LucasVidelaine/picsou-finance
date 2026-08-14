@@ -114,3 +114,18 @@ const DAY_MS = 24 * HOUR_MS
  */
 export const SYNC_FRESHNESS_BOUNDS_MS = { fresh: DAY_MS, recent: 2 * DAY_MS, stale: 7 * DAY_MS }
 export const VALUATION_FRESHNESS_BOUNDS_MS = { fresh: 35 * DAY_MS, recent: 60 * DAY_MS, stale: 90 * DAY_MS }
+
+/**
+ * The native `<select>` chrome, matching the `Input` primitive.
+ *
+ * Selects are not a shadcn primitive here — the project uses the native element — so this string
+ * is the only thing keeping them on the same scale as inputs, and every copy is a chance for one
+ * to drift off the ladder `docs/features/ui-control-shape-system.md` exists to hold.
+ *
+ * `AddAccountModal` and `FinaryTab` still carry their own copy of the same declarations without
+ * the leading `flex`. They are left alone deliberately: folding them in here would add `flex` to
+ * four controls as a side effect of an unrelated feature, and a visual change belongs in a change
+ * that is about the visuals.
+ */
+export const SELECT_CONTROL_CLASS =
+  'flex h-10 w-full rounded-xl border border-input bg-input/20 px-4 text-sm outline-none dark:bg-input/30'

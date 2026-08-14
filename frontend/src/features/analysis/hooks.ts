@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { analysisApi } from './api'
 import { QUERY_STALE_TIMES } from '@/lib/constants'
-import type { AllocationTargetsRequest } from '@/types/api'
+import type { AllocationTargetsRequest, HoldingClassificationRequest } from '@/types/api'
 
 export function useWealthPyramid() {
   return useQuery({
@@ -46,5 +46,52 @@ export function useSaveAllocationTargets() {
     mutationFn: (body: AllocationTargetsRequest) => analysisApi.saveTargets(body),
     // The pyramid is scored against these targets, so it is stale the moment they change.
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['analysis'] }),
+  })
+}
+
+/**
+ * The classification in force for one ticker. Only fetched while the editor is open — it is a
+ * per-ticker round trip and nothing shows it until someone asks to change something.
+ */
+export function useHoldingClassification(
+  accountId: number | null,
+  ticker: string | null,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: ['analysis', 'classification', accountId, ticker],
+    queryFn: () => analysisApi.holdingClassification(accountId!, ticker!),
+    enabled: enabled && accountId != null && !!ticker,
+    staleTime: QUERY_STALE_TIMES.analysis,
+  })
+}
+
+export function useClassifyHolding() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      accountId,
+      ticker,
+      body,
+    }: {
+      accountId: number
+      ticker: string
+      body: HoldingClassificationRequest
+    }) => analysisApi.classifyHolding(accountId, ticker, body),
+    // Both breakdowns and the pyramid read the override, so the whole namespace is stale.
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['analysis'] }),
+  })
+}
+
+/**
+ * Warms the profiles now instead of waiting for the weekly pass.
+ *
+ * <p>Nothing is invalidated on success: the server answers 202 the moment the work is queued, so
+ * the data is not ready yet and refetching here would just re-read the same empty table. The
+ * caller refetches when it decides enough time has passed.
+ */
+export function useRefreshSecurityProfiles() {
+  return useMutation({
+    mutationFn: () => analysisApi.refreshSecurityProfiles(),
   })
 }

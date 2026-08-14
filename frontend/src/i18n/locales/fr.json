@@ -263,10 +263,28 @@
       "effective": "{{value}} postes effectifs / {{target}} visés",
       "coverage": "Calculé sur {{value}} % du portefeuille actions & ETF",
       "unclassified": "non classé",
-      "pending": "En attente de classement : {{tickers}}",
       "noData": "Aucune donnée de répartition disponible",
       "noHoldings": "Aucune ligne d'actions ou d'ETF à analyser.",
       "basisNote": "Pour un ETF, le pays est l'exposition réelle de l'indice ; pour une action détenue en direct, c'est le pays d'émission de l'ISIN. Ce sont deux grandeurs différentes, additionnées ici."
+    },
+    "classification": {
+      "title": "Classer ce titre",
+      "action": "Classer",
+      "sector": "Secteur",
+      "country": "Zone géographique",
+      "tier": "Palier patrimonial",
+      "inherit": "Laisser Picsou décider",
+      "inferred": "Détecté automatiquement : {{value}}",
+      "tierHint": "À ne renseigner que si le titre n'appartient pas au palier de son compte — un ETC or ou un ETP bitcoin logé dans un CTO, par exemple.",
+      "scopeHint": "Ce classement s'applique à {{ticker}} partout où vous le détenez, et survit aux synchronisations.",
+      "listTitle": "Lignes à classer",
+      "missing": "manque : {{fields}}",
+      "notLookedUp": "pas encore recherché",
+      "refresh": "Rechercher maintenant",
+      "refreshQueued": "Recherche lancée sur {{count}} titres. Revenez dans une minute.",
+      "refreshAlready": "Une recherche est déjà en cours.",
+      "editAria": "Classer {{ticker}}",
+      "andMore": "et {{count}} autre(s)."
     }
   },
   "accountTypes": {

@@ -932,13 +932,25 @@ export interface DiversificationBreakdown {
   slices: WeightedSlice[]
 }
 
+/** A holding a breakdown could not fully place, with what the editor needs to fix it. */
+export interface UnclassifiedLine {
+  ticker: string
+  name: string | null
+  /** An account holding it — the write is account-scoped because ownership authorises it. */
+  accountId: number | null
+  valueEur: number
+  sectorMissing: boolean
+  countryMissing: boolean
+  /** False means no provider lookup has run yet, so a refresh may still fix it on its own. */
+  profileLooked: boolean
+}
+
 export interface Diversification {
   totalValueEur: number
   classifiedValueEur: number
   unclassifiedValueEur: number
   coveragePercent: number
-  /** Tickers with no profile yet — "not looked up", not "unknowable". */
-  pendingTickers: string[]
+  unclassified: UnclassifiedLine[]
   sectors: DiversificationBreakdown
   countries: DiversificationBreakdown
 }
@@ -954,4 +966,24 @@ export interface HoldingClassificationResponse {
   wealthTier: WealthTier | null
   sectorKey: string | null
   countryKey: string | null
+}
+
+/**
+ * What the editor opens on. The member's override and the providers' guess are separate: a form
+ * pre-filled with a guess cannot tell you whether you are confirming it or reading your own
+ * earlier decision, and saving it would freeze the guess in place forever.
+ */
+export interface HoldingClassificationView {
+  ticker: string
+  wealthTier: WealthTier | null
+  sectorKey: string | null
+  countryKey: string | null
+  inferredSectorKey: string | null
+  inferredCountryKey: string | null
+  profileLooked: boolean
+}
+
+export interface SecurityProfileRefresh {
+  queuedTickers: number
+  alreadyRunning: boolean
 }

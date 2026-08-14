@@ -8,6 +8,7 @@ import com.picsou.dto.ExchangePositionResponse;
 import com.picsou.dto.HoldingRequest;
 import com.picsou.dto.HoldingClassificationRequest;
 import com.picsou.dto.HoldingClassificationResponse;
+import com.picsou.dto.HoldingClassificationView;
 import com.picsou.dto.HoldingResponse;
 import com.picsou.dto.RealEstateMetadataRequest;
 import com.picsou.dto.RealEstateMetadataResponse;
@@ -195,6 +196,15 @@ public class AccountController {
      * live in an ordinary brokerage account) and because no provider knows every security. Each
      * field overrides independently; sending all three as null clears the override entirely.
      */
+    /** What the classification editor opens on — the override in force, and what was inferred. */
+    @GetMapping("/{id}/holdings/{ticker}/classification")
+    public HoldingClassificationView holdingClassification(
+        @PathVariable Long id,
+        @PathVariable String ticker
+    ) {
+        return holdingClassificationService.view(id, userContext.currentMemberId(), ticker);
+    }
+
     @PutMapping("/{id}/holdings/{ticker}/classification")
     public HoldingClassificationResponse classifyHolding(
         @PathVariable Long id,

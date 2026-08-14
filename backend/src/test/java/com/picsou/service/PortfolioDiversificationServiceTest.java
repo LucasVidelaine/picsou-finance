@@ -163,9 +163,66 @@ class PortfolioDiversificationServiceTest {
         assertThat(response.classifiedValueEur()).isEqualByComparingTo("6000.00");
         assertThat(response.unclassifiedValueEur()).isEqualByComparingTo("4000.00");
         assertThat(response.coveragePercent()).isEqualByComparingTo("60.00");
-        assertThat(response.pendingTickers()).containsExactly("MC.PA");
+        assertThat(response.unclassified()).singleElement().satisfies(line -> {
+            assertThat(line.ticker()).isEqualTo("MC.PA");
+            assertThat(line.valueEur()).isEqualByComparingTo("4000.00");
+            // Never looked up, as opposed to looked up and unknown — the UI offers a refresh for
+            // the first and only a manual override for the second.
+            assertThat(line.profileLooked()).isFalse();
+            assertThat(line.sectorMissing()).isTrue();
+            assertThat(line.countryMissing()).isTrue();
+        });
         // And the classified part still sums to 100 among itself.
         assertThat(sliceOf(response.sectors(), "basic_materials")).isEqualByComparingTo("100.00");
+    }
+
+    @Test
+    void aLineMissingOnlyItsCountryIsListedAsSuch() {
+        // Yahoo knows Apple's sector; only the ISIN gives its domicile. Reporting the line as
+        // wholly unclassified would send someone to re-enter a sector that is already right.
+        Account account = equityAccount(Map.of("AAPL", "5000"));
+        profiles.put("AAPL", SecurityProfile.builder()
+            .ticker("AAPL").assetType("STOCK").sectorKey("technology").countryKey(null)
+            .refreshedAt(Instant.now()).slices(new ArrayList<>()).build());
+
+        DiversificationResponse response = service.diversification(MEMBER);
+
+        assertThat(response.unclassified()).singleElement().satisfies(line -> {
+            assertThat(line.ticker()).isEqualTo("AAPL");
+            assertThat(line.sectorMissing()).isFalse();
+            assertThat(line.countryMissing()).isTrue();
+            assertThat(line.profileLooked()).isTrue();
+            // The account is what authorises the correction, so the UI must be handed one.
+            assertThat(line.accountId()).isEqualTo(account.getId());
+        });
+    }
+
+    @Test
+    void aHandClassifiedLineLeavesTheList() {
+        equityAccount(Map.of("QS0009068550", "20000"));
+        when(classificationRepository.findByMemberId(MEMBER)).thenReturn(List.of(
+            HoldingClassification.builder()
+                .ticker("QS0009068550").sectorKey("industrials").countryKey("FR").build()));
+
+        DiversificationResponse response = service.diversification(MEMBER);
+
+        // An employee-savings FCPE no provider covers: the override is the only thing that can
+        // ever place it, so it has to count as fully classified afterwards.
+        assertThat(response.unclassified()).isEmpty();
+        assertThat(response.coveragePercent()).isEqualByComparingTo("100.00");
+        assertThat(sliceOf(response.sectors(), "industrials")).isEqualByComparingTo("100.00");
+        assertThat(sliceOf(response.countries(), "FR")).isEqualByComparingTo("100.00");
+    }
+
+    @Test
+    void theListIsOrderedByValueSoTheWorthwhileFixIsFirst() {
+        equityAccount(Map.of("SMALL", "100", "BIG", "9000", "MID", "500"));
+
+        DiversificationResponse response = service.diversification(MEMBER);
+
+        assertThat(response.unclassified())
+            .extracting(DiversificationResponse.UnclassifiedLine::ticker)
+            .containsExactly("BIG", "MID", "SMALL");
     }
 
     @Test

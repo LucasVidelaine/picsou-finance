@@ -263,10 +263,28 @@
       "effective": "{{value}} effektive Positionen / {{target}} angestrebt",
       "coverage": "Berechnet über {{value}} % des Aktien- & ETF-Anteils",
       "unclassified": "nicht klassifiziert",
-      "pending": "Klassifizierung ausstehend: {{tickers}}",
       "noData": "Keine Aufteilungsdaten verfügbar",
       "noHoldings": "Keine Aktien- oder ETF-Position zu analysieren.",
       "basisNote": "Bei einem ETF ist das Land die tatsächliche Indexausrichtung; bei einer direkt gehaltenen Aktie das Emissionsland der ISIN. Das sind zwei verschiedene Größen, die hier addiert werden."
+    },
+    "classification": {
+      "title": "Wertpapier einordnen",
+      "action": "Einordnen",
+      "sector": "Sektor",
+      "country": "Region",
+      "tier": "Vermögensstufe",
+      "inherit": "Picsou entscheiden lassen",
+      "inferred": "Automatisch erkannt: {{value}}",
+      "tierHint": "Nur setzen, wenn das Wertpapier nicht zur Stufe seines Kontos gehört — etwa ein Gold-ETC oder ein Bitcoin-ETP im Wertpapierdepot.",
+      "scopeHint": "Diese Einordnung gilt für {{ticker}} überall, wo Sie es halten, und übersteht die Synchronisierung.",
+      "listTitle": "Einzuordnende Positionen",
+      "missing": "fehlt: {{fields}}",
+      "notLookedUp": "noch nicht abgefragt",
+      "refresh": "Jetzt abfragen",
+      "refreshQueued": "Abfrage für {{count}} Wertpapiere gestartet. Schauen Sie in einer Minute wieder vorbei.",
+      "refreshAlready": "Eine Abfrage läuft bereits.",
+      "editAria": "{{ticker}} einordnen",
+      "andMore": "und {{count}} weitere."
     }
   },
   "accountTypes": {

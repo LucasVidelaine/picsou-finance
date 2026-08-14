@@ -1,11 +1,19 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Info } from 'lucide-react'
+import { Info, Pencil, RefreshCw } from 'lucide-react'
+import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { CurrencyDisplay } from '@/components/shared/CurrencyDisplay'
 import { OTHERS_SLICE_COLOR, SLICE_PALETTE } from '@/lib/chart-palette'
 import { cn } from '@/lib/utils'
-import type { Diversification, DiversificationBreakdown } from '@/types/api'
+import { useRefreshSecurityProfiles } from '@/features/analysis/hooks'
+import { HoldingClassificationModal } from './HoldingClassificationModal'
+import type { Diversification, DiversificationBreakdown, UnclassifiedLine } from '@/types/api'
+
+/** Longest list shown before it is cut; the rest are reachable from the holdings table. */
+const MAX_UNCLASSIFIED_SHOWN = 8
 
 /** Below this a slice is thinner than a hairline; it joins the remainder instead. */
 const MIN_VISIBLE_PERCENT = 0.5
@@ -98,8 +106,118 @@ function BreakdownBar({
   )
 }
 
+/**
+ * The lines the breakdown could not place, each openable in the editor.
+ *
+ * <p>Listing them is the point. A bare "40 978 € unclassified" tells someone their score is
+ * wrong without telling them what to do about it, and the securities that land here are exactly
+ * the ones no provider will ever resolve — employee-savings FCPEs, unlisted funds — so waiting
+ * does not help.
+ */
+function UnclassifiedList({
+  lines,
+  onEdit,
+}: {
+  lines: UnclassifiedLine[]
+  onEdit: (line: UnclassifiedLine) => void
+}) {
+  const { t } = useTranslation()
+  const refresh = useRefreshSecurityProfiles()
+
+  const shown = lines.slice(0, MAX_UNCLASSIFIED_SHOWN)
+  const hidden = lines.length - shown.length
+  // Never looked up is a different problem from looked up and unknown: the first is fixed by a
+  // refresh, the second only by hand. Offering the button when nothing is pending would promise
+  // a fix that cannot come.
+  const anyPending = lines.some((line) => !line.profileLooked)
+
+  return (
+    <div className="space-y-3 border-t border-border pt-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-sm text-foreground">
+          {t('analysis.classification.listTitle')}
+        </span>
+        {anyPending && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={refresh.isPending}
+            onClick={() =>
+              refresh.mutate(undefined, {
+                onSuccess: (result) =>
+                  toast.success(
+                    result.alreadyRunning
+                      ? t('analysis.classification.refreshAlready')
+                      : t('analysis.classification.refreshQueued', {
+                          count: result.queuedTickers,
+                        }),
+                  ),
+              })
+            }
+          >
+            <RefreshCw
+              className={cn('size-4', refresh.isPending && 'animate-spin')}
+              aria-hidden="true"
+            />
+            {t('analysis.classification.refresh')}
+          </Button>
+        )}
+      </div>
+
+      <ul className="space-y-1">
+        {shown.map((line) => (
+          <li
+            key={line.ticker}
+            className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted px-3 py-2"
+          >
+            <div className="min-w-0">
+              <span className="text-sm text-foreground">{line.name ?? line.ticker}</span>
+              <span className="ml-2 text-xs text-muted-foreground">{line.ticker}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-muted-foreground">
+                {line.profileLooked
+                  ? t('analysis.classification.missing', {
+                      fields: [
+                        line.sectorMissing && t('analysis.classification.sector'),
+                        line.countryMissing && t('analysis.classification.country'),
+                      ]
+                        .filter(Boolean)
+                        .join(', '),
+                    })
+                  : t('analysis.classification.notLookedUp')}
+              </span>
+              <CurrencyDisplay value={line.valueEur} className="text-sm text-foreground" />
+              {/* accountId is what authorises the write; without one there is nothing to open. */}
+              {line.accountId !== null && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onEdit(line)}
+                  aria-label={t('analysis.classification.editAria', { ticker: line.ticker })}
+                >
+                  <Pencil className="size-4" aria-hidden="true" />
+                </Button>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      {hidden > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {t('analysis.classification.andMore', { count: hidden })}
+        </p>
+      )}
+    </div>
+  )
+}
+
 export function DiversificationSection({ data }: { data: Diversification }) {
   const { t } = useTranslation()
+  const [editing, setEditing] = useState<UnclassifiedLine | null>(null)
 
   const hasHoldings = data.totalValueEur > 0
 
@@ -140,14 +258,11 @@ export function DiversificationSection({ data }: { data: Diversification }) {
                   {t('analysis.diversification.unclassified')}
                 </Badge>
               )}
-              {data.pendingTickers.length > 0 && (
-                <span>
-                  {t('analysis.diversification.pending', {
-                    tickers: data.pendingTickers.slice(0, 5).join(', '),
-                  })}
-                </span>
-              )}
             </div>
+
+            {data.unclassified.length > 0 && (
+              <UnclassifiedList lines={data.unclassified} onEdit={setEditing} />
+            )}
 
             {data.countries.basis === 'MIXED' && (
               <p className="flex gap-2 rounded-lg bg-muted p-3 text-xs text-muted-foreground">
@@ -158,6 +273,14 @@ export function DiversificationSection({ data }: { data: Diversification }) {
           </div>
         )}
       </CardContent>
+
+      <HoldingClassificationModal
+        open={editing !== null}
+        accountId={editing?.accountId ?? null}
+        ticker={editing?.ticker ?? null}
+        name={editing?.name}
+        onClose={() => setEditing(null)}
+      />
     </Card>
   )
 }

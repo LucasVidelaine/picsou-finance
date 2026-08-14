@@ -94,15 +94,36 @@ export const mockExpenseEstimate: EssentialExpenseEstimate = {
 }
 
 /**
- * Deliberately imperfect too: technology-heavy, US-heavy, and with a slice the profiles have not
- * been warmed for — so the coverage line and the pending-tickers hint are both exercised.
+ * Deliberately imperfect too: technology-heavy, US-heavy, and with lines the profiles cannot
+ * place — so the coverage line, the correction list and both of its states are all exercised.
+ * One was never looked up (a refresh may still fix it), the other was and still has no domicile,
+ * which is the case only a hand-made override can close.
  */
 export const mockDiversification: Diversification = {
   totalValueEur: 142400,
   classifiedValueEur: 131800,
   unclassifiedValueEur: 10600,
   coveragePercent: 92.56,
-  pendingTickers: ['MC.PA'],
+  unclassified: [
+    {
+      ticker: 'FCPE-DEMO',
+      name: 'Actions Monde (FCPE)',
+      accountId: 4,
+      valueEur: 8200,
+      sectorMissing: true,
+      countryMissing: true,
+      profileLooked: false,
+    },
+    {
+      ticker: 'MC.PA',
+      name: 'LVMH',
+      accountId: 3,
+      valueEur: 2400,
+      sectorMissing: false,
+      countryMissing: true,
+      profileLooked: true,
+    },
+  ],
   sectors: {
     score: 78,
     effectiveCount: 4.68,

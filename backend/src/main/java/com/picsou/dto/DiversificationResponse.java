@@ -14,18 +14,43 @@ import java.util.List;
  * @param unclassifiedValueEur value it could not, reported rather than renormalised away — the
  *                             same discipline as the {@code Others} remainder in the holding
  *                             modal and {@code Valuation.anyPriced}
- * @param pendingTickers       tickers with no profile yet, so "not classified" reads as "not
- *                             looked up yet" rather than "unknowable"
+ * @param unclassified         the lines a breakdown could not fully place, carrying what the UI
+ *                             needs to correct them by hand. Listing them beats a bare count:
+ *                             the securities no provider covers (employee-savings FCPEs, unlisted
+ *                             funds) are precisely the ones that will never resolve on their own
  */
 public record DiversificationResponse(
     BigDecimal totalValueEur,
     BigDecimal classifiedValueEur,
     BigDecimal unclassifiedValueEur,
     BigDecimal coveragePercent,
-    List<String> pendingTickers,
+    List<UnclassifiedLine> unclassified,
     Breakdown sectors,
     Breakdown countries
 ) {
+
+    /**
+     * A holding the breakdown could not fully place, with everything needed to fix it by hand.
+     *
+     * @param accountId    an account the ticker is held in. The write is account-scoped because
+     *                     ownership is what authorises an override; when the same ticker sits in
+     *                     two accounts any one of them will do, since the row is keyed on
+     *                     (member, ticker)
+     * @param sectorMissing  no sector could be resolved and none was set by hand
+     * @param countryMissing ditto for the country. A line can be missing one and not the other:
+     *                     Yahoo knows Apple's sector, only the ISIN gives its domicile
+     * @param profileLooked  whether a provider lookup has happened at all, so the UI can say
+     *                     "not looked up yet" rather than implying the security is unknowable
+     */
+    public record UnclassifiedLine(
+        String ticker,
+        String name,
+        Long accountId,
+        BigDecimal valueEur,
+        boolean sectorMissing,
+        boolean countryMissing,
+        boolean profileLooked
+    ) {}
 
     /**
      * @param score        0-100, from the effective number of positions {@code 1/Σw²} against a

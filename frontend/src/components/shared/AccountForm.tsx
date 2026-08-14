@@ -13,7 +13,7 @@ import { ColorPicker } from '@/components/shared/ColorPicker'
 import { LogoPicker } from '@/components/shared/LogoPicker'
 import { BankPicker } from '@/components/shared/BankPicker'
 import { parseAmount, getLocale } from '@/lib/utils'
-import { ACCOUNT_TYPES, SUPPORTED_CURRENCIES } from '@/lib/constants'
+import { ACCOUNT_TYPES, SELECT_CONTROL_CLASS, SUPPORTED_CURRENCIES } from '@/lib/constants'
 
 /** RHF setValueAs: empty → undefined (optional), else comma-tolerant number. */
 const toOptionalNumber = (v: unknown): number | undefined =>
@@ -98,7 +98,6 @@ const EMPTY_DEFAULTS: AccountFormData = {
   endDate: '',
 }
 
-const selectControlClassName = "flex h-10 w-full rounded-xl border border-input bg-input/20 px-4 text-sm outline-none dark:bg-input/30"
 
 export function AccountForm({ open, onOpenChange, onSubmit, defaultValues, title, loading, accounts = [] }: AccountFormProps) {
   const { t } = useTranslation()
@@ -177,7 +176,7 @@ export function AccountForm({ open, onOpenChange, onSubmit, defaultValues, title
             <select
               id="type"
               {...register('type')}
-              className={selectControlClassName}
+              className={SELECT_CONTROL_CLASS}
             >
               {ACCOUNT_TYPES.map((at) => (
                 <option key={at.value} value={at.value}>
@@ -193,7 +192,7 @@ export function AccountForm({ open, onOpenChange, onSubmit, defaultValues, title
               <select
                 id="currency"
                 {...register('currency')}
-                className={selectControlClassName}
+                className={SELECT_CONTROL_CLASS}
               >
                 {currencyOptions.map((c) => (
                   <option key={c.code} value={c.code}>
@@ -244,7 +243,7 @@ export function AccountForm({ open, onOpenChange, onSubmit, defaultValues, title
                   <Label htmlFor="linkedAccountId">{t('debt.linkedAccount')}</Label>
                   <select
                     id="linkedAccountId"
-                    className={selectControlClassName}
+                    className={SELECT_CONTROL_CLASS}
                     {...register('linkedAccountId', {
                       setValueAs: v => (v === '' || v == null ? undefined : Number(v)),
                     })}

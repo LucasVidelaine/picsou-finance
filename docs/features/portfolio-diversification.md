@@ -1,6 +1,6 @@
 # Feature: Portfolio diversification (sector + geography)
 
-> Last updated: 2026-08-13
+> Last updated: 2026-08-14
 
 ## Context
 
@@ -75,6 +75,32 @@ discipline as the `Others` remainder in the holding modal and `Valuation.anyPric
 it weekly. The breakdown reads rows and nothing else. See the
 [ADR](../decisions/2026-08-13-persisted-security-profiles.md).
 
+### Correcting a line by hand
+
+The weekly pass is not enough on its own, for two different reasons:
+
+- **A cold instance.** Nothing warms the table on first read, so a fresh install shows a wholly
+  unclassified breakdown until the following Sunday. That reads as the feature being broken
+  rather than merely cold, so `POST /api/analysis/security-profiles/refresh` runs the same pass
+  on demand. It answers `202` and does the scraping on a single background thread — one or two
+  HTTP calls per ticker with no pacing is far past any request timeout — and refuses to start a
+  second pass while one is running.
+- **Securities no provider covers.** Employee-savings FCPEs (`QS…` codes), unlisted funds and
+  ELTIFs are on neither Yahoo nor Boursorama, and no amount of refreshing will place them. On a
+  real portfolio these are not an edge case: three Amundi FCPE lines can be 60 % of the equity
+  sleeve. For those the manual override is the only route, so the breakdown lists what it could
+  not place and each entry opens the editor.
+
+`GET /api/accounts/{id}/holdings/{ticker}/classification` backs that editor. It returns the
+member's override and the providers' guess as **separate** fields. Merging them into one
+"effective" value would leave the form unable to say whether you are confirming a guess or
+reading your own earlier decision — and saving a pre-filled guess would freeze it in place, so
+the value would stop tracking the provider forever. The guess is therefore shown as text and
+never pre-selected.
+
+Clearing all three fields deletes the row rather than storing a blank verdict, so "no override"
+and "deliberately unclassified" cannot diverge.
+
 ### Key files
 
 - `backend/src/main/java/com/picsou/port/EquityProfileProvider.java` — the port, and `dto/EquityProfile.java`
@@ -85,7 +111,9 @@ it weekly. The breakdown reads rows and nothing else. See the
 - `backend/src/main/java/com/picsou/service/PortfolioDiversificationService.java` — the roll-up
 - `backend/src/main/java/com/picsou/service/HoldingClassificationService.java` — the manual override
 - `backend/src/main/resources/db/migration/V82__security_profile.sql`
+- `backend/src/main/java/com/picsou/service/SecurityProfileRefreshRunner.java` — the on-demand pass
 - `frontend/src/pages/analysis/DiversificationSection.tsx`, `frontend/src/lib/chart-palette.ts`
+- `frontend/src/pages/analysis/HoldingClassificationModal.tsx` — the editor, shared by both entry points
 
 ### Flow
 
@@ -95,12 +123,16 @@ GET /api/analysis/diversification
        ├─ readable EQUITY accounts → lines → weigh once → value by ticker
        ├─ SecurityProfileService.load(tickers)          one query, no network
        └─ per ticker: override ▸ ETF slices (renormalised) ▸ share profile ▸ unclassified
-            └─ N_eff per axis, coverage + pendingTickers reported
+            └─ N_eff per axis, coverage + the unplaced lines reported
 
 SchedulerService.refreshSecurityProfiles()  (Sundays 03:45, ≤40 tickers)
+POST /api/analysis/security-profiles/refresh  (on demand, same cap, one at a time)
   └─ SecurityProfileService.refresh(ticker)
        ├─ SecurityInsightService.getInsight → assetType (+ ETF composition)
        └─ if STOCK: EquityProfileProviders, merged field by field
+
+PUT /api/accounts/{id}/holdings/{ticker}/classification
+  └─ HoldingClassificationService — owner-gated write, row keyed on (member, ticker)
 ```
 
 ## Technical choices
