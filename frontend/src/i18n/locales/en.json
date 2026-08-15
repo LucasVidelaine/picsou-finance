@@ -437,7 +437,8 @@
         "basic_materials": "Basic Materials",
         "energy": "Energy",
         "financial_services": "Financial Services",
-        "real_estate": "Real Estate"
+        "real_estate": "Real Estate",
+        "private_equity": "Unlisted / private"
       },
       "countryNames": {
         "US": "United States",
@@ -464,7 +465,8 @@
         "BE": "Belgium",
         "FI": "Finland",
         "NO": "Norway",
-        "SG": "Singapore"
+        "SG": "Singapore",
+        "XU": "Unlisted"
       }
     }
   },

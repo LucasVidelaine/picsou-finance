@@ -16,7 +16,7 @@ import { CurrencyDisplay } from '@/components/shared/CurrencyDisplay'
 import { useEssentialExpenseEstimate, useSaveAllocationTargets } from '@/features/analysis/hooks'
 import { parseAmount } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import type { AllocationTargets, WealthTier } from '@/types/api'
+import type { AllocationTargets, AllocationTargetsRequest, WealthTier } from '@/types/api'
 
 /** The four tiers that carry a percentage target; the safety net is an absolute amount. */
 const TARGET_TIERS = ['REAL_ESTATE', 'EQUITY', 'CRYPTO', 'ALTERNATIVE'] as const
@@ -37,13 +37,16 @@ function num(raw: string): number {
  */
 function TargetsForm({
   targets,
+  saving,
+  onSubmit,
   onClose,
 }: {
   targets: AllocationTargets
+  saving: boolean
+  onSubmit: (body: AllocationTargetsRequest) => void
   onClose: () => void
 }) {
   const { t } = useTranslation()
-  const save = useSaveAllocationTargets()
   const estimate = useEssentialExpenseEstimate(true)
 
   const [expenses, setExpenses] = useState(() =>
@@ -72,17 +75,14 @@ function TargetsForm({
   const suggestion = estimate.data?.estimate ?? null
 
   function submit() {
-    save.mutate(
-      {
-        monthlyEssentialExpenses: parsedExpenses,
-        safetyNetMonths: parsedMonths,
-        realEstatePct: num(pcts.REAL_ESTATE),
-        equityPct: num(pcts.EQUITY),
-        cryptoPct: num(pcts.CRYPTO),
-        alternativePct: num(pcts.ALTERNATIVE),
-      },
-      { onSuccess: onClose },
-    )
+    onSubmit({
+      monthlyEssentialExpenses: parsedExpenses,
+      safetyNetMonths: parsedMonths,
+      realEstatePct: num(pcts.REAL_ESTATE),
+      equityPct: num(pcts.EQUITY),
+      cryptoPct: num(pcts.CRYPTO),
+      alternativePct: num(pcts.ALTERNATIVE),
+    })
   }
 
   return (
@@ -160,7 +160,7 @@ function TargetsForm({
         <Button variant="outline" onClick={onClose}>
           {t('common.cancel')}
         </Button>
-        <Button onClick={submit} disabled={!balanced || !monthsValid || save.isPending}>
+        <Button onClick={submit} disabled={!balanced || !monthsValid || saving}>
           {t('common.save')}
         </Button>
       </DialogFooter>
@@ -178,6 +178,10 @@ export function AllocationTargetsModal({
   targets: AllocationTargets | undefined
 }) {
   const { t } = useTranslation()
+  // Same reason as HoldingClassificationModal: saving invalidates ['analysis'], the refetch
+  // changes the remount key, the form unmounts, and TanStack Query then drops the callbacks
+  // passed to mutate(). Owning the mutation here keeps a listener alive to close the dialog.
+  const save = useSaveAllocationTargets()
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -190,6 +194,8 @@ export function AllocationTargetsModal({
           <TargetsForm
             key={JSON.stringify(targets)}
             targets={targets}
+            saving={save.isPending}
+            onSubmit={(body) => save.mutate(body, { onSuccess: () => onOpenChange(false) })}
             onClose={() => onOpenChange(false)}
           />
         )}

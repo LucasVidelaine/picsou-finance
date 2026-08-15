@@ -424,4 +424,25 @@ class PortfolioDiversificationServiceTest {
         assertThat(response.securities()).extracting(DiversificationResponse.SecurityInfo::accountId)
             .doesNotContainNull();
     }
+
+    @Test
+    void anUnlistedHoldingClassifiedAsSuchCountsAsClassified() {
+        // An ELTIF that no source covers. Before it had somewhere to go it sat in the "to
+        // classify" list forever, dragging coverage down and implying a lookup that would
+        // eventually succeed. It never would.
+        equityAccount(Map.of("EQTNETB", "10000"));
+        when(classificationRepository.findByMemberId(MEMBER)).thenReturn(List.of(
+            HoldingClassification.builder()
+                .ticker("EQTNETB")
+                .sectorKey(ClassificationKeys.SECTOR_PRIVATE_EQUITY)
+                .countryKey(ClassificationKeys.COUNTRY_UNLISTED)
+                .build()));
+
+        DiversificationResponse response = service.diversification(MEMBER);
+
+        assertThat(response.unclassified()).isEmpty();
+        assertThat(response.coveragePercent()).isEqualByComparingTo("100.00");
+        assertThat(sliceOf(response.sectors(), "private_equity")).isEqualByComparingTo("100.00");
+        assertThat(sliceOf(response.countries(), "XU")).isEqualByComparingTo("100.00");
+    }
 }

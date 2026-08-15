@@ -437,7 +437,8 @@
         "basic_materials": "Materiales básicos",
         "energy": "Energía",
         "financial_services": "Servicios financieros",
-        "real_estate": "Inmobiliario"
+        "real_estate": "Inmobiliario",
+        "private_equity": "No cotizado"
       },
       "countryNames": {
         "US": "Estados Unidos",
@@ -464,7 +465,8 @@
         "BE": "Bélgica",
         "FI": "Finlandia",
         "NO": "Noruega",
-        "SG": "Singapur"
+        "SG": "Singapur",
+        "XU": "No cotizado"
       }
     }
   },

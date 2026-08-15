@@ -13,7 +13,11 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { SELECT_CONTROL_CLASS } from '@/lib/constants'
 import { useClassifyHolding, useHoldingClassification } from '@/features/analysis/hooks'
-import type { HoldingClassificationView, WealthTier } from '@/types/api'
+import type {
+  HoldingClassificationRequest,
+  HoldingClassificationView,
+  WealthTier,
+} from '@/types/api'
 
 /**
  * The Morningstar sectors, in the order the breakdown legend uses. These are the same keys the
@@ -33,6 +37,17 @@ const SECTOR_KEYS = [
   'financial_services',
   'real_estate',
 ] as const
+
+/**
+ * Where a holding no data source covers can go.
+ *
+ * <p>Offered apart from the real sectors and regions because it is a different kind of answer:
+ * an ELTIF or an unquoted fund is not badly classified, it is outside the listed world
+ * altogether. Without these it would sit in the "to classify" list forever, dragging coverage
+ * down and implying a lookup that will never succeed.
+ */
+const UNLISTED_SECTOR = 'private_equity'
+const UNLISTED_COUNTRY = 'XU'
 
 /** The countries the breakdown already knows how to name, ISO 3166-1 alpha-2. */
 const COUNTRY_KEYS = [
@@ -54,41 +69,34 @@ const TIER_KEYS: WealthTier[] = [
  * React Compiler's `set-state-in-effect` rule requires, and what the sibling modals already do.
  */
 function ClassificationForm({
-  accountId,
   ticker,
   name,
   current,
+  saving,
+  onSubmit,
   onClose,
 }: {
-  accountId: number
   ticker: string
   name: string | null
   current: HoldingClassificationView
+  saving: boolean
+  onSubmit: (body: HoldingClassificationRequest) => void
   onClose: () => void
 }) {
   const { t } = useTranslation()
-  const classify = useClassifyHolding()
 
   const [sector, setSector] = useState(() => current.sectorKey ?? '')
   const [country, setCountry] = useState(() => current.countryKey ?? '')
   const [tier, setTier] = useState<string>(() => current.wealthTier ?? '')
 
   function submit() {
-    classify.mutate(
-      {
-        accountId,
-        ticker,
-        // Empty means "stop overriding this field" — the backend drops the row once all three
-        // are null, so clearing a mistake restores the provider's own answer rather than
-        // freezing a blank.
-        body: {
-          sectorKey: sector === '' ? null : sector,
-          countryKey: country === '' ? null : country,
-          wealthTier: tier === '' ? null : (tier as WealthTier),
-        },
-      },
-      { onSuccess: onClose },
-    )
+    // Empty means "stop overriding this field" — the backend drops the row once all three are
+    // null, so clearing a mistake restores the provider's own answer rather than freezing a blank.
+    onSubmit({
+      sectorKey: sector === '' ? null : sector,
+      countryKey: country === '' ? null : country,
+      wealthTier: tier === '' ? null : (tier as WealthTier),
+    })
   }
 
   const inferredSector = current.inferredSectorKey
@@ -113,6 +121,10 @@ function ClassificationForm({
                 {t(`holdings.insight.sectorNames.${key}`, key)}
               </option>
             ))}
+            <option disabled>──────────</option>
+            <option value={UNLISTED_SECTOR}>
+              {t(`holdings.insight.sectorNames.${UNLISTED_SECTOR}`)}
+            </option>
           </select>
           {/* Shown, never pre-selected: adopting a guess by default would turn it into a permanent
               hand-made override that stops tracking the provider. */}
@@ -141,6 +153,10 @@ function ClassificationForm({
                 {t(`holdings.insight.countryNames.${key}`, key)}
               </option>
             ))}
+            <option disabled>──────────</option>
+            <option value={UNLISTED_COUNTRY}>
+              {t(`holdings.insight.countryNames.${UNLISTED_COUNTRY}`)}
+            </option>
           </select>
           {inferredCountry && (
             <p className="text-sm text-muted-foreground">
@@ -180,7 +196,7 @@ function ClassificationForm({
         <Button type="button" variant="outline" onClick={onClose}>
           {t('common.cancel')}
         </Button>
-        <Button type="button" onClick={submit} disabled={classify.isPending}>
+        <Button type="button" onClick={submit} disabled={saving}>
           {t('common.save')}
         </Button>
       </DialogFooter>
@@ -203,6 +219,18 @@ export function HoldingClassificationModal({
 }) {
   const { t } = useTranslation()
   const current = useHoldingClassification(accountId, ticker, open)
+  // Deliberately here and not inside the form.
+  //
+  // Saving invalidates the whole ['analysis'] namespace, which includes the per-ticker query this
+  // modal reads. The refetch returns the values just saved, the form's remount key changes, and
+  // React unmounts it — and TanStack Query drops the callbacks passed to mutate() when the
+  // component that called it is gone (mutationObserver checks hasListeners()). So `onSuccess:
+  // onClose` never fired: the row was written and the dialog just sat there.
+  //
+  // This component survives that remount, so its observer is still listening when the mutation
+  // resolves. The keyed remount stays, because docs/conventions/frontend.md forbids re-seeding
+  // form state from an effect.
+  const classify = useClassifyHolding()
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
@@ -224,10 +252,13 @@ export function HoldingClassificationModal({
           <ClassificationForm
             // Remounts when the loaded classification changes, so the lazy initializers re-seed.
             key={`${current.data.ticker}-${current.data.sectorKey}-${current.data.countryKey}-${current.data.wealthTier}`}
-            accountId={accountId}
             ticker={ticker}
             name={name ?? null}
             current={current.data}
+            saving={classify.isPending}
+            onSubmit={(body) =>
+              classify.mutate({ accountId, ticker, body }, { onSuccess: onClose })
+            }
             onClose={onClose}
           />
         )}
