@@ -299,6 +299,13 @@
       "refreshAlready": "Eine Abfrage läuft bereits.",
       "editAria": "{{ticker}} einordnen",
       "andMore": "und {{count}} weitere."
+    },
+    "drilldown": {
+      "holdingCount": "aus {{count}} Position",
+      "holdingCount_other": "aus {{count}} Positionen",
+      "others": "und {{count}} weitere",
+      "others_other": "und {{count}} weitere",
+      "hint": "Wählen Sie einen Anteil, um zu sehen, woraus er besteht."
     }
   },
   "accountTypes": {

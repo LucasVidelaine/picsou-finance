@@ -983,7 +983,38 @@ export interface DiversificationBreakdown {
    */
   classifiedValueEur: number
   coveragePercent: number
-  slices: WeightedSlice[]
+  slices: DiversificationSlice[]
+}
+
+/**
+ * One bar of a breakdown, with the holdings behind it.
+ *
+ * Distinct from WeightedSlice, which is shared with the single-security insight modal where a
+ * contributor means nothing.
+ */
+export interface DiversificationSlice {
+  label: string
+  percent: number
+  valueEur: number
+  contributors: SliceContributor[]
+  /** The real number of holdings, which exceeds contributors.length once the tail is folded. */
+  contributorCount: number
+}
+
+/** One holding's share of one slice — why "France" is 8.4 %. */
+export interface SliceContributor {
+  /** Null on the folded tail of small contributors, rendered as "and N others". */
+  ticker: string | null
+  valueEur: number
+  sharePercent: number
+}
+
+/** Every security appearing as a contributor, once, so slices need not repeat its name. */
+export interface DiversificationSecurity {
+  ticker: string
+  name: string | null
+  accountId: number | null
+  valueEur: number
 }
 
 /** A holding a breakdown could not fully place, with what the editor needs to fix it. */
@@ -1007,6 +1038,7 @@ export interface Diversification {
   unclassified: UnclassifiedLine[]
   sectors: DiversificationBreakdown
   countries: DiversificationBreakdown
+  securities: DiversificationSecurity[]
 }
 
 export interface HoldingClassificationRequest {

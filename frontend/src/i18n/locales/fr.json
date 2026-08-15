@@ -299,6 +299,13 @@
       "refreshAlready": "Une recherche est déjà en cours.",
       "editAria": "Classer {{ticker}}",
       "andMore": "et {{count}} autre(s)."
+    },
+    "drilldown": {
+      "holdingCount": "sur {{count}} ligne",
+      "holdingCount_other": "sur {{count}} lignes",
+      "others": "et {{count}} autre",
+      "others_other": "et {{count}} autres",
+      "hint": "Cliquez une part pour voir ce qui la compose."
     }
   },
   "accountTypes": {

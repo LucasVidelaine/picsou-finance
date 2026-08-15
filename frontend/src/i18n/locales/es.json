@@ -299,6 +299,13 @@
       "refreshAlready": "Ya hay una consulta en curso.",
       "editAria": "Clasificar {{ticker}}",
       "andMore": "y {{count}} más."
+    },
+    "drilldown": {
+      "holdingCount": "en {{count}} línea",
+      "holdingCount_other": "en {{count}} líneas",
+      "others": "y {{count}} más",
+      "others_other": "y {{count}} más",
+      "hint": "Seleccione una porción para ver de qué se compone."
     }
   },
   "accountTypes": {

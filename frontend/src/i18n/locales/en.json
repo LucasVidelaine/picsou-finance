@@ -299,6 +299,13 @@
       "refreshAlready": "A lookup is already running.",
       "editAria": "Classify {{ticker}}",
       "andMore": "and {{count}} more."
+    },
+    "drilldown": {
+      "holdingCount": "across {{count}} holding",
+      "holdingCount_other": "across {{count}} holdings",
+      "others": "and {{count}} other",
+      "others_other": "and {{count}} others",
+      "hint": "Select a slice to see what makes it up."
     }
   },
   "accountTypes": {

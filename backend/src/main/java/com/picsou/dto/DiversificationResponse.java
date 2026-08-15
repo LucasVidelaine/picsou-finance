@@ -26,7 +26,8 @@ public record DiversificationResponse(
     BigDecimal coveragePercent,
     List<UnclassifiedLine> unclassified,
     Breakdown sectors,
-    Breakdown countries
+    Breakdown countries,
+    List<SecurityInfo> securities
 ) {
 
     /**
@@ -78,6 +79,43 @@ public record DiversificationResponse(
         String basis,
         BigDecimal classifiedValueEur,
         BigDecimal coveragePercent,
-        List<WeightedSlice> slices
+        List<Slice> slices
     ) {}
+
+    /**
+     * One bar of a breakdown, with the holdings behind it.
+     *
+     * <p>A separate record from {@link WeightedSlice} rather than a widening of it: that one is
+     * shared with {@code EtfComposition} and the single-security insight modal, where a
+     * contributor means nothing, and nine Java files construct it.
+     *
+     * @param valueEur         euros this slice represents, so a tooltip need not re-derive it
+     * @param contributorCount how many holdings really feed it, which is not
+     *                         {@code contributors.size()} once the tail is folded
+     */
+    public record Slice(
+        String label,
+        BigDecimal percent,
+        BigDecimal valueEur,
+        List<Contributor> contributors,
+        int contributorCount
+    ) {}
+
+    /**
+     * One holding's share of one slice — why "France" is 8.4 %.
+     *
+     * @param ticker null on the folded tail of small contributors; the name and account for a
+     *               real one live in {@link DiversificationResponse#securities()} rather than
+     *               being repeated across every slice it appears in
+     */
+    public record Contributor(String ticker, BigDecimal valueEur, BigDecimal sharePercent) {}
+
+    /**
+     * Every security appearing as a contributor, once.
+     *
+     * <p>A dictionary rather than inline fields: one ETF lands in a dozen slices across two axes,
+     * and repeating its name and account each time is most of the payload for none of the
+     * information.
+     */
+    public record SecurityInfo(String ticker, String name, Long accountId, BigDecimal valueEur) {}
 }

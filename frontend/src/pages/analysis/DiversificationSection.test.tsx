@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom'
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { DiversificationSection } from './DiversificationSection'
 import type { Diversification } from '@/types/api'
 
@@ -39,16 +39,17 @@ function data(overrides: Partial<Diversification> = {}): Diversification {
     unclassifiedValueEur: 0,
     coveragePercent: 100,
     unclassified: [],
+    securities: [{ ticker: 'IWDA', name: 'iShares Core MSCI World', accountId: 2, valueEur: 10000 }],
     sectors: {
       score: 80, effectiveCount: 4.8, targetCount: 6, basis: 'EXPOSURE', classifiedValueEur: 10000, coveragePercent: 100,
       slices: [
-        { label: 'technology', percent: 60 },
-        { label: 'unmapped_sector', percent: 40 },
+        { label: 'technology', percent: 60, valueEur: 6000, contributorCount: 1, contributors: [{ ticker: 'IWDA', valueEur: 6000, sharePercent: 100 }] },
+        { label: 'unmapped_sector', percent: 40, valueEur: 4000, contributorCount: 1, contributors: [{ ticker: 'IWDA', valueEur: 4000, sharePercent: 100 }] },
       ],
     },
     countries: {
       score: 70, effectiveCount: 2.1, targetCount: 3, basis: 'EXPOSURE', classifiedValueEur: 10000, coveragePercent: 100,
-      slices: [{ label: 'US', percent: 100 }],
+      slices: [{ label: 'US', percent: 100, valueEur: 10000, contributorCount: 1, contributors: [{ ticker: 'IWDA', valueEur: 10000, sharePercent: 100 }] }],
     },
     ...overrides,
   }
@@ -128,7 +129,7 @@ describe('DiversificationSection', () => {
     rerender(
       <DiversificationSection
         data={data({
-          countries: { score: 70, effectiveCount: 2.1, targetCount: 3, basis: 'MIXED', classifiedValueEur: 10000, coveragePercent: 100, slices: [{ label: 'US', percent: 100 }] },
+          countries: { score: 70, effectiveCount: 2.1, targetCount: 3, basis: 'MIXED', classifiedValueEur: 10000, coveragePercent: 100, slices: [{ label: 'US', percent: 100, valueEur: 10000, contributorCount: 1, contributors: [{ ticker: 'IWDA', valueEur: 10000, sharePercent: 100 }] }] },
         })}
       />,
     )
@@ -144,9 +145,9 @@ describe('DiversificationSection', () => {
           sectors: {
             score: 50, effectiveCount: 2, targetCount: 6, basis: 'EXPOSURE', classifiedValueEur: 10000, coveragePercent: 100,
             slices: [
-              { label: 'technology', percent: 99.2 },
-              { label: 'energy', percent: 0.4 },
-              { label: 'utilities', percent: 0.4 },
+              { label: 'technology', percent: 99.2, valueEur: 99.200, contributorCount: 1, contributors: [{ ticker: 'IWDA', valueEur: 99.200, sharePercent: 100 }] },
+              { label: 'energy', percent: 0.4, valueEur: 0.400, contributorCount: 1, contributors: [{ ticker: 'IWDA', valueEur: 0.400, sharePercent: 100 }] },
+              { label: 'utilities', percent: 0.4, valueEur: 0.400, contributorCount: 1, contributors: [{ ticker: 'IWDA', valueEur: 0.400, sharePercent: 100 }] },
             ],
           },
         })}
@@ -160,5 +161,51 @@ describe('DiversificationSection', () => {
   it('says so plainly when there is nothing to analyse', () => {
     render(<DiversificationSection data={data({ totalValueEur: 0 })} />)
     expect(screen.getByText('analysis.diversification.noHoldings')).toBeInTheDocument()
+  })
+
+  it('names the holdings behind a slice once it is selected', () => {
+    render(
+      <DiversificationSection
+        data={data({
+          securities: [
+            { ticker: 'IWDA', name: 'iShares Core MSCI World', accountId: 2, valueEur: 6000 },
+            { ticker: 'AAPL', name: 'Apple Inc.', accountId: 3, valueEur: 4000 },
+          ],
+          countries: {
+            score: 70, effectiveCount: 2.1, targetCount: 3, basis: 'EXPOSURE',
+            classifiedValueEur: 10000, coveragePercent: 100,
+            slices: [{
+              label: 'US', percent: 100, valueEur: 10000, contributorCount: 2,
+              contributors: [
+                { ticker: 'IWDA', valueEur: 6000, sharePercent: 60 },
+                { ticker: 'AAPL', valueEur: 4000, sharePercent: 40 },
+              ],
+            }],
+          },
+        })}
+      />,
+    )
+
+    // Closed by default: the panel is an answer to a question, not permanent furniture.
+    expect(screen.queryByText('Apple Inc.')).not.toBeInTheDocument()
+
+    // The legend entry is a button; the panel header repeats the label, so target the role.
+    fireEvent.click(screen.getByRole('button', { name: /United States/ }))
+
+    // "US 100 %" is not an answer until you can see which lines produced it.
+    expect(screen.getByText('iShares Core MSCI World')).toBeInTheDocument()
+    expect(screen.getByText('Apple Inc.')).toBeInTheDocument()
+  })
+
+  it('closes the panel when the same slice is selected again', () => {
+    render(<DiversificationSection data={data()} />)
+
+    const legendEntry = () => screen.getByRole('button', { name: /Technology/ })
+
+    fireEvent.click(legendEntry())
+    expect(screen.getByText('iShares Core MSCI World')).toBeInTheDocument()
+
+    fireEvent.click(legendEntry())
+    expect(screen.queryByText('iShares Core MSCI World')).not.toBeInTheDocument()
   })
 })

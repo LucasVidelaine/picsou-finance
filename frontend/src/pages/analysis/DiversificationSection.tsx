@@ -10,7 +10,13 @@ import { OTHERS_SLICE_COLOR, SLICE_PALETTE } from '@/lib/chart-palette'
 import { cn } from '@/lib/utils'
 import { useRefreshSecurityProfiles } from '@/features/analysis/hooks'
 import { HoldingClassificationModal } from './HoldingClassificationModal'
-import type { Diversification, DiversificationBreakdown, UnclassifiedLine } from '@/types/api'
+import { SliceContributors } from './SliceContributors'
+import type {
+  Diversification,
+  DiversificationBreakdown,
+  DiversificationSecurity,
+  UnclassifiedLine,
+} from '@/types/api'
 
 /** Longest list shown before it is cut; the rest are reachable from the holdings table. */
 const MAX_UNCLASSIFIED_SHOWN = 8
@@ -33,32 +39,44 @@ function BreakdownBar({
   breakdown,
   labelNs,
   title,
+  securities,
 }: {
   breakdown: DiversificationBreakdown
   labelNs: string
   title: string
+  securities: DiversificationSecurity[]
 }) {
   const { t } = useTranslation()
+  // Which slice is opened. Kept per bar, so opening a sector does not close a country.
+  const [selected, setSelected] = useState<string | null>(null)
 
   const visible = breakdown.slices.filter((s) => s.percent >= MIN_VISIBLE_PERCENT)
   const remainder = breakdown.slices
     .filter((s) => s.percent < MIN_VISIBLE_PERCENT)
     .reduce((acc, s) => acc + s.percent, 0)
 
-  const items: { label: string; percent: number; color: string }[] = visible.map((slice, i) => ({
-    // The backend sends stable keys for sectors and countries; an unmapped label falls through
-    // verbatim, so the raw value is the fallback rather than the key.
-    label: t(`${labelNs}.${slice.label}`, slice.label),
-    percent: slice.percent,
-    color: SLICE_PALETTE[i % SLICE_PALETTE.length],
-  }))
+  // `key` is the backend's stable label and identifies the slice; `label` is what the user
+  // reads. The remainder has no key because there is no single slice behind it.
+  const items: { key: string | null; label: string; percent: number; color: string }[] =
+    visible.map((slice, i) => ({
+      key: slice.label,
+      // The backend sends stable keys for sectors and countries; an unmapped label falls through
+      // verbatim, so the raw value is the fallback rather than the key.
+      label: t(`${labelNs}.${slice.label}`, slice.label),
+      percent: slice.percent,
+      color: SLICE_PALETTE[i % SLICE_PALETTE.length],
+    }))
   if (remainder >= MIN_VISIBLE_PERCENT) {
     items.push({
+      key: null,
       label: t('holdings.insight.others'),
       percent: remainder,
       color: OTHERS_SLICE_COLOR,
     })
   }
+
+  const openSlice = selected === null ? null : breakdown.slices.find((s) => s.label === selected)
+  const openColor = items.find((i) => i.key === selected)?.color ?? OTHERS_SLICE_COLOR
 
   return (
     <div>
@@ -85,21 +103,49 @@ function BreakdownBar({
             {items.map((item, i) => (
               <div
                 key={`${item.label}-${i}`}
-                className={item.color}
-                style={{ width: `${item.percent}%` }}
+                style={{ width: `${item.percent}%`, backgroundColor: item.color }}
                 aria-hidden="true"
               />
             ))}
           </div>
           <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
             {items.map((item, i) => (
-              <li key={`${item.label}-${i}`} className="flex items-center gap-1.5 text-xs">
-                <span className={cn('size-2 shrink-0 rounded-full', item.color)} aria-hidden="true" />
-                <span className="text-foreground">{item.label}</span>
-                <span className="text-muted-foreground">{item.percent.toFixed(1)}%</span>
+              <li key={`${item.label}-${i}`}>
+                <button
+                  type="button"
+                  // The remainder is an aggregate of slices too small to name, so there is
+                  // nothing behind it to open.
+                  disabled={item.key === null}
+                  onClick={() => setSelected(selected === item.key ? null : item.key)}
+                  aria-pressed={selected === item.key}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-md px-1 py-0.5 text-xs transition-colors',
+                    item.key !== null && 'hover:bg-muted',
+                    selected === item.key && 'bg-muted',
+                  )}
+                >
+                  <span
+                    className="size-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: item.color }}
+                    aria-hidden="true"
+                  />
+                  <span className="text-foreground">{item.label}</span>
+                  <span className="text-muted-foreground">{item.percent.toFixed(1)}%</span>
+                </button>
               </li>
             ))}
           </ul>
+
+          {openSlice != null && (
+            <div className="mt-3">
+              <SliceContributors
+                slice={openSlice}
+                securities={securities}
+                labelNs={labelNs}
+                color={openColor}
+              />
+            </div>
+          )}
         </>
       )}
     </div>
@@ -237,11 +283,13 @@ export function DiversificationSection({ data }: { data: Diversification }) {
               breakdown={data.sectors}
               labelNs="holdings.insight.sectorNames"
               title={t('analysis.diversification.sectors')}
+              securities={data.securities}
             />
             <BreakdownBar
               breakdown={data.countries}
               labelNs="holdings.insight.countryNames"
               title={t('analysis.diversification.countries')}
+              securities={data.securities}
             />
 
             {/* Coverage is stated, never renormalised away: a bar computed over 60% of the

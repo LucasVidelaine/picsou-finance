@@ -35,6 +35,12 @@ public class PortfolioDiversificationService {
      * six effective sectors is where concentration stops being the dominant risk. Three regions
      * is the equivalent for geography, where the choice is realistically US / Europe / Asia.
      */
+    /** Enough to answer "why is this slice this big?"; more is a list, not an answer. */
+    private static final int MAX_CONTRIBUTORS_PER_SLICE = 12;
+
+    /** Below this a contributor explains nothing and joins the folded tail. */
+    private static final BigDecimal MIN_CONTRIBUTOR_PERCENT = new BigDecimal("0.5");
+
     private static final int SECTOR_TARGET = 6;
     private static final int COUNTRY_TARGET = 3;
 
@@ -92,8 +98,8 @@ public class PortfolioDiversificationService {
 
         Map<String, SecurityProfile> profiles = securityProfileService.load(valueByTicker.keySet());
 
-        Map<String, BigDecimal> sectorTotals = new HashMap<>();
-        Map<String, BigDecimal> countryTotals = new HashMap<>();
+        AxisTotals sectorTotals = new AxisTotals();
+        AxisTotals countryTotals = new AxisTotals();
         List<DiversificationResponse.UnclassifiedLine> unclassifiedLines = new ArrayList<>();
         BigDecimal sectorClassified = BigDecimal.ZERO;
         BigDecimal countryClassified = BigDecimal.ZERO;
@@ -111,13 +117,13 @@ public class PortfolioDiversificationService {
 
             // The user's verdict beats anything a provider inferred, per field.
             if (override != null && override.getSectorKey() != null) {
-                sectorTotals.merge(override.getSectorKey(), value, BigDecimal::add);
+                sectorTotals.add(override.getSectorKey(), ticker, value);
                 sectorClassified = sectorClassified.add(value);
                 sectorMixed = true;
                 placedSector = true;
             }
             if (override != null && override.getCountryKey() != null) {
-                countryTotals.merge(override.getCountryKey(), value, BigDecimal::add);
+                countryTotals.add(override.getCountryKey(), ticker, value);
                 countryClassified = countryClassified.add(value);
                 countryMixed = true;
                 placedCountry = true;
@@ -140,12 +146,12 @@ public class PortfolioDiversificationService {
 
             List<SecurityCompositionSlice> slices = profile.getSlices();
             if (!placedSector) {
-                BigDecimal placed = spread(slices, SecuritySliceKind.SECTOR, value, sectorTotals);
+                BigDecimal placed = spread(slices, SecuritySliceKind.SECTOR, ticker, value, sectorTotals);
                 if (placed.signum() > 0) {
                     sectorClassified = sectorClassified.add(placed);
                     placedSector = true;
                 } else if (profile.getSectorKey() != null) {
-                    sectorTotals.merge(profile.getSectorKey(), value, BigDecimal::add);
+                    sectorTotals.add(profile.getSectorKey(), ticker, value);
                     sectorClassified = sectorClassified.add(value);
                     // A single share contributes one sector; mixing it with a fund's
                     // look-through is a different quantity, and the UI says so.
@@ -154,12 +160,12 @@ public class PortfolioDiversificationService {
                 }
             }
             if (!placedCountry) {
-                BigDecimal placed = spread(slices, SecuritySliceKind.COUNTRY, value, countryTotals);
+                BigDecimal placed = spread(slices, SecuritySliceKind.COUNTRY, ticker, value, countryTotals);
                 if (placed.signum() > 0) {
                     countryClassified = countryClassified.add(placed);
                     placedCountry = true;
                 } else if (profile.getCountryKey() != null) {
-                    countryTotals.merge(profile.getCountryKey(), value, BigDecimal::add);
+                    countryTotals.add(profile.getCountryKey(), ticker, value);
                     countryClassified = countryClassified.add(value);
                     countryMixed = true;
                     placedCountry = true;
@@ -179,6 +185,11 @@ public class PortfolioDiversificationService {
         BigDecimal classified = sectorClassified.max(countryClassified);
         BigDecimal unclassified = total.subtract(classified).max(BigDecimal.ZERO);
 
+        DiversificationResponse.Breakdown sectors =
+            breakdown(sectorTotals, sectorClassified, total, SECTOR_TARGET, sectorMixed);
+        DiversificationResponse.Breakdown countries =
+            breakdown(countryTotals, countryClassified, total, COUNTRY_TARGET, countryMixed);
+
         return new DiversificationResponse(
             scale2(total),
             scale2(classified),
@@ -189,9 +200,29 @@ public class PortfolioDiversificationService {
                 .sorted(Comparator.comparing(
                     DiversificationResponse.UnclassifiedLine::valueEur).reversed())
                 .toList(),
-            breakdown(sectorTotals, sectorClassified, total, SECTOR_TARGET, sectorMixed),
-            breakdown(countryTotals, countryClassified, total, COUNTRY_TARGET, countryMixed)
+            sectors,
+            countries,
+            securitiesIn(sectors, countries, originByTicker, valueByTicker)
         );
+    }
+
+    /**
+     * Running totals for one axis, keeping the holdings behind each label.
+     *
+     * <p>The per-label total used to be a plain {@code Map<String, BigDecimal>} and the ticker was
+     * lost at the merge — which is why the breakdown could say "France 8.4 %" and not say thanks
+     * to what.
+     */
+    private static final class AxisTotals {
+        final Map<String, BigDecimal> byLabel = new HashMap<>();
+        final Map<String, Map<String, BigDecimal>> byLabelAndTicker = new HashMap<>();
+
+        void add(String label, String ticker, BigDecimal amount) {
+            byLabel.merge(label, amount, BigDecimal::add);
+            byLabelAndTicker
+                .computeIfAbsent(label, k -> new HashMap<>())
+                .merge(ticker, amount, BigDecimal::add);
+        }
     }
 
     /** Where a ticker was first seen, so an unclassified line can be named and reached. */
@@ -241,19 +272,19 @@ public class PortfolioDiversificationService {
      * for some funds; it was overstated before.
      */
     private static BigDecimal spread(List<SecurityCompositionSlice> slices, SecuritySliceKind kind,
-                                     BigDecimal value, Map<String, BigDecimal> target) {
+                                     String ticker, BigDecimal value, AxisTotals target) {
         BigDecimal placed = BigDecimal.ZERO;
         for (SecurityCompositionSlice slice : slices) {
             if (slice.getKind() != kind) continue;
             BigDecimal part = value.multiply(slice.getPercent())
                 .divide(HUNDRED, SCALE, RoundingMode.HALF_UP);
-            target.merge(slice.getLabel(), part, BigDecimal::add);
+            target.add(slice.getLabel(), ticker, part);
             placed = placed.add(part);
         }
         return placed;
     }
 
-    private static DiversificationResponse.Breakdown breakdown(Map<String, BigDecimal> totals,
+    private static DiversificationResponse.Breakdown breakdown(AxisTotals totals,
                                                                BigDecimal classified,
                                                                BigDecimal total,
                                                                int target,
@@ -264,16 +295,21 @@ public class PortfolioDiversificationService {
                 BigDecimal.ZERO, BigDecimal.ZERO, List.of());
         }
 
-        List<WeightedSlice> slices = totals.entrySet().stream()
-            .map(e -> new WeightedSlice(e.getKey(), scale2(percentOf(e.getValue(), classified))))
-            .sorted(Comparator.comparing(WeightedSlice::percent).reversed())
+        List<DiversificationResponse.Slice> slices = totals.byLabel.entrySet().stream()
+            .map(e -> new DiversificationResponse.Slice(
+                e.getKey(),
+                scale2(percentOf(e.getValue(), classified)),
+                scale2(e.getValue()),
+                contributorsOf(totals.byLabelAndTicker.get(e.getKey()), e.getValue()),
+                totals.byLabelAndTicker.getOrDefault(e.getKey(), Map.of()).size()))
+            .sorted(Comparator.comparing(DiversificationResponse.Slice::percent).reversed())
             .toList();
 
         // Inverse Herfindahl: the effective number of positions. Two portfolios can hold five
         // sectors and be nothing alike — 20/20/20/20/20 is five, 96/1/1/1/1 is barely one — and
         // counting buckets cannot tell them apart.
         BigDecimal herfindahl = BigDecimal.ZERO;
-        for (BigDecimal value : totals.values()) {
+        for (BigDecimal value : totals.byLabel.values()) {
             BigDecimal weight = value.divide(classified, SCALE, RoundingMode.HALF_UP);
             herfindahl = herfindahl.add(weight.multiply(weight));
         }
@@ -289,6 +325,75 @@ public class PortfolioDiversificationService {
             score, effective.setScale(2, RoundingMode.HALF_UP), target,
             mixed ? "MIXED" : "EXPOSURE",
             scale2(classified), scale2(percentOf(classified, total)), slices);
+    }
+
+    /**
+     * Names every security that appears as a contributor, once.
+     *
+     * <p>Built from the slices rather than from the whole portfolio: a holding that ended up
+     * unclassified contributes to nothing, and listing it here would invite the UI to draw it.
+     */
+    private static List<DiversificationResponse.SecurityInfo> securitiesIn(
+        DiversificationResponse.Breakdown sectors,
+        DiversificationResponse.Breakdown countries,
+        Map<String, HoldingOrigin> origins,
+        Map<String, BigDecimal> valueByTicker) {
+
+        Set<String> tickers = new LinkedHashSet<>();
+        for (DiversificationResponse.Breakdown b : List.of(sectors, countries)) {
+            for (DiversificationResponse.Slice slice : b.slices()) {
+                for (DiversificationResponse.Contributor c : slice.contributors()) {
+                    if (c.ticker() != null) tickers.add(c.ticker());
+                }
+            }
+        }
+        return tickers.stream()
+            .map(t -> {
+                HoldingOrigin origin = origins.get(t);
+                return new DiversificationResponse.SecurityInfo(
+                    t,
+                    origin == null ? null : origin.name(),
+                    origin == null ? null : origin.accountId(),
+                    scale2(valueByTicker.getOrDefault(t, BigDecimal.ZERO)));
+            })
+            .toList();
+    }
+
+    /**
+     * The holdings behind one slice, largest first, with the tail folded.
+     *
+     * <p>Capped because a slice is answering "why is this 8.4 %?", and thirty lines of 0.1 % do
+     * not answer it — while a broad portfolio would otherwise repeat every ticker across every
+     * slice of both axes. The fold keeps the total honest: its euros are the rest, and
+     * {@code contributorCount} still reports how many holdings there really are.
+     */
+    private static List<DiversificationResponse.Contributor> contributorsOf(
+        Map<String, BigDecimal> byTicker, BigDecimal sliceTotal) {
+
+        if (byTicker == null || byTicker.isEmpty() || sliceTotal.signum() <= 0) return List.of();
+
+        List<Map.Entry<String, BigDecimal>> ranked = byTicker.entrySet().stream()
+            .sorted(Map.Entry.<String, BigDecimal>comparingByValue().reversed())
+            .toList();
+
+        List<DiversificationResponse.Contributor> out = new ArrayList<>();
+        BigDecimal folded = BigDecimal.ZERO;
+        for (Map.Entry<String, BigDecimal> entry : ranked) {
+            BigDecimal share = percentOf(entry.getValue(), sliceTotal);
+            boolean tooSmall = share.compareTo(MIN_CONTRIBUTOR_PERCENT) < 0;
+            if (out.size() >= MAX_CONTRIBUTORS_PER_SLICE || tooSmall) {
+                folded = folded.add(entry.getValue());
+                continue;
+            }
+            out.add(new DiversificationResponse.Contributor(
+                entry.getKey(), scale2(entry.getValue()), scale2(share)));
+        }
+        if (folded.signum() > 0) {
+            // Null ticker is the tail, not a security — the UI renders it as "and N others".
+            out.add(new DiversificationResponse.Contributor(
+                null, scale2(folded), scale2(percentOf(folded, sliceTotal))));
+        }
+        return out;
     }
 
     private static BigDecimal percentOf(BigDecimal value, BigDecimal total) {

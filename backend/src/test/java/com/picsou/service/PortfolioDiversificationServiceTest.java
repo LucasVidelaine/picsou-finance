@@ -6,6 +6,8 @@ import com.picsou.model.*;
 import com.picsou.repository.AccountHoldingRepository;
 import com.picsou.repository.HoldingClassificationRepository;
 import org.junit.jupiter.api.BeforeEach;
+import java.util.Set;
+import java.util.HashMap;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -336,5 +338,90 @@ class PortfolioDiversificationServiceTest {
         assertThat(response.totalValueEur()).isEqualByComparingTo("0.00");
         assertThat(response.coveragePercent()).isEqualByComparingTo("0.00");
         assertThat(response.sectors().score()).isZero();
+    }
+
+    private static DiversificationResponse.Slice slice(DiversificationResponse.Breakdown b, String label) {
+        return b.slices().stream().filter(s -> s.label().equals(label)).findFirst().orElseThrow();
+    }
+
+    @Test
+    void aSliceNamesTheHoldingsBehindIt() {
+        // The whole point of the drill-down: "US 62 %" is not an answer until you can see which
+        // lines produced it.
+        equityAccount(Map.of("CW8.PA", "10000", "AAPL", "5000"));
+        etfProfile("CW8.PA", Map.of("technology", "50"), Map.of("US", "60", "JP", "40"));
+        stockProfile("AAPL", "technology", "US");
+
+        DiversificationResponse response = service.diversification(MEMBER);
+
+        DiversificationResponse.Slice us = slice(response.countries(), "US");
+        // 60 % of the fund plus all of the share.
+        assertThat(us.valueEur()).isEqualByComparingTo("11000.00");
+        assertThat(us.contributorCount()).isEqualTo(2);
+        // Largest first: 60 % of the 10 000 fund outweighs the whole 5 000 share.
+        assertThat(us.contributors()).extracting(DiversificationResponse.Contributor::ticker)
+            .containsExactly("CW8.PA", "AAPL");
+        assertThat(us.contributors().getFirst().valueEur()).isEqualByComparingTo("6000.00");
+        assertThat(us.contributors().getLast().valueEur()).isEqualByComparingTo("5000.00");
+    }
+
+    @Test
+    void aContributorsSharesSumToTheSlice() {
+        equityAccount(Map.of("CW8.PA", "10000", "AAPL", "5000"));
+        etfProfile("CW8.PA", Map.of("technology", "50"), Map.of("US", "60", "JP", "40"));
+        stockProfile("AAPL", "technology", "US");
+
+        DiversificationResponse.Slice us =
+            slice(service.diversification(MEMBER).countries(), "US");
+
+        BigDecimal euros = us.contributors().stream()
+            .map(DiversificationResponse.Contributor::valueEur)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertThat(euros).isEqualByComparingTo(us.valueEur());
+    }
+
+    @Test
+    void aBroadSliceFoldsItsTailInsteadOfListingEverything() {
+        // Fifteen holdings in one sector. A tooltip listing all of them answers nothing, and on a
+        // real portfolio the payload would repeat every ticker across every slice of both axes.
+        Map<String, String> lines = new HashMap<>();
+        for (int i = 1; i <= 15; i++) lines.put("T" + i, String.valueOf(1000 - i));
+        equityAccount(lines);
+        lines.keySet().forEach(t -> stockProfile(t, "technology", "US"));
+
+        DiversificationResponse.Slice tech =
+            slice(service.diversification(MEMBER).sectors(), "technology");
+
+        // Twelve real ones plus the fold, but the count still reports the truth.
+        assertThat(tech.contributors()).hasSize(13);
+        assertThat(tech.contributorCount()).isEqualTo(15);
+        assertThat(tech.contributors().getLast().ticker()).isNull();
+
+        BigDecimal euros = tech.contributors().stream()
+            .map(DiversificationResponse.Contributor::valueEur)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertThat(euros).isEqualByComparingTo(tech.valueEur());
+    }
+
+    @Test
+    void everyContributorCanBeNamedFromTheDictionary() {
+        equityAccount(Map.of("CW8.PA", "10000"));
+        etfProfile("CW8.PA", Map.of("technology", "50"), Map.of("US", "60"));
+
+        DiversificationResponse response = service.diversification(MEMBER);
+
+        // The dictionary exists so a name and account are not repeated across every slice the
+        // security appears in; the UI still has to be able to resolve each one.
+        Set<String> named = response.securities().stream()
+            .map(DiversificationResponse.SecurityInfo::ticker).collect(java.util.stream.Collectors.toSet());
+        for (DiversificationResponse.Breakdown b : List.of(response.sectors(), response.countries())) {
+            for (DiversificationResponse.Slice sl : b.slices()) {
+                for (DiversificationResponse.Contributor c : sl.contributors()) {
+                    if (c.ticker() != null) assertThat(named).contains(c.ticker());
+                }
+            }
+        }
+        assertThat(response.securities()).extracting(DiversificationResponse.SecurityInfo::accountId)
+            .doesNotContainNull();
     }
 }
