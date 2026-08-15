@@ -63,11 +63,21 @@ public record DiversificationResponse(
      *                     held share contributes its domicile — the two are different quantities
      *                     and the UI has to say so
      */
+    /**
+     * @param classifiedValueEur what this axis could place, which is not the same as the other
+     *                           axis's: a share often has a known sector and no domicile, and a
+     *                           fund may disclose its countries far more completely than its
+     *                           sectors. The top-level {@code coveragePercent} reports the more
+     *                           generous of the two, so without these a weak axis hides behind a
+     *                           strong one
+     */
     public record Breakdown(
         int score,
         BigDecimal effectiveCount,
         int targetCount,
         String basis,
+        BigDecimal classifiedValueEur,
+        BigDecimal coveragePercent,
         List<WeightedSlice> slices
     ) {}
 }

@@ -189,8 +189,8 @@ public class PortfolioDiversificationService {
                 .sorted(Comparator.comparing(
                     DiversificationResponse.UnclassifiedLine::valueEur).reversed())
                 .toList(),
-            breakdown(sectorTotals, sectorClassified, SECTOR_TARGET, sectorMixed),
-            breakdown(countryTotals, countryClassified, COUNTRY_TARGET, countryMixed)
+            breakdown(sectorTotals, sectorClassified, total, SECTOR_TARGET, sectorMixed),
+            breakdown(countryTotals, countryClassified, total, COUNTRY_TARGET, countryMixed)
         );
     }
 
@@ -225,38 +225,43 @@ public class PortfolioDiversificationService {
     }
 
     /**
-     * Distributes one holding's value across an ETF's look-through slices, weighted by their
-     * percentages and <em>renormalised to what the provider actually published</em>.
+     * Distributes one holding's value across its look-through slices, applying the published
+     * percentages <em>literally</em>, and reports how much of the value that actually placed.
      *
-     * <p>A top-ten breakdown does not sum to 100, so treating the published percentages as
-     * absolute would silently drop the remainder into "unclassified" for every fund. Scaling to
-     * the published total keeps the shares proportional and honest about the fund being fully
-     * placed — the coverage the user must watch is the ticker-level one, not this.
+     * <p>This used to renormalise to the published total and then declare the whole holding
+     * placed. The comment defending that assumed providers publish near-complete distributions.
+     * They do not: Boursorama's own sector breakdowns in this repo's fixtures sum to 87.25 % and
+     * 70.04 %, and justETF names its remainder outright ("Other 17.84 %"). Renormalising took a
+     * fund whose sectors were 70 % disclosed and reported it as fully classified — inventing the
+     * missing 30 % by inflating the parts we happened to know.
+     *
+     * <p>So the undisclosed remainder now stays undisclosed. It lands in
+     * {@code unclassifiedValueEur} and lowers {@code coveragePercent}, which is the figure that
+     * exists to say how much of the portfolio a score was computed over. Reported coverage drops
+     * for some funds; it was overstated before.
      */
     private static BigDecimal spread(List<SecurityCompositionSlice> slices, SecuritySliceKind kind,
                                      BigDecimal value, Map<String, BigDecimal> target) {
-        BigDecimal published = BigDecimal.ZERO;
-        for (SecurityCompositionSlice slice : slices) {
-            if (slice.getKind() == kind) published = published.add(slice.getPercent());
-        }
-        if (published.signum() <= 0) return BigDecimal.ZERO;
-
+        BigDecimal placed = BigDecimal.ZERO;
         for (SecurityCompositionSlice slice : slices) {
             if (slice.getKind() != kind) continue;
             BigDecimal part = value.multiply(slice.getPercent())
-                .divide(published, SCALE, RoundingMode.HALF_UP);
+                .divide(HUNDRED, SCALE, RoundingMode.HALF_UP);
             target.merge(slice.getLabel(), part, BigDecimal::add);
+            placed = placed.add(part);
         }
-        return value;
+        return placed;
     }
 
     private static DiversificationResponse.Breakdown breakdown(Map<String, BigDecimal> totals,
                                                                BigDecimal classified,
+                                                               BigDecimal total,
                                                                int target,
                                                                boolean mixed) {
         if (classified.signum() <= 0) {
             return new DiversificationResponse.Breakdown(
-                0, BigDecimal.ZERO, target, mixed ? "MIXED" : "EXPOSURE", List.of());
+                0, BigDecimal.ZERO, target, mixed ? "MIXED" : "EXPOSURE",
+                BigDecimal.ZERO, BigDecimal.ZERO, List.of());
         }
 
         List<WeightedSlice> slices = totals.entrySet().stream()
@@ -282,7 +287,8 @@ public class PortfolioDiversificationService {
 
         return new DiversificationResponse.Breakdown(
             score, effective.setScale(2, RoundingMode.HALF_UP), target,
-            mixed ? "MIXED" : "EXPOSURE", slices);
+            mixed ? "MIXED" : "EXPOSURE",
+            scale2(classified), scale2(percentOf(classified, total)), slices);
     }
 
     private static BigDecimal percentOf(BigDecimal value, BigDecimal total) {

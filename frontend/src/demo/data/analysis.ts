@@ -130,6 +130,10 @@ export const mockDiversification: Diversification = {
     effectiveCount: 4.68,
     targetCount: 6,
     basis: 'MIXED',
+    // Deliberately below the country axis: a fund routinely discloses its countries more fully
+    // than its sectors, and the headline coverage reports only the better of the two.
+    classifiedValueEur: 118600,
+    coveragePercent: 83.29,
     slices: [
       { label: 'technology', percent: 31.4 },
       { label: 'financial_services', percent: 18.2 },
@@ -147,6 +151,8 @@ export const mockDiversification: Diversification = {
     effectiveCount: 2.14,
     targetCount: 3,
     basis: 'MIXED',
+    classifiedValueEur: 131800,
+    coveragePercent: 92.56,
     slices: [
       { label: 'US', percent: 62.8 },
       { label: 'FR', percent: 14.3 },

@@ -40,14 +40,14 @@ function data(overrides: Partial<Diversification> = {}): Diversification {
     coveragePercent: 100,
     unclassified: [],
     sectors: {
-      score: 80, effectiveCount: 4.8, targetCount: 6, basis: 'EXPOSURE',
+      score: 80, effectiveCount: 4.8, targetCount: 6, basis: 'EXPOSURE', classifiedValueEur: 10000, coveragePercent: 100,
       slices: [
         { label: 'technology', percent: 60 },
         { label: 'unmapped_sector', percent: 40 },
       ],
     },
     countries: {
-      score: 70, effectiveCount: 2.1, targetCount: 3, basis: 'EXPOSURE',
+      score: 70, effectiveCount: 2.1, targetCount: 3, basis: 'EXPOSURE', classifiedValueEur: 10000, coveragePercent: 100,
       slices: [{ label: 'US', percent: 100 }],
     },
     ...overrides,
@@ -128,7 +128,7 @@ describe('DiversificationSection', () => {
     rerender(
       <DiversificationSection
         data={data({
-          countries: { score: 70, effectiveCount: 2.1, targetCount: 3, basis: 'MIXED', slices: [{ label: 'US', percent: 100 }] },
+          countries: { score: 70, effectiveCount: 2.1, targetCount: 3, basis: 'MIXED', classifiedValueEur: 10000, coveragePercent: 100, slices: [{ label: 'US', percent: 100 }] },
         })}
       />,
     )
@@ -142,7 +142,7 @@ describe('DiversificationSection', () => {
       <DiversificationSection
         data={data({
           sectors: {
-            score: 50, effectiveCount: 2, targetCount: 6, basis: 'EXPOSURE',
+            score: 50, effectiveCount: 2, targetCount: 6, basis: 'EXPOSURE', classifiedValueEur: 10000, coveragePercent: 100,
             slices: [
               { label: 'technology', percent: 99.2 },
               { label: 'energy', percent: 0.4 },

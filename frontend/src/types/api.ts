@@ -976,6 +976,13 @@ export interface DiversificationBreakdown {
   effectiveCount: number
   targetCount: number
   basis: DiversificationBasis
+  /**
+   * What this axis alone could place. Not the same as the other axis's: a share often has a
+   * known sector and no domicile, and a fund may disclose its countries far more completely than
+   * its sectors. The top-level coveragePercent reports the more generous of the two.
+   */
+  classifiedValueEur: number
+  coveragePercent: number
   slices: WeightedSlice[]
 }
 

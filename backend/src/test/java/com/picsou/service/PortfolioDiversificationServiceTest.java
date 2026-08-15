@@ -113,17 +113,47 @@ class PortfolioDiversificationServiceTest {
     }
 
     @Test
-    void aPartialBreakdownIsRenormalisedToWhatTheProviderPublished() {
-        // A top-ten country list does not sum to 100. Treating the percentages as absolute would
-        // dump the remainder into "unclassified" for every single fund.
+    void whatAProviderDidNotDiscloseStaysUndisclosed() {
+        // This used to assert the opposite: percentages were renormalised to the published total
+        // and the whole holding declared classified. That inflated the parts we knew to cover the
+        // parts we did not -- and it fires in practice, not in theory: Boursorama's own sector
+        // breakdowns in this repo's fixtures sum to 87.25 % and 70.04 %.
         equityAccount(Map.of("CW8.PA", "10000"));
         etfProfile("CW8.PA", Map.of("technology", "30"), Map.of("US", "50", "JP", "10"));
 
         DiversificationResponse response = service.diversification(MEMBER);
 
+        // Within the classified part the shares are unchanged -- they are shares of what was
+        // placed, not of the holding.
         assertThat(sliceOf(response.sectors(), "technology")).isEqualByComparingTo("100.00");
         assertThat(sliceOf(response.countries(), "US")).isEqualByComparingTo("83.33");
+
+        // The countries axis placed 60 % of the line, the sectors axis 30 %. Coverage reports the
+        // more generous of the two, and the 40 % nobody disclosed is visible rather than invented.
+        assertThat(response.classifiedValueEur()).isEqualByComparingTo("6000.00");
+        assertThat(response.unclassifiedValueEur()).isEqualByComparingTo("4000.00");
+        assertThat(response.coveragePercent()).isEqualByComparingTo("60.00");
+
+        // And each axis states its own, because the headline takes the better of the two: without
+        // this the sector score would look as well-founded as the country one when it rests on
+        // half the data.
+        assertThat(response.sectors().coveragePercent()).isEqualByComparingTo("30.00");
+        assertThat(response.countries().coveragePercent()).isEqualByComparingTo("60.00");
+    }
+
+    @Test
+    void aFullyDisclosedBreakdownStillPlacesTheWholeHolding() {
+        // The guard against over-correcting: a source that does publish a complete distribution
+        // must still report 100 % coverage, with no rounding leak.
+        equityAccount(Map.of("CW8.PA", "10000"));
+        etfProfile("CW8.PA", Map.of("technology", "60", "healthcare", "40"),
+            Map.of("US", "70", "JP", "30"));
+
+        DiversificationResponse response = service.diversification(MEMBER);
+
+        assertThat(response.classifiedValueEur()).isEqualByComparingTo("10000.00");
         assertThat(response.unclassifiedValueEur()).isEqualByComparingTo("0.00");
+        assertThat(response.coveragePercent()).isEqualByComparingTo("100.00");
     }
 
     @Test
