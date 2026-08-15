@@ -265,7 +265,12 @@
       "unclassified": "nicht klassifiziert",
       "noData": "Keine Aufteilungsdaten verfügbar",
       "noHoldings": "Keine Aktien- oder ETF-Position zu analysieren.",
-      "basisNote": "Bei einem ETF ist das Land die tatsächliche Indexausrichtung; bei einer direkt gehaltenen Aktie das Emissionsland der ISIN. Das sind zwei verschiedene Größen, die hier addiert werden."
+      "basisNote": "Bei einem ETF ist das Land die tatsächliche Indexausrichtung; bei einer direkt gehaltenen Aktie das Emissionsland der ISIN. Das sind zwei verschiedene Größen, die hier addiert werden.",
+      "views": {
+        "bar": "Balken",
+        "donut": "Ring",
+        "treemap": "Kacheln"
+      }
     },
     "projection": {
       "title": "Vermögensprojektion",

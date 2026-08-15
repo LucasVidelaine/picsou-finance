@@ -265,7 +265,12 @@
       "unclassified": "non classé",
       "noData": "Aucune donnée de répartition disponible",
       "noHoldings": "Aucune ligne d'actions ou d'ETF à analyser.",
-      "basisNote": "Pour un ETF, le pays est l'exposition réelle de l'indice ; pour une action détenue en direct, c'est le pays d'émission de l'ISIN. Ce sont deux grandeurs différentes, additionnées ici."
+      "basisNote": "Pour un ETF, le pays est l'exposition réelle de l'indice ; pour une action détenue en direct, c'est le pays d'émission de l'ISIN. Ce sont deux grandeurs différentes, additionnées ici.",
+      "views": {
+        "bar": "Lignes",
+        "donut": "Anneau",
+        "treemap": "Compartiments"
+      }
     },
     "projection": {
       "title": "Projection du patrimoine",

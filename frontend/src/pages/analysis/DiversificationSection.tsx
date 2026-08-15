@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Info, Pencil, RefreshCw } from 'lucide-react'
+import { AlignJustify, Info, LayoutGrid, Pencil, PieChart, RefreshCw } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -11,6 +12,7 @@ import { cn } from '@/lib/utils'
 import { useRefreshSecurityProfiles } from '@/features/analysis/hooks'
 import { HoldingClassificationModal } from './HoldingClassificationModal'
 import { SliceContributors } from './SliceContributors'
+import { BreakdownDonut, BreakdownTreemap, type BreakdownView } from './BreakdownChart'
 import type {
   Diversification,
   DiversificationBreakdown,
@@ -20,6 +22,25 @@ import type {
 
 /** Longest list shown before it is cut; the rest are reachable from the holdings table. */
 const MAX_UNCLASSIFIED_SHOWN = 8
+
+const VIEWS: { value: BreakdownView; icon: LucideIcon; labelKey: string }[] = [
+  { value: 'bar', icon: AlignJustify, labelKey: 'analysis.diversification.views.bar' },
+  { value: 'donut', icon: PieChart, labelKey: 'analysis.diversification.views.donut' },
+  { value: 'treemap', icon: LayoutGrid, labelKey: 'analysis.diversification.views.treemap' },
+]
+
+/**
+ * Remembered locally: how someone likes to look at a chart is not worth a round trip, and a
+ * server-side preference would have to be migrated, synced and shared across members who may
+ * well disagree.
+ */
+const VIEW_STORAGE_KEY = 'picsou.diversification.view'
+
+function storedView(): BreakdownView {
+  if (typeof window === 'undefined') return 'bar'
+  const saved = window.localStorage.getItem(VIEW_STORAGE_KEY)
+  return saved === 'donut' || saved === 'treemap' ? saved : 'bar'
+}
 
 /** Below this a slice is thinner than a hairline; it joins the remainder instead. */
 const MIN_VISIBLE_PERCENT = 0.5
@@ -40,11 +61,13 @@ function BreakdownBar({
   labelNs,
   title,
   securities,
+  view,
 }: {
   breakdown: DiversificationBreakdown
   labelNs: string
   title: string
   securities: DiversificationSecurity[]
+  view: BreakdownView
 }) {
   const { t } = useTranslation()
   // Which slice is opened. Kept per bar, so opening a sector does not close a country.
@@ -99,15 +122,23 @@ function BreakdownBar({
         <p className="text-sm text-muted-foreground">{t('analysis.diversification.noData')}</p>
       ) : (
         <>
-          <div className="flex h-2 w-full overflow-hidden rounded-full">
-            {items.map((item, i) => (
-              <div
-                key={`${item.label}-${i}`}
-                style={{ width: `${item.percent}%`, backgroundColor: item.color }}
-                aria-hidden="true"
-              />
-            ))}
-          </div>
+          {view === 'bar' && (
+            <div className="flex h-2 w-full overflow-hidden rounded-full">
+              {items.map((item, i) => (
+                <div
+                  key={`${item.label}-${i}`}
+                  style={{ width: `${item.percent}%`, backgroundColor: item.color }}
+                  aria-hidden="true"
+                />
+              ))}
+            </div>
+          )}
+          {view === 'donut' && (
+            <BreakdownDonut items={items} selected={selected} onSelect={setSelected} />
+          )}
+          {view === 'treemap' && (
+            <BreakdownTreemap items={items} selected={selected} onSelect={setSelected} />
+          )}
           <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
             {items.map((item, i) => (
               <li key={`${item.label}-${i}`}>
@@ -264,13 +295,39 @@ function UnclassifiedList({
 export function DiversificationSection({ data }: { data: Diversification }) {
   const { t } = useTranslation()
   const [editing, setEditing] = useState<UnclassifiedLine | null>(null)
+  // Lazy initializer rather than an effect: reading localStorage during render is fine, and
+  // seeding state from an effect is what docs/conventions/frontend.md forbids.
+  const [view, setView] = useState<BreakdownView>(storedView)
+
+  function chooseView(next: BreakdownView) {
+    setView(next)
+    window.localStorage.setItem(VIEW_STORAGE_KEY, next)
+  }
 
   const hasHoldings = data.totalValueEur > 0
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-start justify-between gap-4">
         <CardTitle>{t('analysis.diversification.title')}</CardTitle>
+        {hasHoldings && (
+          <div className="flex gap-1">
+            {VIEWS.map(({ value, icon: Icon, labelKey }) => (
+              <Button
+                key={value}
+                type="button"
+                variant={view === value ? 'default' : 'outline'}
+                size="sm"
+                aria-pressed={view === value}
+                title={t(labelKey)}
+                aria-label={t(labelKey)}
+                onClick={() => chooseView(value)}
+              >
+                <Icon className="size-4" aria-hidden="true" />
+              </Button>
+            ))}
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         {!hasHoldings ? (
@@ -284,12 +341,14 @@ export function DiversificationSection({ data }: { data: Diversification }) {
               labelNs="holdings.insight.sectorNames"
               title={t('analysis.diversification.sectors')}
               securities={data.securities}
+              view={view}
             />
             <BreakdownBar
               breakdown={data.countries}
               labelNs="holdings.insight.countryNames"
               title={t('analysis.diversification.countries')}
               securities={data.securities}
+              view={view}
             />
 
             {/* Coverage is stated, never renormalised away: a bar computed over 60% of the

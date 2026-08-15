@@ -265,7 +265,12 @@
       "unclassified": "unclassified",
       "noData": "No breakdown data available",
       "noHoldings": "No stock or ETF line to analyse.",
-      "basisNote": "For an ETF the country is the index's actual exposure; for a directly held share it is the ISIN's country of issuance. These are different quantities, added together here."
+      "basisNote": "For an ETF the country is the index's actual exposure; for a directly held share it is the ISIN's country of issuance. These are different quantities, added together here.",
+      "views": {
+        "bar": "Bars",
+        "donut": "Donut",
+        "treemap": "Treemap"
+      }
     },
     "projection": {
       "title": "Wealth projection",

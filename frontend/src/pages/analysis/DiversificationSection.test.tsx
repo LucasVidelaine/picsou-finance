@@ -208,4 +208,27 @@ describe('DiversificationSection', () => {
     fireEvent.click(legendEntry())
     expect(screen.queryByText('iShares Core MSCI World')).not.toBeInTheDocument()
   })
+
+  it('offers the three renderings and remembers the choice', () => {
+    render(<DiversificationSection data={data()} />)
+
+    // Bars by default, and the legend is part of it — so the labels are present either way.
+    expect(screen.getByRole('button', { name: 'analysis.diversification.views.donut' }))
+      .toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'analysis.diversification.views.treemap' }))
+
+    expect(window.localStorage.getItem('picsou.diversification.view')).toBe('treemap')
+  })
+
+  it('keeps the drill-down working whichever rendering is chosen', () => {
+    render(<DiversificationSection data={data()} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'analysis.diversification.views.treemap' }))
+    // The three views share one selection model rather than each holding its own, so a slice
+    // opened from the treemap resolves to the same panel the legend would have opened.
+    fireEvent.click(screen.getAllByRole('button', { name: /Technology/ })[0])
+
+    expect(screen.getByText('iShares Core MSCI World')).toBeInTheDocument()
+  })
 })
