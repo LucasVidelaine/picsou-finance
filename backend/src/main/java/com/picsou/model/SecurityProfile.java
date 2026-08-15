@@ -70,6 +70,27 @@ public class SecurityProfile extends AuditableEntity {
     @Column(name = "refreshed_at")
     private Instant refreshedAt;
 
+    /** Total expense ratio in percent per year; 0.380 means 0.38 %/yr. */
+    @Column(name = "ter_percent", precision = 6, scale = 3)
+    private java.math.BigDecimal terPercent;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "distribution_policy", length = 16)
+    private DistributionPolicy distributionPolicy;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 16)
+    private Replication replication;
+
+    /**
+     * Where the fund is domiciled, ISO 3166-1 alpha-2.
+     *
+     * <p>Not part of the geographic breakdown and not to be folded into it: an Irish-domiciled
+     * MSCI World is a legal fact about the wrapper, not an exposure to Ireland.
+     */
+    @Column(name = "domicile_country", length = 2)
+    private String domicileCountry;
+
     /** What the last lookup did. Separates "nothing to find" from "the lookup broke". */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)

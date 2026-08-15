@@ -2,6 +2,7 @@ package com.picsou.service;
 
 import com.picsou.dto.EquityProfile;
 import com.picsou.dto.EtfComposition;
+import com.picsou.dto.FundFacts;
 import com.picsou.dto.SecurityInsightResponse;
 import com.picsou.dto.WeightedSlice;
 import com.picsou.model.SecurityCompositionSlice;
@@ -116,10 +117,16 @@ public class SecurityProfileService {
         if (composition != null) {
             profile.setSource(composition.source());
             profile.setAsOf(composition.asOf());
-            profile.replaceSlices(slicesOf(composition));
-            profile.setSectorKey(null);
-            profile.setCountryKey(null);
-            resolved = true;
+            List<SecurityCompositionSlice> slices = slicesOf(composition);
+            // Facts can arrive without a breakdown, and a breakdown must not be blanked by a
+            // source that only had the fee. Only write slices when there are some.
+            if (!slices.isEmpty()) {
+                profile.replaceSlices(slices);
+                profile.setSectorKey(null);
+                profile.setCountryKey(null);
+            }
+            applyFacts(profile, composition.facts());
+            resolved = !slices.isEmpty() || composition.facts() != null;
         } else if ("STOCK".equals(insight.assetType())) {
             EquityProfile merged;
             try {
@@ -148,6 +155,16 @@ public class SecurityProfileService {
         profile.setRefreshedAt(Instant.now());
 
         return repository.save(profile);
+    }
+
+    private static void applyFacts(SecurityProfile profile, FundFacts facts) {
+        if (facts == null) return;
+        // Field by field, and only over nulls we actually have a value for: a source that knows
+        // the fee but not the domicile must not erase a domicile another one supplied.
+        if (facts.terPercent() != null) profile.setTerPercent(facts.terPercent());
+        if (facts.distributionPolicy() != null) profile.setDistributionPolicy(facts.distributionPolicy());
+        if (facts.replication() != null) profile.setReplication(facts.replication());
+        if (facts.domicileCountryKey() != null) profile.setDomicileCountry(facts.domicileCountryKey());
     }
 
     private static SecurityProfile markFailed(SecurityProfile profile, Exception ex) {

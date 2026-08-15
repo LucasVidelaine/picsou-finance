@@ -8,6 +8,7 @@ import com.picsou.dto.WeightedSlice;
 import com.picsou.port.EtfCompositionProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.HtmlUtils;
 
@@ -39,6 +40,9 @@ import java.util.regex.Pattern;
  * "composition unavailable" upstream.
  */
 @Component
+// Ahead of justETF: up to ten slices per axis with no residual, against four plus an explicit
+// remainder. Ordering justETF first would lower every sector score without adding truth.
+@Order(100)
 public class BoursoramaCompositionProvider implements EtfCompositionProvider {
 
     private static final Logger log = LoggerFactory.getLogger(BoursoramaCompositionProvider.class);

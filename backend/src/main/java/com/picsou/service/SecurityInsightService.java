@@ -3,6 +3,7 @@ package com.picsou.service;
 import com.picsou.adapter.CoinGeckoPriceProvider;
 import com.picsou.adapter.YahooFinancePriceProvider;
 import com.picsou.dto.EtfComposition;
+import com.picsou.dto.FundFacts;
 import com.picsou.dto.SecurityInsightResponse;
 import com.picsou.dto.SecurityRef;
 import com.picsou.port.EtfCompositionProvider;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -94,19 +96,60 @@ public class SecurityInsightService {
         };
     }
 
-    /** First supporting provider that returns a non-empty composition wins; null otherwise. */
+    /**
+     * Merges the providers, but not uniformly: slices as a unit, facts independently.
+     *
+     * <p>The breakdown is taken whole from the first provider that has one. Mixing a Boursorama
+     * sector split with a justETF country split would put two different reference dates behind
+     * one {@code asOf}, and the two sources publish to different depths — ten slices with no
+     * residual against four plus an explicit remainder.
+     *
+     * <p>The fee and distribution policy are taken from whichever provider has them, which is
+     * never the same one: Boursorama's composition page does not carry them. That is the same
+     * field-by-field reasoning {@code SecurityProfileService.resolveEquity} already applies to
+     * sector and country.
+     */
     private EtfComposition resolveComposition(SecurityRef ref) {
+        EtfComposition slices = null;
+        FundFacts facts = null;
+        List<String> sources = new ArrayList<>();
+
         for (EtfCompositionProvider provider : compositionProviders) {
             if (!provider.supports(ref)) {
                 continue;
             }
-            Optional<EtfComposition> composition = provider.fetch(ref);
-            if (composition.isPresent() && hasAnyData(composition.get())) {
-                return composition.get();
+            if (slices != null && facts != null) {
+                break;
+            }
+            Optional<EtfComposition> answer = provider.fetch(ref);
+            if (answer.isEmpty()) {
+                continue;
+            }
+            EtfComposition c = answer.get();
+            if (slices == null && hasAnyData(c)) {
+                slices = c;
+                if (c.source() != null) sources.add(c.source());
+            }
+            if (facts == null && c.facts() != null && !c.facts().isEmpty()) {
+                facts = c.facts();
+                if (c.facts().source() != null && !sources.contains(c.facts().source())) {
+                    sources.add(c.facts().source());
+                }
             }
         }
-        log.debug("No provider resolved composition for {} ({})", ref.ticker(), ref.isin());
-        return null;
+
+        if (slices == null && facts == null) {
+            log.debug("No provider resolved composition for {} ({})", ref.ticker(), ref.isin());
+            return null;
+        }
+        String source = String.join(" · ", sources);
+        if (slices == null) {
+            // Facts without a breakdown: still worth storing — the fee scanner wants it, and the
+            // fund simply reports as unclassified in the meantime.
+            return new EtfComposition(List.of(), List.of(), List.of(), source, null, facts);
+        }
+        return new EtfComposition(slices.companies(), slices.countries(), slices.sectors(),
+            source, slices.asOf(), facts);
     }
 
     private static boolean hasAnyData(EtfComposition c) {
