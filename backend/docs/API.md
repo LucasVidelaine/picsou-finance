@@ -636,13 +636,24 @@ scrape. `SchedulerService` warms the table weekly.
       "sectorMissing": false, "countryMissing": true, "profileLooked": true
     }
   ],
+  "securities": [
+    { "ticker": "IWDA", "name": "iShares Core MSCI World", "accountId": 2, "valueEur": 84200.00 }
+  ],
   "sectors": {
     "score": 78, "effectiveCount": 4.68, "targetCount": 6, "basis": "MIXED",
-    "slices": [{ "label": "technology", "percent": 31.40 }]
+    "classifiedValueEur": 118600.00, "coveragePercent": 83.29,
+    "slices": [{
+      "label": "technology", "percent": 31.40, "valueEur": 37240.40, "contributorCount": 3,
+      "contributors": [{ "ticker": "IWDA", "valueEur": 26813.09, "sharePercent": 72.00 }]
+    }]
   },
   "countries": {
     "score": 71, "effectiveCount": 2.14, "targetCount": 3, "basis": "MIXED",
-    "slices": [{ "label": "US", "percent": 62.80 }]
+    "classifiedValueEur": 131800.00, "coveragePercent": 92.56,
+    "slices": [{
+      "label": "US", "percent": 62.80, "valueEur": 82770.40, "contributorCount": 4,
+      "contributors": [{ "ticker": "IWDA", "valueEur": 54628.46, "sharePercent": 66.00 }]
+    }]
   }
 }
 ```
@@ -651,6 +662,16 @@ scrape. `SchedulerService` warms the table weekly.
 client-side under `holdings.insight.sectorNames.*` / `countryNames.*`, with the raw value as the
 fallback. `score` is `min(100, 100 × N_eff / targetCount)` where `N_eff = 1/Σw²`, the effective
 number of positions: it separates 20/20/20/20/20 from 96/1/1/1/1, which counting buckets cannot.
+
+A fund's published percentages are applied **literally**: a provider that discloses 70 % of a
+fund's sectors places 70 % of the holding, and the rest lands in `unclassifiedValueEur`. Each
+`Breakdown` therefore carries its **own** `coveragePercent`, because the two axes genuinely
+diverge and the top-level figure reports the more generous of them.
+
+Each slice names the holdings behind it, largest first. Contributors are capped at twelve and
+anything under 0.5 % of the slice folds into a single entry with a `null` ticker;
+`contributorCount` reports how many there really are. Names and accounts are not repeated per
+slice — they live once in the top-level `securities` dictionary.
 
 `unclassified` lists the lines a breakdown could not fully place, biggest first, with what the
 editor needs to fix them: `accountId` because the write is account-scoped, and `profileLooked` to

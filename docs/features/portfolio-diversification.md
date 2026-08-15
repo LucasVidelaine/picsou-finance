@@ -1,6 +1,6 @@
 # Feature: Portfolio diversification (sector + geography)
 
-> Last updated: 2026-08-14
+> Last updated: 2026-08-15
 
 ## Context
 
@@ -36,6 +36,19 @@ a Paris-listed US company or an NYSE ADR. The page's analytics block carries
 issuance. That also recovers an identifier ingestion throws away: holdings store a Yahoo ticker,
 never the ISIN they were converted from.
 
+**Since 2026-08-15 the ISIN is kept**, on `security_profile`, recorded by every sync that already
+receives one. It is what the sources actually resolve: Boursorama's search maps
+`LU1681043599` to the same symbol as `CW8`, while `OpenFigiIsinConverter.pickBest` prefers US OTC
+tickers for non-US ISINs — the shape Boursorama cannot find. Keeping it is what repaired most of
+the missing look-through. See the
+[ADR](../decisions/2026-08-15-isin-keyed-lookups-and-justetf.md).
+
+**justETF is second in line**, keyed on that ISIN. It supplies the fee (TER), the distribution
+policy and the replication method — none of which any other source here has — and a fallback
+breakdown. It publishes only the top four per axis plus an explicit `Other`, against Boursorama's
+ten with no residual, which is why it is second: ordering it first would lower every sector score
+without adding truth.
+
 The two providers are merged **field by field**, not first-answer-wins. That differs from
 `resolveComposition` deliberately, and has to: no single source has both halves, so taking the
 first provider's whole answer would discard the country every time the sector arrived first.
@@ -47,10 +60,47 @@ For each account in the `EQUITY` tier, every priced line, share-weighted exactly
 
 Per ticker, in order: manual override → ETF look-through → single-share profile → unclassified.
 
-An ETF's published percentages are **renormalised to what the provider actually published**. A
-top-ten country list does not sum to 100, so treating the percentages as absolute would dump the
-remainder into "unclassified" for every fund on the page. Coverage is measured at ticker level,
-which is the level the user can act on.
+A fund's published percentages are applied **literally**, and the holding counts as classified
+only for the share they actually cover.
+
+This was the opposite until 2026-08-15: percentages were renormalised to their own total and the
+whole holding declared placed. The reasoning was that providers publish near-complete
+distributions. They do not — Boursorama's sector breakdowns in this repo's own fixtures sum to
+**87.25 %** and **70.04 %**, and justETF names its remainder outright (`Other 17.84 %`). So a fund
+whose sectors were 70 % disclosed was reported as fully classified, the missing 30 % invented by
+inflating the parts we happened to know.
+
+The undisclosed remainder now lands in `unclassifiedValueEur` and lowers `coveragePercent`, which
+is the figure that exists to say how much of the portfolio a score was computed over. Coverage
+therefore reads *lower* than it used to for partially-disclosed funds; it was overstated before.
+
+**Each axis reports its own coverage.** With literal percentages the two genuinely diverge — a
+share often has a known sector and no domicile, and a fund may disclose its countries far more
+completely than its sectors. The headline `coveragePercent` takes the more generous of the two, so
+without `sectors.coveragePercent` and `countries.coveragePercent` a score resting on half the data
+would look as well-founded as one resting on all of it.
+
+### Drilling into a slice
+
+Each slice carries the holdings behind it, largest first, with their euros and their share — so
+"France 8.4 %" can be opened rather than merely read. Contributors are capped at twelve and
+anything under 0.5 % of a slice joins a folded tail (`ticker: null`), because a slice answers
+*why is this this big?* and thirty lines of 0.1 % do not answer it. `contributorCount` still
+reports the true number.
+
+Names and accounts live in a top-level `securities` dictionary rather than being repeated: one ETF
+lands in a dozen slices across two axes.
+
+### Ways to draw it
+
+Bars, donut or treemap, chosen in the card header and remembered in `localStorage`. All three
+share **one** selection model, so a slice opened from the treemap shows the same panel the legend
+opens. The selected slice keeps its colour and the others dim — highlighting the selection instead
+would break the tie between chart, legend and panel that makes the three read as one chart.
+
+The treemap layout is `frontend/src/lib/treemap.ts`, shared with the account distribution chart
+rather than reimplemented. Recharts' own `Treemap` is unused: it cannot express the hover
+behaviour that chart had already worked out.
 
 ### The scores
 
@@ -112,6 +162,11 @@ and "deliberately unclassified" cannot diverge.
 - `backend/src/main/java/com/picsou/service/HoldingClassificationService.java` — the manual override
 - `backend/src/main/resources/db/migration/V82__security_profile.sql`
 - `backend/src/main/java/com/picsou/service/SecurityProfileRefreshRunner.java` — the on-demand pass
+- `backend/src/main/java/com/picsou/service/SecurityIdentityService.java` — ticker → ISIN, recorded at sync
+- `backend/src/main/java/com/picsou/adapter/JustEtfProvider.java` — fees, policy, fallback breakdown
+- `backend/src/main/java/com/picsou/model/ClassificationKeys.java` — the unlisted sector and region
+- `frontend/src/lib/treemap.ts` — the layout, shared with the account distribution chart
+- `frontend/src/pages/analysis/BreakdownChart.tsx`, `SliceContributors.tsx`
 - `frontend/src/pages/analysis/DiversificationSection.tsx`, `frontend/src/lib/chart-palette.ts`
 - `frontend/src/pages/analysis/HoldingClassificationModal.tsx` — the editor, shared by both entry points
 
@@ -122,7 +177,7 @@ GET /api/analysis/diversification
   └─ PortfolioDiversificationService
        ├─ readable EQUITY accounts → lines → weigh once → value by ticker
        ├─ SecurityProfileService.load(tickers)          one query, no network
-       └─ per ticker: override ▸ ETF slices (renormalised) ▸ share profile ▸ unclassified
+       └─ per ticker: override ▸ ETF slices (applied literally) ▸ share profile ▸ unclassified
             └─ N_eff per axis, coverage + the unplaced lines reported
 
 SchedulerService.refreshSecurityProfiles()  (Sundays 03:45, ≤40 tickers)
@@ -146,6 +201,8 @@ PUT /api/accounts/{id}/holdings/{ticker}/classification
 | Renormalise a partial look-through | A top-ten list does not sum to 100; treating it as absolute would mark every fund partly unclassified | Absolute percentages |
 | Inverse Herfindahl | Distinguishes 20/20/20/20/20 from 96/1/1/1/1, which counting buckets cannot | Number of distinct sectors |
 | Coverage stated, never renormalised | A score over 60% of a portfolio must not read as a score over all of it | Renormalising to the classified part silently |
+| A provider's undisclosed remainder counts as unclassified | Inflating the disclosed parts to cover the rest invents a distribution we do not have | Renormalising to the published total |
+| Unlisted holdings get `private_equity` / `XU` | An ELTIF is not a failed lookup, it is a class of asset; without a home it sat in the to-classify list forever | Leaving them unclassified; using `ZZ`, which CLDR defines as *Unknown Region* and would conflate a verdict with an absent answer |
 | Override keyed `(member, ticker)` | Survives the prune that deletes `account_holding` rows a provider stops reporting | A column on `account_holding` |
 | Palette extracted to `lib/chart-palette.ts` | One ETF's sectors and the whole portfolio's should read as the same chart at two scales | A second palette in the new component |
 
