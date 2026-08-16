@@ -50,7 +50,9 @@ function TargetsForm({
   const estimate = useEssentialExpenseEstimate(true)
 
   const [expenses, setExpenses] = useState(() =>
-    targets.monthlyEssentialExpenses === null ? '' : String(targets.monthlyEssentialExpenses),
+    // Strict equality here put the string "undefined" in the field for anyone who had
+    // never stated their expenses — the API omits the null rather than sending it.
+    targets.monthlyEssentialExpenses == null ? '' : String(targets.monthlyEssentialExpenses),
   )
   const [months, setMonths] = useState(() => String(targets.safetyNetMonths))
   const [pcts, setPcts] = useState<Record<TargetTier, string>>(() => ({

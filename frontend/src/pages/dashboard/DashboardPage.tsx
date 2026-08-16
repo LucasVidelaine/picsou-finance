@@ -272,7 +272,7 @@ export function DashboardPage() {
               {/* Savings targets only — the backend already filters recurring plans out of
                   goalSummaries, and this card is built entirely around a completion percentage. */}
               {data.goalSummaries
-                .filter((g) => g.percentComplete !== null && g.targetAmount !== null)
+                .filter((g) => g.percentComplete != null && g.targetAmount != null)
                 .sort((a, b) => (b.percentComplete ?? 0) - (a.percentComplete ?? 0))
                 .slice(0, 3)
                 .map((goal) => (

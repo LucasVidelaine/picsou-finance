@@ -43,12 +43,32 @@ const SCENARIO_COLORS: Record<ProjectionScenario['key'], string> = {
 /** Contributions are drawn beneath every scenario, so they read as the floor the gain sits on. */
 const CONTRIBUTED_COLOR = 'var(--color-muted-foreground)'
 
+/** The series the legend can toggle: contributions first, then the scenarios in payload order. */
+const CONTRIBUTED_KEY = 'contributed'
+
+/**
+ * The next round number at or above a value — 1, 2, 2.5 or 5 times a power of ten.
+ *
+ * <p>Needed because the Y domain is pinned rather than derived from what is on screen (see below),
+ * and a hard-coded maximum of, say, 1 284 617 would put its ticks at 256 923 intervals.
+ */
+function niceCeiling(value: number): number {
+  if (value <= 0) return 1
+  const magnitude = 10 ** Math.floor(Math.log10(value))
+  const scaled = value / magnitude
+  const step = [1, 2, 2.5, 5, 10].find((candidate) => scaled <= candidate) ?? 10
+  return step * magnitude
+}
+
 export function ProjectionSection() {
   const { t, i18n } = useTranslation()
   const [years, setYears] = useState<number>(20)
   // Two questions, one card: how much, and in what. Tabs rather than two cards because they
   // share a horizon — switching view must not lose it.
   const [view, setView] = useState<'wealth' | 'allocation'>('wealth')
+  // Everything visible until the reader says otherwise. Hidden rather than shown, so a scenario
+  // added later to the payload appears without anyone remembering to opt it in.
+  const [hidden, setHidden] = useState<Set<string>>(() => new Set())
   const projection = useProjection(years)
   const locale = localeFromLanguage(i18n.resolvedLanguage ?? i18n.language)
 
@@ -86,6 +106,44 @@ export function ProjectionSection() {
       return row
     })
   }, [projection.data])
+
+  /**
+   * Pinned to the full set of series, not to the visible ones.
+   *
+   * <p>Letting the axis breathe when a curve is hidden makes every remaining curve jump to a new
+   * scale — so the act of hiding the optimistic line appears to move the pessimistic one, which
+   * is the opposite of what the reader clicked for.
+   */
+  const yMax = useMemo(() => {
+    let max = 0
+    for (const row of rows) {
+      for (const [key, value] of Object.entries(row)) {
+        if (key !== 'date' && typeof value === 'number') max = Math.max(max, value)
+      }
+    }
+    return niceCeiling(max)
+  }, [rows])
+
+  const legend = useMemo(
+    () => [
+      { key: CONTRIBUTED_KEY, label: t('analysis.projection.contributed'), color: CONTRIBUTED_COLOR },
+      ...(projection.data?.scenarios ?? []).map((scenario) => ({
+        key: scenario.key,
+        label: t(`analysis.projection.scenarios.${scenario.key}`, {
+          value: scenario.annualPercent.toFixed(1),
+        }),
+        color: SCENARIO_COLORS[scenario.key],
+      })),
+    ],
+    [projection.data, t],
+  )
+
+  const toggle = (key: string) =>
+    setHidden((previous) => {
+      const next = new Set(previous)
+      if (!next.delete(key)) next.add(key)
+      return next
+    })
 
   const hasSomethingToProject =
     (projection.data?.baseValueEur ?? 0) > 0 || (projection.data?.monthlyInflowEur ?? 0) > 0
@@ -170,61 +228,67 @@ export function ProjectionSection() {
                   tickLine={false}
                   axisLine={false}
                   width={70}
+                  domain={[0, yMax]}
                   tickFormatter={(value: number) => formatCompactEur(value, locale)}
                 />
                 <ChartTooltip content={<ChartTooltipContent indicator="line" />} />
-                <Area
-                  type="monotone"
-                  dataKey="contributed"
-                  stroke={CONTRIBUTED_COLOR}
-                  fill={CONTRIBUTED_COLOR}
-                  fillOpacity={0.12}
-                  strokeWidth={1}
-                  strokeDasharray="4 3"
-                  dot={false}
-                  name={t('analysis.projection.contributed')}
-                />
-                {Object.keys(config).map((key) => (
+                {!hidden.has(CONTRIBUTED_KEY) && (
                   <Area
-                    key={key}
                     type="monotone"
-                    dataKey={key}
-                    stroke={`var(--color-${key})`}
-                    fill={`url(#fill-${key})`}
-                    strokeWidth={2}
+                    dataKey="contributed"
+                    stroke={CONTRIBUTED_COLOR}
+                    fill={CONTRIBUTED_COLOR}
+                    fillOpacity={0.12}
+                    strokeWidth={1}
+                    strokeDasharray="4 3"
                     dot={false}
+                    name={t('analysis.projection.contributed')}
                   />
-                ))}
+                )}
+                {Object.keys(config)
+                  .filter((key) => !hidden.has(key))
+                  .map((key) => (
+                    <Area
+                      key={key}
+                      type="monotone"
+                      dataKey={key}
+                      stroke={`var(--color-${key})`}
+                      fill={`url(#fill-${key})`}
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  ))}
               </AreaChart>
             </ChartContainer>
 
             {/* Rendered here rather than through Recharts' <Legend>, which sorts alphabetically
-                and so scrambles a series whose whole meaning is its order. */}
+                and so scrambles a series whose whole meaning is its order. Each entry is also the
+                control for its curve: four scenarios plus contributions is more than a 320px
+                chart can separate, and comparing two of them means removing the other three. */}
             <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
-              <li className="flex items-center gap-1.5 text-xs">
-                <span
-                  className="size-2 shrink-0 rounded-full"
-                  style={{ backgroundColor: CONTRIBUTED_COLOR }}
-                  aria-hidden="true"
-                />
-                <span className="text-muted-foreground">
-                  {t('analysis.projection.contributed')}
-                </span>
-              </li>
-              {(projection.data.scenarios ?? []).map((scenario) => (
-                <li key={scenario.key} className="flex items-center gap-1.5 text-xs">
-                  <span
-                    className="size-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: SCENARIO_COLORS[scenario.key] }}
-                    aria-hidden="true"
-                  />
-                  <span className="text-muted-foreground">
-                    {t(`analysis.projection.scenarios.${scenario.key}`, {
-                      value: scenario.annualPercent.toFixed(1),
-                    })}
-                  </span>
-                </li>
-              ))}
+              {legend.map((entry) => {
+                const shown = !hidden.has(entry.key)
+                return (
+                  <li key={entry.key}>
+                    <button
+                      type="button"
+                      aria-pressed={shown}
+                      onClick={() => toggle(entry.key)}
+                      className={cn(
+                        'flex items-center gap-1.5 text-xs transition-opacity hover:opacity-100',
+                        shown ? 'text-muted-foreground' : 'text-muted-foreground/50 line-through',
+                      )}
+                    >
+                      <span
+                        className={cn('size-2 shrink-0 rounded-full', !shown && 'opacity-40')}
+                        style={{ backgroundColor: entry.color }}
+                        aria-hidden="true"
+                      />
+                      {entry.label}
+                    </button>
+                  </li>
+                )
+              })}
             </ul>
             <p className="mt-2 text-xs text-muted-foreground">
               {t('analysis.projection.blendNote')}

@@ -161,6 +161,74 @@ class ProjectionServiceTest {
     }
 
     @Test
+    void aStatedRateActuallyChangesTheResult() {
+        // The bug this pot engine exists for. The rate was read, stored on the plan, reported in
+        // the label -- and then never used: the money grew at the tier's rate the moment it
+        // landed there, so 1.7% and the passbook default of 2.0% produced the identical curve.
+        plan("250", AccountType.LIVRET_A, "1.7", null, null);
+        BigDecimal stated = scenario(service.project(MEMBER, 10), "REFERENCE").points().getLast().valueEur();
+
+        goals.clear();
+        plan("250", AccountType.LIVRET_A, null, null, null);
+        BigDecimal defaulted = scenario(service.project(MEMBER, 10), "REFERENCE").points().getLast().valueEur();
+
+        assertThat(stated).isLessThan(defaulted);
+    }
+
+    @Test
+    void aStatedRateOnCashIsTheSameOnAllFourCurves() {
+        // Contractual, not an expectation: a Livret A pays what it pays whatever the year does.
+        plan("250", AccountType.LIVRET_A, "1.7", null, null);
+
+        ProjectionResponse response = service.project(MEMBER, 10);
+
+        assertThat(scenario(response, "PESSIMISTIC").points().getLast().valueEur())
+            .isEqualByComparingTo(scenario(response, "OPTIMISTIC").points().getLast().valueEur());
+    }
+
+    @Test
+    void aStatedRateOnEquityStillMovesWithTheScenario() {
+        // The other half of the rule, and the reason no extra field is needed to express it: 8%
+        // typed against a PEA is a hope, and the scenarios are what put a range around a hope.
+        plan("300", AccountType.PEA, "8", null, null);
+
+        ProjectionResponse response = service.project(MEMBER, 10);
+
+        assertThat(scenario(response, "OPTIMISTIC").points().getLast().valueEur())
+            .isGreaterThan(scenario(response, "PESSIMISTIC").points().getLast().valueEur());
+        // 8 + 2.5, not the tier's 7.5 + 2.5: the spread lands on the member's figure.
+        assertThat(scenario(response, "OPTIMISTIC").annualPercent()).isEqualByComparingTo("10.50");
+    }
+
+    @Test
+    void theStatedRateSurvivesInTheAllocationTrajectoryToo() {
+        // The mix is a second engine over the same pots; it read the tier rate as well.
+        plan("250", AccountType.LIVRET_A, "0", null, null);
+        plan("250", AccountType.PEA, null, null, null);
+
+        List<ProjectionResponse.AllocationPoint> points = service.project(MEMBER, 10).allocation();
+
+        // 30 000 paid into each, but only the equity plan compounds, so it must end ahead. At the
+        // cushion's default 2% the passbook would have grown too, and the gap would be smaller.
+        BigDecimal cushion = points.getLast().tiers().stream()
+            .filter(s -> s.tier() == WealthTier.SAFETY_NET).findFirst().orElseThrow().valueEur();
+        assertThat(cushion).isEqualByComparingTo("30000.00");
+    }
+
+    @Test
+    void theReportedRateFollowsThePlansOfAMemberWhoAlreadyHolds() {
+        // The label used to be a picture of the portfolio alone, so a member holding 10 000 in
+        // equities and pouring 500 a month into a Livret A was still labelled 7.5%.
+        holds(WealthTier.EQUITY, "10000");
+        plan("500", AccountType.LIVRET_A, "1.7", null, null);
+
+        BigDecimal reference = scenario(service.project(MEMBER, 10), "REFERENCE").annualPercent();
+
+        // 10 000 at 7.5% against 60 000 paid in at 1.7%.
+        assertThat(reference.doubleValue()).isCloseTo(2.53, within(0.02));
+    }
+
+    @Test
     void theSpreadDoesNotTouchTheCushion() {
         // A Livret A does not have a good year. Only risky tiers move between scenarios.
         holds(WealthTier.SAFETY_NET, "10000");

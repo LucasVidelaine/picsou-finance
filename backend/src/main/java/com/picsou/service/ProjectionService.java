@@ -17,6 +17,7 @@ import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -101,6 +102,27 @@ public class ProjectionService {
         boolean activeIn(YearMonth month) {
             return (start == null || !month.isBefore(start))
                 && (end == null || !month.isAfter(end));
+        }
+    }
+
+    /**
+     * Money grouped by the rate it earns, not merely by the tier it sits in.
+     *
+     * <p>The tier alone is not enough. A member's Livret A plan at their own 1.7 % and the cushion
+     * they already hold both sit in {@code SAFETY_NET}, and once the contribution was added to a
+     * single per-tier total the two became indistinguishable — so the stated rate could not
+     * survive its own arrival, and the money grew at the tier's rate instead. One pot per source
+     * keeps them apart for as long as the projection runs.
+     */
+    private static final class Pot {
+        final WealthTier tier;
+        final BigDecimal annualPercent;
+        BigDecimal amount;
+
+        Pot(WealthTier tier, BigDecimal annualPercent, BigDecimal amount) {
+            this.tier = tier;
+            this.annualPercent = annualPercent;
+            this.amount = amount;
         }
     }
 
@@ -211,29 +233,37 @@ public class ProjectionService {
                                                  List<Plan> plans,
                                                  YearMonth start,
                                                  int years) {
-        Map<WealthTier, BigDecimal> value = new EnumMap<>(WealthTier.class);
-        INVESTABLE.forEach(t -> value.put(t, startingMix.getOrDefault(t, BigDecimal.ZERO)));
+        List<Plan> funding = plans.stream().filter(p -> INVESTABLE.contains(p.tier())).toList();
+        Map<Plan, Pot> planPots = potsFor(startingMix, funding, INVESTABLE);
+        List<Pot> pots = new ArrayList<>(potsOf(startingMix, INVESTABLE));
+        pots.addAll(planPots.values());
 
-        BigDecimal contributed = sum(value);
+        BigDecimal contributed = total(pots);
+        // What each plan actually pays in over this horizon, which is the weight its rate carries
+        // in the reported blend — a plan that stops after two years should not colour a
+        // thirty-year label as heavily as one that runs the whole way.
+        Map<Plan, BigDecimal> paidIn = new LinkedHashMap<>();
         List<ProjectionResponse.Point> points = new ArrayList<>();
-        points.add(point(start, sum(value), contributed));
+        points.add(point(start, total(pots), contributed));
 
         for (int i = 1; i <= years * 12; i++) {
             YearMonth month = start.plusMonths(i);
-            grow(value, assumption.riskyDelta());
-            for (Plan plan : plans) {
-                if (!INVESTABLE.contains(plan.tier()) || !plan.activeIn(month)) continue;
-                value.merge(plan.tier(), plan.monthly(), BigDecimal::add);
+            grow(pots, assumption.riskyDelta());
+            for (Plan plan : funding) {
+                if (!plan.activeIn(month)) continue;
+                Pot pot = planPots.get(plan);
+                pot.amount = pot.amount.add(plan.monthly());
                 contributed = contributed.add(plan.monthly());
+                paidIn.merge(plan, plan.monthly(), BigDecimal::add);
             }
             // Monthly maths, yearly points: 480 points per line x 4 lines would be a large
             // payload for a chart that cannot render them distinctly anyway.
-            if (i % 12 == 0) points.add(point(month, sum(value), contributed));
+            if (i % 12 == 0) points.add(point(month, total(pots), contributed));
         }
 
         return new ProjectionResponse.Scenario(
             assumption.key(),
-            effectiveRate(startingMix, plans, assumption.riskyDelta()),
+            effectiveRate(startingMix, paidIn, assumption.riskyDelta()),
             assumption.riskyDelta(),
             points);
     }
@@ -246,25 +276,26 @@ public class ProjectionService {
      * plans mostly feed a passbook. A label that does not vary with that is a label that lies.
      */
     private static BigDecimal effectiveRate(Map<WealthTier, BigDecimal> mix,
-                                            List<Plan> plans,
+                                            Map<Plan, BigDecimal> paidIn,
                                             BigDecimal riskyDelta) {
         BigDecimal weighted = BigDecimal.ZERO;
         BigDecimal total = BigDecimal.ZERO;
         for (WealthTier tier : INVESTABLE) {
             BigDecimal amount = mix.getOrDefault(tier, BigDecimal.ZERO);
             if (amount.signum() <= 0) continue;
-            weighted = weighted.add(amount.multiply(rateFor(tier, riskyDelta)));
+            weighted = weighted.add(
+                amount.multiply(adjust(TIER_RATES.getOrDefault(tier, BigDecimal.ZERO), tier, riskyDelta)));
             total = total.add(amount);
         }
-        // A member with nothing invested yet is described by where their plans point, not by a
-        // portfolio that does not exist.
-        if (total.signum() == 0) {
-            for (Plan plan : plans) {
-                if (!INVESTABLE.contains(plan.tier())) continue;
-                weighted = weighted.add(plan.monthly()
-                    .multiply(adjust(plan.annualPercent(), plan.tier(), riskyDelta)));
-                total = total.add(plan.monthly());
-            }
+        // Weighted by capital in, not by where the money ends up: the horizon's closing balances
+        // would give the fastest-growing pot the loudest voice in describing its own growth. This
+        // also covers the member with nothing invested yet, who is described by where their plans
+        // point rather than by a portfolio that does not exist.
+        for (Map.Entry<Plan, BigDecimal> entry : paidIn.entrySet()) {
+            Plan plan = entry.getKey();
+            weighted = weighted.add(
+                entry.getValue().multiply(adjust(plan.annualPercent(), plan.tier(), riskyDelta)));
+            total = total.add(entry.getValue());
         }
         return total.signum() == 0
             ? BigDecimal.ZERO
@@ -284,24 +315,57 @@ public class ProjectionService {
                                                                 List<Plan> plans,
                                                                 YearMonth start,
                                                                 int years) {
-        Map<WealthTier, BigDecimal> value = new EnumMap<>(WealthTier.class);
-        for (WealthTier tier : WealthTier.values()) {
-            value.put(tier, startingMix.getOrDefault(tier, BigDecimal.ZERO));
-        }
+        Set<WealthTier> everything = EnumSet.allOf(WealthTier.class);
+        Map<Plan, Pot> planPots = potsFor(startingMix, plans, everything);
+        List<Pot> pots = new ArrayList<>(potsOf(startingMix, everything));
+        pots.addAll(planPots.values());
 
         List<ProjectionResponse.AllocationPoint> points = new ArrayList<>();
-        points.add(allocationPoint(start, value, targets));
+        points.add(allocationPoint(start, byTier(pots), targets));
 
         for (int i = 1; i <= years * 12; i++) {
             YearMonth month = start.plusMonths(i);
-            grow(value, BigDecimal.ZERO);
+            grow(pots, BigDecimal.ZERO);
             for (Plan plan : plans) {
                 if (!plan.activeIn(month)) continue;
-                value.merge(plan.tier(), plan.monthly(), BigDecimal::add);
+                Pot pot = planPots.get(plan);
+                pot.amount = pot.amount.add(plan.monthly());
             }
-            if (i % 12 == 0) points.add(allocationPoint(month, value, targets));
+            if (i % 12 == 0) points.add(allocationPoint(month, byTier(pots), targets));
         }
         return points;
+    }
+
+    /** One pot per tier, holding what the member already owns, growing at the tier's rate. */
+    private static List<Pot> potsOf(Map<WealthTier, BigDecimal> startingMix, Set<WealthTier> tiers) {
+        List<Pot> pots = new ArrayList<>();
+        for (WealthTier tier : tiers) {
+            pots.add(new Pot(tier, TIER_RATES.getOrDefault(tier, BigDecimal.ZERO),
+                startingMix.getOrDefault(tier, BigDecimal.ZERO)));
+        }
+        return pots;
+    }
+
+    /** One empty pot per plan, carrying the rate that plan's money will earn. */
+    private static Map<Plan, Pot> potsFor(Map<WealthTier, BigDecimal> startingMix,
+                                          List<Plan> plans, Set<WealthTier> tiers) {
+        Map<Plan, Pot> pots = new LinkedHashMap<>();
+        for (Plan plan : plans) {
+            if (!tiers.contains(plan.tier())) continue;
+            pots.put(plan, new Pot(plan.tier(), plan.annualPercent(), BigDecimal.ZERO));
+        }
+        return pots;
+    }
+
+    private static Map<WealthTier, BigDecimal> byTier(List<Pot> pots) {
+        Map<WealthTier, BigDecimal> totals = new EnumMap<>(WealthTier.class);
+        for (WealthTier tier : WealthTier.values()) totals.put(tier, BigDecimal.ZERO);
+        for (Pot pot : pots) totals.merge(pot.tier, pot.amount, BigDecimal::add);
+        return totals;
+    }
+
+    private static BigDecimal total(List<Pot> pots) {
+        return pots.stream().map(p -> p.amount).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     private static ProjectionResponse.AllocationPoint allocationPoint(YearMonth month,
@@ -325,18 +389,21 @@ public class ProjectionService {
 
     // --- maths ---------------------------------------------------------------
 
-    /** Compounds every tier by one month at its own rate. */
-    private static void grow(Map<WealthTier, BigDecimal> value, BigDecimal riskyDelta) {
-        for (Map.Entry<WealthTier, BigDecimal> entry : value.entrySet()) {
-            BigDecimal rate = rateFor(entry.getKey(), riskyDelta);
-            if (rate.signum() == 0 || entry.getValue().signum() == 0) continue;
-            entry.setValue(entry.getValue()
-                .multiply(BigDecimal.ONE.add(monthlyRate(rate)), MC));
+    /**
+     * Compounds every pot by one month at <em>its own</em> rate.
+     *
+     * <p>A pot funded by a plan that stated a rate keeps it. The scenario spread still lands only
+     * on risky tiers, which is what makes a stated 1.7 % on a passbook identical across all four
+     * curves while a stated 8 % on a PEA still varies: the first is contractual, the second is an
+     * expectation, and the tier already says which is which.
+     */
+    private static void grow(List<Pot> pots, BigDecimal riskyDelta) {
+        for (Pot pot : pots) {
+            if (pot.amount.signum() == 0) continue;
+            BigDecimal rate = adjust(pot.annualPercent, pot.tier, riskyDelta);
+            if (rate.signum() == 0) continue;
+            pot.amount = pot.amount.multiply(BigDecimal.ONE.add(monthlyRate(rate)), MC);
         }
-    }
-
-    private static BigDecimal rateFor(WealthTier tier, BigDecimal riskyDelta) {
-        return adjust(TIER_RATES.getOrDefault(tier, BigDecimal.ZERO), tier, riskyDelta);
     }
 
     /** The spread lands on risky tiers only — a passbook does not have a good year. */

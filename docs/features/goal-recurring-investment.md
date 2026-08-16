@@ -110,6 +110,35 @@ works out to**, which varies per member: the same optimistic curve is 10 % for s
 invested and 6 % for someone half in cash. Expressed that way, both the per-plan rate and an
 honest label are possible.
 
+**One pot per source, not one total per tier.** The rate above only survives because the money is
+kept apart: the projection's state is a pot for each tier's *existing* holdings plus a pot for
+each *plan*, every pot compounding at its own rate, and the mix summing the pots of a tier.
+
+The obvious shape — one running total per tier — was the shape it had, and it silently discarded
+the very rate it had just read. Once 250 € landed in `SAFETY_NET` it was indistinguishable from
+the cushion already there, so it grew at the tier's 2.0 % and never at the member's stated 1.7 %.
+`expected_return` reached the label and nothing else; a commit message here once claimed
+otherwise, and it was wrong.
+
+**A stated rate on cash is contractual; on equity or crypto it is an expectation.** The scenario
+spread lands on risky tiers only, which settles both cases with no extra field — the tier already
+says which kind of number it is. A Livret A at 1.7 % is the same on all four curves; a PEA at 8 %
+runs 5.5 → 10.5. For the member's own four plans, three of which state no rate at all:
+
+| Plan | Tier | Base rate | Pessimistic | Cautious | Reference | Optimistic |
+|---|---|---|---|---|---|---|
+| PEA | Equity | 7.5 % (default) | 5.0 | 6.5 | 7.5 | 10.0 |
+| CTO | Equity | 7.5 % (default) | 5.0 | 6.5 | 7.5 | 10.0 |
+| Crypto | Crypto | 7.5 % (default) | 5.0 | 6.5 | 7.5 | 10.0 |
+| Livret A | Safety net | **1.7 % (stated)** | 1.7 | 1.7 | 1.7 | 1.7 |
+
+That is what the profiles are *for*: they carry the uncertainty of the contributions whose return
+nobody knows, and leave alone the one that is known.
+
+The reported blended rate is weighted by **capital in** — today's holdings plus everything each
+plan pays in over the horizon — not by the closing balances, which would let the fastest-growing
+pot be the loudest voice describing its own growth.
+
 The starting split comes from `WealthPyramidService`, not from account types, so the two panels of
 one screen cannot disagree about the same euro — and current-account money, which the pyramid
 carves off as this month's spending, is no longer compounded for forty years.
@@ -130,6 +159,16 @@ answer is where the money goes, not the return assumption.
 This is the join the two panels never had. The pyramid knew today's gap, the curve knew tomorrow's
 total, and neither could say whether the plans close the gap or widen it. A tier no plan funds
 stays at zero however long the horizon — which is the observation worth acting on.
+
+### Reading the chart
+
+Every legend entry is a toggle for its curve, contributions included: five series is more than a
+320 px chart separates, and comparing two of them means removing the other three.
+
+**The Y axis is pinned to the full set of series, not to the visible ones.** Letting it breathe
+when a curve is hidden rescales every remaining curve, so hiding the optimistic line appears to
+move the pessimistic one — the opposite of what the reader clicked for. The maximum is rounded up
+to a 1 / 2 / 2.5 / 5 × 10ⁿ figure so the ticks stay readable.
 
 ### Key files
 
@@ -169,7 +208,10 @@ after.
 | A new MCP tool, existing four untouched | Agent prompts are written against those signatures | Adding parameters to `create_goal` |
 | Geometric monthly rate | `r/12` compounds to 10.47% on a line labelled 10% | Arithmetic division |
 | Contribution at month end | Month start gives the first payment growth it never earned | Beginning-of-month |
-| Scenarios ignore per-goal `expected_return` | A line labelled "5 %" must be 5 % | Blending the user's own rate in |
+| Scenarios are spreads on risky assets | Lets a per-plan rate coexist with an honest label | Absolute rates applied to cash as well |
+| One pot per plan, not one total per tier | A stated rate cannot survive being merged into a tier total | Reading `expected_return` and losing it on arrival |
+| A stated cash rate ignores the spread | A Livret A does not have a good year | A flag on the goal saying "this rate is certain" |
+| The blend is weighted by capital in | Closing balances let the fastest pot describe its own growth | Weighting by the horizon's values |
 | Investable base only | A house does not compound at an equity rate | Projecting total net worth |
 | Yearly points from monthly maths | 480 × 4 points a chart cannot draw distinctly | Monthly points |
 | `monthsLeft`/`isOnTrack` stay primitives | Boxing them would ripple a nullable through every savings-goal call site to say what `type` already says | Making them nullable |
@@ -192,6 +234,11 @@ after.
 - **Do not re-stub `accessResolver.sharesFor` inside a `GoalServiceTest` case.**
   `when(mock.method(...))` *invokes* the mock, which runs the class-level `Answer` with null
   arguments and NPEs. The `@BeforeEach` stub already answers correctly.
+- **A nullable field is omitted from the JSON, not sent as null.** `spring.jackson`'s
+  `default-property-inclusion: non_null` means `targetPercent`, `expectedReturn`, `coverage` and
+  friends arrive as `undefined`, so `=== null` is false and `.toFixed()` throws. Compare with
+  `== null`, and write fixtures without the key rather than with an explicit `null` — see
+  [`docs/conventions/api-rest.md`](../conventions/api-rest.md).
 - **`ALTER TABLE ... ADD CONSTRAINT` revalidates existing rows.** The migration test has to add
   the old constraint back as `NOT VALID` to reproduce production, where the row aged past its
   deadline while the constraint sat there unvalidated.
@@ -202,14 +249,22 @@ after.
   plan without NPE, the calendar/backfill/overrides refuse it, `create` persists the new fields
 - `GoalRequestTest` — an omitted type means `SAVINGS_TARGET`, each `@AssertTrue`, a past deadline
   still refused at creation
-- `ProjectionServiceTest` (12) — investable base only, **10% over twelve months lands on ×1.10,
+- `ProjectionServiceTest` (22) — investable base only, **10% over twelve months lands on ×1.10,
   not ×1.1047**, contributions at month end, plan windows, shares once, four ordered scenarios,
-  horizon clamped, empty portfolio flat
+  horizon clamped, empty portfolio flat. And on the rates: **a stated rate produces a different
+  total from no stated rate** (the test the old suite lacked — it only checked that a passbook was
+  not compounded at an equity rate, which stayed true while the member's figure was ignored), a
+  stated cash rate is identical across all four scenarios, a stated equity rate is not, and the
+  stated rate survives into the allocation trajectory as well
 - `V83GoalTypeMigrationTest` — the UPDATE fails before the migration and succeeds after; a
   recurring row needs no target; a savings target still cannot be created without one
 - `McpToolCatalogTest`, `GoalToolsTest` — the fifth tool registered, the four unchanged
 - `ProjectionSection.test.tsx` — rates from the payload, legend in payload order, base stated,
-  empty state; `e2e/goals.spec.ts` — the two sections and the form switch
+  empty state, the legend toggles hide and restore a series, and **the mix renders when the API
+  omits a null `targetPercent`** rather than sending it; `e2e/goals.spec.ts` — the two sections
+  and the form switch
+- `PyramidSection.test.tsx` — the same omission on `coverage`, `global` and `allocation` reads as
+  "not rated" instead of `NaN` and `undefined / 100`
 
 ## Links
 

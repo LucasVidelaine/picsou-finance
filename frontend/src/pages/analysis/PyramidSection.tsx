@@ -136,7 +136,8 @@ export function PyramidSection({ pyramid }: { pyramid: WealthPyramid }) {
   const { safetyNet, score, alerts } = pyramid
 
   // Coverage is capped for the bar only — the figure beside it still tells the truth.
-  const coveragePercent = safetyNet.coverage === null ? 0 : Math.min(100, safetyNet.coverage * 100)
+  // Loose: an absent coverage arrives as undefined, and undefined * 100 is NaN.
+  const coveragePercent = safetyNet.coverage == null ? 0 : Math.min(100, safetyNet.coverage * 100)
 
   return (
     <div className="grid items-start gap-4 lg:grid-cols-3">
@@ -147,7 +148,7 @@ export function PyramidSection({ pyramid }: { pyramid: WealthPyramid }) {
         <CardContent>
           {/* No score rather than a flattering one: with nothing to allocate and no stated
               expenses there is nothing to judge, and the old fallback returned 100. */}
-          {score.global === null ? (
+          {score.global == null ? (
             <p className="text-sm text-muted-foreground">{t('analysis.score.notRatedYet')}</p>
           ) : (
             <div className="flex items-baseline gap-2">
@@ -158,7 +159,7 @@ export function PyramidSection({ pyramid }: { pyramid: WealthPyramid }) {
             </div>
           )}
 
-          {score.allocation !== null && (
+          {score.allocation != null && (
             <p className="mt-3 text-sm text-muted-foreground">
               {t('analysis.score.misplaced', { value: score.misplacedPercent.toFixed(1) })}
             </p>
@@ -168,7 +169,7 @@ export function PyramidSection({ pyramid }: { pyramid: WealthPyramid }) {
             <div className="flex items-center justify-between gap-3">
               <dt className="text-muted-foreground">{t('analysis.score.safetyNet')}</dt>
               <dd className="text-foreground">
-                {safetyNet.known && safetyNet.score !== null
+                {safetyNet.known && safetyNet.score != null
                   ? `${safetyNet.score} / 100`
                   : t('analysis.score.notRated')}
               </dd>
@@ -176,7 +177,7 @@ export function PyramidSection({ pyramid }: { pyramid: WealthPyramid }) {
             <div className="flex items-center justify-between gap-3">
               <dt className="text-muted-foreground">{t('analysis.score.allocation')}</dt>
               <dd className="text-foreground">
-                {score.allocation === null
+                {score.allocation == null
                   ? t('analysis.score.notRated')
                   : `${score.allocation} / 100`}
               </dd>
@@ -226,7 +227,7 @@ export function PyramidSection({ pyramid }: { pyramid: WealthPyramid }) {
               </div>
               <Progress value={coveragePercent} className="mt-3" />
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                {safetyNet.coverage !== null && safetyNet.coverage < 1 && (
+                {safetyNet.coverage != null && safetyNet.coverage < 1 && (
                   <Badge variant="destructive">
                     {t('analysis.safetyNet.short', {
                       value: Math.round(safetyNet.coverage * 100),
@@ -239,7 +240,7 @@ export function PyramidSection({ pyramid }: { pyramid: WealthPyramid }) {
                     {t('analysis.safetyNet.excess')}
                   </Badge>
                 )}
-                {safetyNet.coverage !== null &&
+                {safetyNet.coverage != null &&
                   safetyNet.coverage >= 1 &&
                   safetyNet.excessEur === 0 && (
                     <Badge variant="default">

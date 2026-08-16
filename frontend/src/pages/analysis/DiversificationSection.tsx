@@ -267,7 +267,7 @@ function UnclassifiedList({
               </span>
               <CurrencyDisplay value={line.valueEur} className="text-sm text-foreground" />
               {/* accountId is what authorises the write; without one there is nothing to open. */}
-              {line.accountId !== null && (
+              {line.accountId != null && (
                 <Button
                   type="button"
                   variant="ghost"

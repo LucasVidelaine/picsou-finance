@@ -41,7 +41,8 @@ export function SliceContributors({
 
       <ul className="space-y-1">
         {slice.contributors.map((c, i) => {
-          const security = c.ticker === null ? null : byTicker.get(c.ticker)
+          // The folded tail has no ticker, and the API omits the null rather than sending it.
+          const security = c.ticker == null ? null : byTicker.get(c.ticker)
           return (
             <li
               key={c.ticker ?? `folded-${i}`}
@@ -49,12 +50,12 @@ export function SliceContributors({
             >
               <span className="min-w-0 text-foreground">
                 {/* A null ticker is the folded tail, not a security nobody named. */}
-                {c.ticker === null
+                {c.ticker == null
                   ? t('analysis.drilldown.others', {
                       count: slice.contributorCount - slice.contributors.length + 1,
                     })
                   : (security?.name ?? c.ticker)}
-                {c.ticker !== null && security?.name && (
+                {c.ticker != null && security?.name && (
                   <span className="ml-2 text-muted-foreground">{c.ticker}</span>
                 )}
               </span>

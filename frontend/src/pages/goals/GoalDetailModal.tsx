@@ -56,7 +56,7 @@ export function GoalDetailModal({ goalId, onClose }: GoalDetailModalProps) {
   const projection = useMemo(() => {
     // Both overlays are drawn towards a deadline. A recurring plan has none, so there is nothing
     // honest to draw — the four-scenario projection on the Analysis page is its equivalent.
-    if (!goal || goal.avgMonthlyContribution == null || goal.deadline === null) return undefined
+    if (!goal || goal.avgMonthlyContribution == null || goal.deadline == null) return undefined
     const endValue = goal.currentTotal + goal.avgMonthlyContribution * Math.max(goal.monthsLeft, 0)
     return {
       startDate: new Date(todayMs).toISOString(),
@@ -119,7 +119,7 @@ export function GoalDetailModal({ goalId, onClose }: GoalDetailModalProps) {
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-muted-foreground mb-1">
-                    {goal.targetAmount === null ? t('goals.monthlyAmount') : t('goals.targetAmount')}
+                    {goal.targetAmount == null ? t('goals.monthlyAmount') : t('goals.targetAmount')}
                   </p>
                   <CurrencyDisplay
                     value={goal.targetAmount ?? goal.monthlyAmount ?? 0}
@@ -136,7 +136,7 @@ export function GoalDetailModal({ goalId, onClose }: GoalDetailModalProps) {
                   onRangeChange={setRange}
                   showInvested={false}
                   target={
-                    goal.deadline !== null && goal.targetAmount !== null
+                    goal.deadline != null && goal.targetAmount != null
                       ? {
                           startDate: goal.createdAt,
                           startValue: baseline,

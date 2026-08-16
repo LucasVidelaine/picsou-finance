@@ -76,6 +76,26 @@ describe('PyramidSection', () => {
     expect(screen.getByText('analysis.score.safetyNetUnknownHint')).toBeInTheDocument()
   })
 
+  it('survives the payload the API really sends, which omits nulls rather than sending them', () => {
+    // Every fixture above writes `coverage: null`, `global: null` -- describing the DTO, not the
+    // response. spring.jackson's non_null inclusion drops a null field entirely, so these arrive
+    // as undefined, and the same mistake one screen over took the Répartition tab down with a
+    // TypeError. Here it was quieter: undefined * 100 is NaN in the coverage bar, and a strict
+    // `=== null` would have printed "undefined / 100" for the score.
+    render(
+      <PyramidSection
+        pyramid={pyramid({
+          safetyNet: { valueEur: 6000, dailyCashEur: 0, excessEur: 0, known: false },
+          score: { misplacedPercent: 0, cryptoPenalty: 0, leverageBonus: 0 },
+        } as never)}
+      />,
+    )
+
+    expect(screen.getByText('analysis.score.notRatedYet')).toBeInTheDocument()
+    expect(screen.getAllByText('analysis.score.notRated')).toHaveLength(2)
+    expect(screen.queryByText(/NaN|undefined/)).not.toBeInTheDocument()
+  })
+
   it('flags a tier only once its gap is worth acting on', () => {
     render(
       <PyramidSection

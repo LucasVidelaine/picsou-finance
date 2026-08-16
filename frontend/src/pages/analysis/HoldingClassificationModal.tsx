@@ -242,7 +242,7 @@ export function HoldingClassificationModal({
           </DialogDescription>
         </DialogHeader>
 
-        {current.isPending || !current.data || accountId === null || !ticker ? (
+        {current.isPending || !current.data || accountId == null || !ticker ? (
           <div className="space-y-4">
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />

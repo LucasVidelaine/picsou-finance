@@ -76,10 +76,10 @@ export function GoalsPage() {
     setForm({
       name: goal.name,
       type: goal.type,
-      targetAmount: goal.targetAmount === null ? '' : String(goal.targetAmount),
+      targetAmount: goal.targetAmount == null ? '' : String(goal.targetAmount),
       deadline: goal.deadline ?? '',
-      monthlyAmount: goal.monthlyAmount === null ? '' : String(goal.monthlyAmount),
-      expectedReturn: goal.expectedReturn === null ? '' : String(goal.expectedReturn),
+      monthlyAmount: goal.monthlyAmount == null ? '' : String(goal.monthlyAmount),
+      expectedReturn: goal.expectedReturn == null ? '' : String(goal.expectedReturn),
       startDate: goal.startDate ?? '',
       endDate: goal.endDate ?? '',
       accountIds: goal.accounts.map((a) => a.id),

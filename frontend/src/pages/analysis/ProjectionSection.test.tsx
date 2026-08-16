@@ -105,6 +105,39 @@ describe('ProjectionSection', () => {
     expect(useProjection).toHaveBeenCalledWith(20)
   })
 
+  it('hides a scenario when its legend entry is clicked, and brings it back', () => {
+    render(<ProjectionSection />)
+
+    // Four scenarios plus contributions is more than a 320px chart separates, and comparing two
+    // of them means removing the other three. The assertion is on the control's pressed state
+    // rather than on the curve: the chart body is mocked out here, as everywhere in this file.
+    const optimistic = screen.getByRole('button', {
+      name: 'analysis.projection.scenarios.OPTIMISTIC:8.2',
+    })
+    expect(optimistic).toHaveAttribute('aria-pressed', 'true')
+
+    fireEvent.click(optimistic)
+    expect(optimistic).toHaveAttribute('aria-pressed', 'false')
+    // Toggling one leaves the others alone -- the legend is a set of independent switches.
+    expect(
+      screen.getByRole('button', { name: 'analysis.projection.scenarios.REFERENCE:6.4' }),
+    ).toHaveAttribute('aria-pressed', 'true')
+
+    fireEvent.click(optimistic)
+    expect(optimistic).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('lets the contributions floor be hidden too', () => {
+    render(<ProjectionSection />)
+
+    // It is a series like any other on this chart, and the one a reader most often wants out of
+    // the way once they have seen where it sits.
+    const contributed = screen.getByRole('button', { name: 'analysis.projection.contributed' })
+    fireEvent.click(contributed)
+
+    expect(contributed).toHaveAttribute('aria-pressed', 'false')
+  })
+
   it('switches to the mix and shows where each tier lands against its target', () => {
     useProjection.mockReturnValue({
       data: projection({
@@ -142,6 +175,40 @@ describe('ProjectionSection', () => {
     expect(screen.getByText('57.0%')).toBeInTheDocument()
     expect(screen.getAllByText('0.0%').length).toBeGreaterThan(0)
     // The cushion is measured in euros against an absolute target, so it has no share to compare.
+    expect(screen.getByText('—')).toBeInTheDocument()
+  })
+
+  it('renders the mix when the API omits a null target, as it actually does', () => {
+    // The regression. The backend declares targetPercent nullable for the cushion, but
+    // spring.jackson's non_null inclusion means a null is not sent as null -- it is not sent at
+    // all. Every fixture here wrote `targetPercent: null`, describing the DTO rather than the
+    // response, so `=== null` passed in tests and threw in the browser.
+    useProjection.mockReturnValue({
+      data: projection({
+        allocation: [
+          {
+            date: '2026-12-31',
+            tiers: [
+              { tier: 'EQUITY', valueEur: 42159, percent: 72.4, targetPercent: 18 },
+              // No targetPercent key at all, exactly as the API sends it.
+              { tier: 'SAFETY_NET', valueEur: 16101, percent: 27.6 },
+            ],
+          },
+          {
+            date: '2036-12-31',
+            tiers: [
+              { tier: 'EQUITY', valueEur: 140000, percent: 89.7, targetPercent: 18 },
+              { tier: 'SAFETY_NET', valueEur: 16101, percent: 10.3 },
+            ],
+          },
+        ] as never,
+      }),
+    })
+    render(<ProjectionSection />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'analysis.projection.views.allocation' }))
+
+    expect(screen.getByText('89.7%')).toBeInTheDocument()
     expect(screen.getByText('—')).toBeInTheDocument()
   })
 })

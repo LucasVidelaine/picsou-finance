@@ -129,8 +129,14 @@ export function AllocationTrajectory({ allocation }: { allocation: AllocationPoi
                 </td>
                 <td className="py-1.5 text-right tabular-nums text-muted-foreground">
                   {/* The cushion is measured in euros against an absolute target, not as a share,
-                      so it has no percentage to compare against. */}
-                  {then.targetPercent === null ? '—' : `${then.targetPercent.toFixed(0)}%`}
+                      so it has no percentage to compare against.
+
+                      Loose equality, and it is not a style choice: the API omits null fields
+                      entirely (spring.jackson default-property-inclusion: non_null), so this
+                      arrives as undefined and `=== null` was false — .toFixed then threw and took
+                      the whole tab down. Demo mode sends an explicit null, which is why the
+                      fixtures were happy. */}
+                  {then.targetPercent == null ? '—' : `${then.targetPercent.toFixed(0)}%`}
                 </td>
               </tr>
             )
