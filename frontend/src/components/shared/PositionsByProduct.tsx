@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { useMoney } from '@/hooks/use-money'
 import type { ExchangePositionResponse } from '@/types/api'
 import { CurrencyDisplay } from '@/components/shared/CurrencyDisplay'
 import { PriceFreshnessDot } from '@/components/shared/PriceFreshnessDot'
@@ -35,6 +36,7 @@ const PRODUCT_ORDER = ['SPOT', 'STAKING', 'LENDING'] as const
  * something added to it.
  */
 export function PositionsByProduct({ positions }: PositionsByProductProps) {
+  const money = useMoney()
   const { t } = useTranslation()
 
   if (positions.length === 0) return null
@@ -92,18 +94,18 @@ export function PositionsByProduct({ positions }: PositionsByProductProps) {
                         <TableCell className="font-mono font-medium">{row.ticker}</TableCell>
                         {showYield && (
                           <TableCell className="text-right tabular-nums">
-                            {row.principal ?? '—'}
+                            {row.principal != null ? money.quantity(row.principal) : '—'}
                           </TableCell>
                         )}
                         {showYield && (
                           <TableCell className="text-right tabular-nums text-emerald-500">
-                            {row.interest ?? '—'}
+                            {row.interest != null ? money.quantity(row.interest) : '—'}
                           </TableCell>
                         )}
-                        <TableCell className="text-right tabular-nums">{row.quantity}</TableCell>
+                        <TableCell className="text-right tabular-nums">{money.quantity(row.quantity)}</TableCell>
                         <TableCell className="text-right">
                           {row.averageBuyIn != null
-                            ? <CurrencyDisplay value={row.averageBuyIn} className="text-sm" />
+                            ? <CurrencyDisplay value={row.averageBuyIn} publicQuote className="text-sm" />
                             : '—'}
                         </TableCell>
                         <TableCell className="text-right">

@@ -8,25 +8,15 @@ import { AllocationTrajectory } from './AllocationTrajectory'
 import {
   ChartContainer,
   ChartTooltip,
-  ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart'
 import { useProjection } from '@/features/analysis/hooks'
-import { localeFromLanguage } from '@/lib/utils'
+import { useMoney } from '@/hooks/use-money'
+import { MoneyChartTooltip } from '@/components/shared/MoneyChartTooltip'
 import { cn } from '@/lib/utils'
 import type { ProjectionScenario } from '@/types/api'
 
 const HORIZONS = [10, 20, 30] as const
-
-/** Axis ticks over decades run to seven figures; the full currency format would not fit. */
-function formatCompactEur(value: number, locale: string): string {
-  return new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency: 'EUR',
-    notation: 'compact',
-    maximumFractionDigits: 1,
-  }).format(value)
-}
 
 /**
  * The theme's chart tokens are a single-hue ramp, not five distinct hues — which suits ordered
@@ -61,7 +51,7 @@ function niceCeiling(value: number): number {
 }
 
 export function ProjectionSection() {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const [years, setYears] = useState<number>(20)
   // Two questions, one card: how much, and in what. Tabs rather than two cards because they
   // share a horizon — switching view must not lose it.
@@ -69,8 +59,8 @@ export function ProjectionSection() {
   // Everything visible until the reader says otherwise. Hidden rather than shown, so a scenario
   // added later to the payload appears without anyone remembering to opt it in.
   const [hidden, setHidden] = useState<Set<string>>(() => new Set())
+  const money = useMoney()
   const projection = useProjection(years)
-  const locale = localeFromLanguage(i18n.resolvedLanguage ?? i18n.language)
 
   const config = useMemo<ChartConfig>(() => {
     const entries = (projection.data?.scenarios ?? []).map((s) => [
@@ -229,9 +219,10 @@ export function ProjectionSection() {
                   axisLine={false}
                   width={70}
                   domain={[0, yMax]}
-                  tickFormatter={(value: number) => formatCompactEur(value, locale)}
+                  // Ticks over decades run to seven figures; the full currency format would not fit.
+                  tickFormatter={(value: number) => money.compact(value, { maximumFractionDigits: 1 })}
                 />
-                <ChartTooltip content={<ChartTooltipContent indicator="line" />} />
+                <ChartTooltip content={<MoneyChartTooltip config={config} indicator="line" />} />
                 {!hidden.has(CONTRIBUTED_KEY) && (
                   <Area
                     type="monotone"

@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { useMoney } from '@/hooks/use-money'
 import type { HoldingResponse } from '@/types/api'
 import { CurrencyDisplay } from '@/components/shared/CurrencyDisplay'
 import { PriceFreshnessDot } from '@/components/shared/PriceFreshnessDot'
@@ -22,6 +23,7 @@ interface HoldingsTableProps {
 }
 
 export function HoldingsTable({ holdings, onEdit, onDelete }: HoldingsTableProps) {
+  const money = useMoney()
   const { t } = useTranslation()
 
   if (holdings.length === 0) return null
@@ -51,9 +53,9 @@ export function HoldingsTable({ holdings, onEdit, onDelete }: HoldingsTableProps
               <TableRow key={h.ticker}>
                 <TableCell className="font-mono font-medium">{h.ticker}</TableCell>
                 <TableCell>{h.name ?? h.ticker}</TableCell>
-                <TableCell className="text-right">{h.quantity}</TableCell>
+                <TableCell className="text-right">{money.quantity(h.quantity)}</TableCell>
                 <TableCell className="text-right">
-                  {h.averageBuyIn != null ? <CurrencyDisplay value={h.averageBuyIn} className="text-sm" /> : '\u2014'}
+                  {h.averageBuyIn != null ? <CurrencyDisplay value={h.averageBuyIn} publicQuote className="text-sm" /> : '\u2014'}
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="inline-flex items-center gap-1.5">
@@ -61,7 +63,7 @@ export function HoldingsTable({ holdings, onEdit, onDelete }: HoldingsTableProps
                       priceUpdatedAt={h.priceUpdatedAt}
                       staleAsOf={h.priceStale ? h.priceAsOf : null}
                     />
-                    {h.currentPrice != null ? <CurrencyDisplay value={h.currentPrice} currency={h.quoteCurrency ?? undefined} className="text-sm" /> : '\u2014'}
+                    {h.currentPrice != null ? <CurrencyDisplay value={h.currentPrice} currency={h.quoteCurrency ?? undefined} publicQuote className="text-sm" /> : '\u2014'}
                   </div>
                 </TableCell>
                 <TableCell className="text-right font-medium">

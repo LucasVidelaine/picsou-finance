@@ -50,7 +50,9 @@
     "admin": "Administration",
     "admin.desc": "Réglages de l'instance",
     "analysis": "Analyse",
-    "analysis.desc": "Répartition & diversification"
+    "analysis.desc": "Répartition & diversification",
+    "hideAmounts": "Masquer les montants",
+    "showAmounts": "Afficher les montants"
   },
   "auth": {
     "login": "Connexion",
@@ -955,7 +957,10 @@
     "sessionsExpires": "Expire le",
     "sessionsRevoke": "Révoquer",
     "sessionsRevokeAllOthers": "Déconnecter les autres appareils",
-    "sessionsRevoking": "Révocation..."
+    "sessionsRevoking": "Révocation...",
+    "amounts": "Montants",
+    "amountsVisible": "Visibles",
+    "amountsHidden": "Masqués"
   },
   "accessKeys": {
     "sectionTitle": "Clés d'accès & MCP",

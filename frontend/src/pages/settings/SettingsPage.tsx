@@ -115,7 +115,7 @@ export function SettingsPage() {
   const user = useAuthStore((s) => s.user)
   const logoutMutation = useLogout()
   const setUsername = useAuthStore((s) => s.setUsername)
-  const { dateFormat, setDateFormat, sidebarStyle, setSidebarStyle } = useAppStore()
+  const { dateFormat, setDateFormat, sidebarStyle, setSidebarStyle, hideAmounts, setHideAmounts } = useAppStore()
 
   // Username editing -------------------------------------------------------
   const [editingUsername, setEditingUsername] = useState(false)
@@ -195,6 +195,11 @@ export function SettingsPage() {
     { value: 'iso', label: t('settings.dateFormatIso') },
   ]
 
+  const amountsOptions: ToggleOption[] = [
+    { value: 'visible', label: t('settings.amountsVisible') },
+    { value: 'hidden', label: t('settings.amountsHidden') },
+  ]
+
   const sidebarStyleOptions: ToggleOption[] = [
     { value: 'current', label: t('settings.sidebarStyleCurrent') },
     { value: 'classic', label: t('settings.sidebarStyleClassic') },
@@ -238,6 +243,18 @@ export function SettingsPage() {
               options={dateFormatOptions}
               value={dateFormat}
               onChange={(v) => setDateFormat(v as DateFormat)}
+            />
+          </div>
+
+          {/* Amounts. Duplicated from the sidebar's eye button on purpose: that button lives in
+              a sidebar that is hidden below 768px, and shoulder-surfing is likelier on a phone
+              than at a desk. */}
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-medium">{t('settings.amounts')}</Label>
+            <ToggleGroup
+              options={amountsOptions}
+              value={hideAmounts ? 'hidden' : 'visible'}
+              onChange={(v) => setHideAmounts(v === 'hidden')}
             />
           </div>
 

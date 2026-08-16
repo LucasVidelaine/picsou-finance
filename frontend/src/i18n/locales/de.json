@@ -50,7 +50,9 @@
     "admin": "Administration",
     "admin.desc": "Instanz-Einstellungen",
     "analysis": "Analyse",
-    "analysis.desc": "Aufteilung & Diversifikation"
+    "analysis.desc": "Aufteilung & Diversifikation",
+    "hideAmounts": "Beträge ausblenden",
+    "showAmounts": "Beträge einblenden"
   },
   "auth": {
     "login": "Anmelden",
@@ -955,7 +957,10 @@
     "sessionsExpires": "Läuft ab",
     "sessionsRevoke": "Widerrufen",
     "sessionsRevokeAllOthers": "Andere Geräte abmelden",
-    "sessionsRevoking": "Wird widerrufen..."
+    "sessionsRevoking": "Wird widerrufen...",
+    "amounts": "Beträge",
+    "amountsVisible": "Sichtbar",
+    "amountsHidden": "Ausgeblendet"
   },
   "accessKeys": {
     "sectionTitle": "Zugriffsschlüssel & MCP",

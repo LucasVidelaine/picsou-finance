@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { CurrencyDisplay } from '@/components/shared/CurrencyDisplay'
-import { cn, formatCurrency } from '@/lib/utils'
+import { cn } from '@/lib/utils'
+import { useMoney } from '@/hooks/use-money'
 import type { WealthAlert, WealthPyramid, WealthTier, WealthTierLine } from '@/types/api'
 
 /**
@@ -106,6 +107,7 @@ function TierRow({ line }: { line: WealthTierLine }) {
  */
 function Alerts({ alerts }: { alerts: WealthAlert[] }) {
   const { t } = useTranslation()
+  const money = useMoney()
   if (alerts.length === 0) return null
 
   return (
@@ -122,7 +124,9 @@ function Alerts({ alerts }: { alerts: WealthAlert[] }) {
                 ? t(`analysis.tiers.${alert.label}`, alert.label)
                 : '',
               percent: alert.percent.toFixed(0),
-              value: formatCurrency(alert.valueEur, 'EUR'),
+              // The amount sits mid-sentence in the translation, so the mask has to be applied
+              // to the interpolated value -- there is no element to intercept.
+              value: money.amount(alert.valueEur),
             })}
           </span>
         </li>

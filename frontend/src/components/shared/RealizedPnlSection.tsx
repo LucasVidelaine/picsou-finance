@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { useMoney } from '@/hooks/use-money'
 import { CurrencyDisplay } from '@/components/shared/CurrencyDisplay'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn, localeFromLanguage } from '@/lib/utils'
@@ -25,6 +26,7 @@ interface RealizedPnlSectionProps {
  * least one sell.
  */
 export function RealizedPnlSection({ accountId, enabled = true }: RealizedPnlSectionProps) {
+  const money = useMoney()
   const { t, i18n } = useTranslation()
   const locale = localeFromLanguage(i18n.resolvedLanguage ?? i18n.language)
   const { data } = useRealizedPnl(accountId, enabled)
@@ -69,9 +71,9 @@ export function RealizedPnlSection({ accountId, enabled = true }: RealizedPnlSec
                   <TableCell className="font-mono font-medium">{lot.ticker}</TableCell>
                   <TableCell>{lot.name ?? lot.ticker}</TableCell>
                   <TableCell>{formatDate(lot.date)}</TableCell>
-                  <TableCell className="text-right">{lot.quantity}</TableCell>
+                  <TableCell className="text-right">{money.quantity(lot.quantity)}</TableCell>
                   <TableCell className="text-right">
-                    <CurrencyDisplay value={lot.avgCost} currency={currency} className="text-sm" />
+                    <CurrencyDisplay value={lot.avgCost} currency={currency} publicQuote className="text-sm" />
                   </TableCell>
                   <TableCell className="text-right">
                     <CurrencyDisplay value={lot.proceeds} currency={currency} className="text-sm" />

@@ -31,7 +31,8 @@ export function localeFromLanguage(language: string | null | undefined): string 
   return resolveLocale(language).intlLocale
 }
 
-function normalizeIntlLocale(locale: string): string {
+/** Exported for `lib/money.ts`, the only other place allowed to build an Intl currency format. */
+export function normalizeIntlLocale(locale: string): string {
   try {
     return Intl.NumberFormat.supportedLocalesOf(locale).length > 0 ? locale : DEFAULT_LOCALE.intlLocale
   } catch {
@@ -39,17 +40,9 @@ function normalizeIntlLocale(locale: string): string {
   }
 }
 
-export function formatCurrency(value: number, currency = 'EUR', locale = getLocale()): string {
-  const safeLocale = normalizeIntlLocale(locale)
-  try {
-    return new Intl.NumberFormat(safeLocale, { style: 'currency', currency }).format(value)
-  } catch {
-    // An unknown/invalid ISO 4217 code makes Intl.NumberFormat throw a RangeError.
-    // Degrade to a plain decimal + the raw code instead of crashing the whole app (issue #9).
-    const num = new Intl.NumberFormat(safeLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)
-    return `${num} ${currency}`
-  }
-}
+// formatCurrency used to live here. It moved to `lib/money.ts` and became private, so that every
+// amount on screen goes through the formatter that knows whether amounts are hidden. Reaching for
+// a raw currency format is now a compile error rather than a silent leak during a demo.
 
 /** ISO 3166-1 alpha-2 code → localized country name (e.g. "EE" → "Estonia"). Falls back to the raw code for an unknown/invalid one. */
 export function formatCountryName(code: string, locale = getLocale()): string {

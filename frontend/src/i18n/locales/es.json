@@ -50,7 +50,9 @@
     "admin": "Administración",
     "admin.desc": "Ajustes de la instancia",
     "analysis": "Análisis",
-    "analysis.desc": "Reparto y diversificación"
+    "analysis.desc": "Reparto y diversificación",
+    "hideAmounts": "Ocultar importes",
+    "showAmounts": "Mostrar importes"
   },
   "auth": {
     "login": "Iniciar sesión",
@@ -955,7 +957,10 @@
     "sessionsExpires": "Caduca",
     "sessionsRevoke": "Revocar",
     "sessionsRevokeAllOthers": "Cerrar sesión en otros dispositivos",
-    "sessionsRevoking": "Revocando..."
+    "sessionsRevoking": "Revocando...",
+    "amounts": "Importes",
+    "amountsVisible": "Visibles",
+    "amountsHidden": "Ocultos"
   },
   "accessKeys": {
     "sectionTitle": "Claves de acceso y MCP",

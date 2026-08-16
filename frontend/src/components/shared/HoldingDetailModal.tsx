@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useMoney } from '@/hooks/use-money'
 import { usePriceHistory, type PortfolioLine } from '@/features/accounts/hooks'
 import { NetWorthChart } from '@/components/shared/NetWorthChart'
 import { EmptyChartState } from '@/components/shared/EmptyChartState'
@@ -27,6 +28,7 @@ interface HoldingDetailModalProps {
 }
 
 export function HoldingDetailModal({ line, onClose }: HoldingDetailModalProps) {
+  const money = useMoney()
   const { t } = useTranslation()
   const [range, setRange] = useState<TimeRange>('1Y')
   const [mode, setMode] = useState<ChartMode>('price')
@@ -182,7 +184,7 @@ export function HoldingDetailModal({ line, onClose }: HoldingDetailModalProps) {
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 pt-4 border-t">
                 <div>
                   <p className="text-xs text-muted-foreground mb-0.5">{t('holdings.quantity')}</p>
-                  <p className="text-sm font-semibold tabular-nums">{line.quantity.toLocaleString()}</p>
+                  <p className="text-sm font-semibold tabular-nums">{money.quantity(line.quantity.toLocaleString())}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground mb-0.5">{t('holdings.capitalInvested')}</p>

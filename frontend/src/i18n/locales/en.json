@@ -50,7 +50,9 @@
     "admin": "Administration",
     "admin.desc": "Instance settings",
     "analysis": "Analysis",
-    "analysis.desc": "Allocation & diversification"
+    "analysis.desc": "Allocation & diversification",
+    "hideAmounts": "Hide amounts",
+    "showAmounts": "Show amounts"
   },
   "auth": {
     "login": "Sign in",
@@ -955,7 +957,10 @@
     "sessionsExpires": "Expires",
     "sessionsRevoke": "Revoke",
     "sessionsRevokeAllOthers": "Sign out other devices",
-    "sessionsRevoking": "Revoking..."
+    "sessionsRevoking": "Revoking...",
+    "amounts": "Amounts",
+    "amountsVisible": "Visible",
+    "amountsHidden": "Hidden"
   },
   "accessKeys": {
     "sectionTitle": "Access keys & MCP",

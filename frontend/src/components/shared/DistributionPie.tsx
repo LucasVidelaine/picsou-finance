@@ -1,9 +1,10 @@
 import { useMemo, useRef, useState } from 'react'
 import { Cell, Pie, PieChart, Label } from 'recharts'
-import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
+import { type ChartConfig, ChartContainer, ChartTooltip } from '@/components/ui/chart'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useTranslation } from 'react-i18next'
+import { MoneyChartTooltip } from '@/components/shared/MoneyChartTooltip'
 import { accountTypeLabelKey } from '@/lib/constants'
 import {
   disambiguateDistributionNames,
@@ -131,7 +132,7 @@ export function DistributionPie({ data }: DistributionPieProps) {
             <div className="flex h-full min-h-0 flex-col">
               <ChartContainer config={chartConfig} className="mx-auto h-[250px] w-full shrink-0">
                 <PieChart>
-                  <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+                  <ChartTooltip content={<MoneyChartTooltip config={chartConfig} hideLabel />} />
                   <Pie
                     data={displayData}
                     dataKey="balanceEur"

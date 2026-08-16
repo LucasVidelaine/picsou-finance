@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { cn, formatCurrency, formatDate, formatPercent, freshnessLevel, localeFromLanguage, parseDate, todayLabel } from './utils'
+import { cn, formatDate, formatPercent, freshnessLevel, localeFromLanguage, parseDate, todayLabel } from './utils'
 
 describe('cn', () => {
   it('merges class names', () => {
@@ -13,38 +13,6 @@ describe('cn', () => {
 
   it('merges tailwind conflicts', () => {
     expect(cn('px-2', 'px-4')).toBe('px-4')
-  })
-})
-
-describe('formatCurrency', () => {
-  it('formats EUR in French locale', () => {
-    const result = formatCurrency(1234.5, 'EUR', 'fr-FR')
-    expect(result).toContain('1')
-    expect(result).toContain('234')
-  })
-
-  it('formats zero', () => {
-    const result = formatCurrency(0, 'EUR', 'fr-FR')
-    expect(result).toContain('0')
-  })
-
-  it('formats negative values', () => {
-    const result = formatCurrency(-500, 'EUR', 'fr-FR')
-    expect(result).toContain('500')
-  })
-
-  it('degrades gracefully on an invalid currency code instead of throwing (issue #9)', () => {
-    expect(() => formatCurrency(100, 'AMAT', 'fr-FR')).not.toThrow()
-    const result = formatCurrency(100, 'AMAT', 'fr-FR')
-    expect(result).toContain('AMAT')
-    expect(result).toContain('100')
-  })
-
-  it('degrades gracefully when both currency and locale are invalid', () => {
-    expect(() => formatCurrency(100, 'AMAT', 'common.locale')).not.toThrow()
-    const result = formatCurrency(100, 'AMAT', 'common.locale')
-    expect(result).toContain('AMAT')
-    expect(result).toContain('100')
   })
 })
 

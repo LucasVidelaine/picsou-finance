@@ -137,7 +137,7 @@ export function AccountDetailPage() {
             )}
             {account.currency !== 'EUR' && (
               <p className="text-xs text-muted-foreground mt-0.5">
-                {account.currentBalance} {account.currency}
+                <CurrencyDisplay value={account.currentBalance} currency={account.currency} />
                 {account.ticker ? ` (${account.ticker})` : ''}
               </p>
             )}
