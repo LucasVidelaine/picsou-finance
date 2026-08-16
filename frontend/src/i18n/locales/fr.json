@@ -227,7 +227,8 @@
       "leverageBonus": "Bonus de levier",
       "notRated": "non évalué",
       "misplaced": "{{value}}% de votre patrimoine est à déplacer pour atteindre vos cibles.",
-      "safetyNetUnknownHint": "Renseignez vos dépenses mensuelles obligatoires pour que le matelas de sécurité soit évalué."
+      "safetyNetUnknownHint": "Renseignez vos dépenses mensuelles obligatoires pour que le matelas de sécurité soit évalué.",
+      "notRatedYet": "Pas encore de score : renseignez vos dépenses mensuelles, ou investissez au-delà de votre matelas."
     },
     "safetyNet": {
       "title": "Matelas de sécurité et répartition",
@@ -311,6 +312,12 @@
       "others": "et {{count}} autre",
       "others_other": "et {{count}} autres",
       "hint": "Cliquez une part pour voir ce qui la compose."
+    },
+    "alerts": {
+      "SINGLE_ASSET_CONCENTRATION": "{{label}} représente {{percent}} % de votre patrimoine — un seul actif porte l'essentiel du risque.",
+      "EMPTY_TIER": "Aucun actif en {{label}} : cette poche est à zéro, pas simplement sous-dotée.",
+      "CUSHION_OVERFUNDED": "{{value}} au-delà de votre cible de matelas — de l'argent disponible à replacer.",
+      "title": "Points d'attention"
     }
   },
   "accountTypes": {

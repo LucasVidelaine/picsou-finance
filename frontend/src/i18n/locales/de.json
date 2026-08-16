@@ -227,7 +227,8 @@
       "leverageBonus": "Hebel-Bonus",
       "notRated": "nicht bewertet",
       "misplaced": "{{value}}% deines Vermögens müssten umgeschichtet werden, um deine Ziele zu erreichen.",
-      "safetyNetUnknownHint": "Trage deine monatlichen Fixkosten ein, damit der Notgroschen bewertet werden kann."
+      "safetyNetUnknownHint": "Trage deine monatlichen Fixkosten ein, damit der Notgroschen bewertet werden kann.",
+      "notRatedYet": "Noch keine Bewertung: Geben Sie Ihre monatlichen Ausgaben an oder investieren Sie über Ihr Polster hinaus."
     },
     "safetyNet": {
       "title": "Notgroschen und Aufteilung",
@@ -311,6 +312,12 @@
       "others": "und {{count}} weitere",
       "others_other": "und {{count}} weitere",
       "hint": "Wählen Sie einen Anteil, um zu sehen, woraus er besteht."
+    },
+    "alerts": {
+      "SINGLE_ASSET_CONCENTRATION": "{{label}} macht {{percent}} % Ihres Vermögens aus — ein einzelner Wert trägt das meiste Risiko.",
+      "EMPTY_TIER": "Nichts in {{label}}: diese Stufe ist leer, nicht bloß unter dem Ziel.",
+      "CUSHION_OVERFUNDED": "{{value}} über Ihrem Polsterziel — Geld, das anderswo arbeiten könnte.",
+      "title": "Beachtenswert"
     }
   },
   "accountTypes": {

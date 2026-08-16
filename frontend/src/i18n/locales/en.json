@@ -227,7 +227,8 @@
       "leverageBonus": "Leverage bonus",
       "notRated": "not rated",
       "misplaced": "{{value}}% of your wealth would have to move to hit your targets.",
-      "safetyNetUnknownHint": "Set your compulsory monthly expenses so the emergency fund can be scored."
+      "safetyNetUnknownHint": "Set your compulsory monthly expenses so the emergency fund can be scored.",
+      "notRatedYet": "No score yet: state your monthly expenses, or invest beyond your cushion."
     },
     "safetyNet": {
       "title": "Emergency fund and allocation",
@@ -311,6 +312,12 @@
       "others": "and {{count}} other",
       "others_other": "and {{count}} others",
       "hint": "Select a slice to see what makes it up."
+    },
+    "alerts": {
+      "SINGLE_ASSET_CONCENTRATION": "{{label}} is {{percent}} % of your wealth — a single asset carries most of the risk.",
+      "EMPTY_TIER": "Nothing at all in {{label}}: this tier is empty, not merely under target.",
+      "CUSHION_OVERFUNDED": "{{value}} beyond your cushion target — money available to put elsewhere.",
+      "title": "Worth noting"
     }
   },
   "accountTypes": {

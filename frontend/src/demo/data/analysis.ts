@@ -77,6 +77,11 @@ export const mockWealthPyramid: WealthPyramid = {
       accounts: [{ accountId: 7, name: 'Or physique', color: '#eab308', valueEur: 6000 }],
     },
   ],
+  // The demo portfolio is 41 % property in one line, so the concentration observation fires —
+  // which is the point of shipping it: the score alone says the allocation is fine.
+  alerts: [
+    { code: 'SINGLE_ASSET_CONCENTRATION', label: 'Appartement Lyon', valueEur: 138000, percent: 40.39 },
+  ],
   score: {
     global: 91,
     allocation: 86,

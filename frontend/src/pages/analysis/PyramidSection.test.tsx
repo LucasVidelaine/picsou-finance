@@ -35,7 +35,8 @@ function pyramid(overrides: Partial<WealthPyramid> = {}): WealthPyramid {
       { tier: 'CRYPTO', valueEur: 10000, actualPercent: 10, targetPercent: 10, targetEur: 10000, gapPercent: 0, accounts: [] },
       { tier: 'ALTERNATIVE', valueEur: 10000, actualPercent: 10, targetPercent: 10, targetEur: 10000, gapPercent: 0, accounts: [] },
     ],
-    score: {
+    alerts: [],
+  score: {
       global: 100,
       allocation: 100,
       misplacedPercent: 0,

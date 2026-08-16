@@ -227,7 +227,8 @@
       "leverageBonus": "Bonus de apalancamiento",
       "notRated": "sin evaluar",
       "misplaced": "El {{value}}% de tu patrimonio tendría que moverse para alcanzar tus objetivos.",
-      "safetyNetUnknownHint": "Indica tus gastos mensuales obligatorios para que se evalúe el colchón de seguridad."
+      "safetyNetUnknownHint": "Indica tus gastos mensuales obligatorios para que se evalúe el colchón de seguridad.",
+      "notRatedYet": "Aún sin puntuación: indique sus gastos mensuales o invierta más allá de su colchón."
     },
     "safetyNet": {
       "title": "Colchón de seguridad y reparto",
@@ -311,6 +312,12 @@
       "others": "y {{count}} más",
       "others_other": "y {{count}} más",
       "hint": "Seleccione una porción para ver de qué se compone."
+    },
+    "alerts": {
+      "SINGLE_ASSET_CONCENTRATION": "{{label}} representa el {{percent}} % de su patrimonio: un solo activo concentra el riesgo.",
+      "EMPTY_TIER": "Nada en {{label}}: esta bolsa está vacía, no solo por debajo del objetivo.",
+      "CUSHION_OVERFUNDED": "{{value}} por encima de su objetivo de colchón: dinero disponible para colocar.",
+      "title": "A tener en cuenta"
     }
   },
   "accountTypes": {

@@ -38,7 +38,12 @@ public class WealthPyramidService {
     private static final BigDecimal COMFORTABLE_COVERAGE = BigDecimal.ONE;
     private static final BigDecimal MAX_SAFETY_PENALTY = new BigDecimal("40");
     /** Coverage at which the over-funding penalty saturates: three times the target. */
-    private static final BigDecimal PENALTY_SPAN = new BigDecimal("2");
+    /**
+     * Share of total assets idle above the cushion target at which the over-funding penalty is
+     * fully applied. Half your wealth doing nothing is the point at which nothing else you get
+     * right can compensate.
+     */
+    private static final BigDecimal IDLE_PENALTY_SPAN = new BigDecimal("0.50");
 
     /** Share of the crypto sleeve the majors should hold. Below it, the penalty starts. */
     private static final BigDecimal TOP_TEN_FLOOR = new BigDecimal("0.80");
@@ -282,10 +287,17 @@ public class WealthPyramidService {
         // move to hit every target. Bounded in [0,1] by construction, so the 0-100 mapping needs
         // no clamp, and it is the only divergence measure that states something a user can act on.
         BigDecimal misplaced = divergence.divide(new BigDecimal("2"), SCALE, RoundingMode.HALF_UP);
+        // Null, not 100, when there is nothing to allocate. Someone holding everything in cash
+        // has no allocation to be right or wrong about, and scoring them perfect was the single
+        // biggest lie in this formula: combined with the cushion floor it put an all-cash
+        // portfolio at 84 and a textbook one with a slightly short cushion at 88.
+        //
+        // Same principle already applied in the other direction: an unrated tier is unrated, not
+        // zero. Inventing 100 is the same mistake as inventing 0.
         BigDecimal allocationScore = allocatable.signum() == 0
-            ? HUNDRED : HUNDRED.subtract(misplaced).max(BigDecimal.ZERO);
+            ? null : HUNDRED.subtract(misplaced).max(BigDecimal.ZERO);
 
-        Integer safetyScore = known ? safetyScore(coverage) : null;
+        Integer safetyScore = known ? safetyScore(coverage, excess, totalAssets) : null;
         // Measured against the crypto we have a breakdown for, not against the whole sleeve:
         // null means "no per-coin detail", which must not read as "no majors".
         BigDecimal cryptoShare = cryptoDetailed.signum() > 0
@@ -293,13 +305,13 @@ public class WealthPyramidService {
         BigDecimal cryptoPenalty = cryptoPenalty(cryptoShare, percentOf(byTier.get(WealthTier.CRYPTO), allocatable));
         BigDecimal leverageBonus = leverageBonus(loanToValuePercent);
 
-        BigDecimal base = safetyScore == null
-            ? allocationScore
-            : SAFETY_WEIGHT.multiply(BigDecimal.valueOf(safetyScore))
-                .add(ALLOCATION_WEIGHT.multiply(allocationScore));
-        int global = base.subtract(cryptoPenalty).add(leverageBonus)
-            .max(BigDecimal.ZERO).min(HUNDRED)
-            .setScale(0, RoundingMode.HALF_UP).intValue();
+        // Either term may be missing, and the answer to "both missing" is not a number.
+        //
+        // Falling back to whichever term survived is what let a member with everything in a
+        // current account and no stated expenses score 100/100 — the safety term was dropped for
+        // want of a figure and the allocation term was invented. Declaring your expenses could
+        // then only lower your score, which is a perverse thing for a form to reward.
+        Integer global = combine(safetyScore, allocationScore, cryptoPenalty, leverageBonus);
 
         return new WealthPyramidResponse(
             scale2(totalAssets),
@@ -311,26 +323,126 @@ public class WealthPyramidService {
             lines,
             new WealthPyramidResponse.Score(
                 global,
-                allocationScore.setScale(0, RoundingMode.HALF_UP).intValue(),
+                allocationScore == null
+                    ? null : allocationScore.setScale(0, RoundingMode.HALF_UP).intValue(),
                 scale2(misplaced),
                 scale2(cryptoPenalty),
                 scale2(leverageBonus),
                 cryptoShare == null ? null : scale2(cryptoShare.multiply(HUNDRED)),
-                scale2(loanToValuePercent))
+                scale2(loanToValuePercent)),
+            alerts(accountsByTier, byTier, totalAssets, excess, coverage, known)
         );
+    }
+
+    /** Above this share of total assets, one asset is a concentration worth naming. */
+    private static final BigDecimal SINGLE_ASSET_ALERT = new BigDecimal("40");
+
+    /** Above this coverage the cushion is not prudence any more, it is idle money. */
+    private static final BigDecimal OVERFUNDED_ALERT = new BigDecimal("1.20");
+
+    /**
+     * Observations that hold whatever the member's targets say.
+     *
+     * <p>The score cannot produce these: it measures distance to targets the member chose, so
+     * setting the targets to match the portfolio scores full marks whatever the portfolio looks
+     * like. These come from the portfolio alone, and cannot be silenced by editing a target.
+     */
+    private static List<WealthPyramidResponse.Alert> alerts(
+        Map<WealthTier, List<WealthPyramidResponse.TierAccount>> accountsByTier,
+        Map<WealthTier, BigDecimal> byTier,
+        BigDecimal totalAssets,
+        BigDecimal excess,
+        BigDecimal coverage,
+        boolean known) {
+
+        List<WealthPyramidResponse.Alert> alerts = new ArrayList<>();
+        if (totalAssets.signum() <= 0) return alerts;
+
+        // One asset carrying most of a patrimoine is the risk a target-based score is blindest
+        // to: a member who wants 75 % property scores perfectly on 75 % property, whether that is
+        // one flat or a dozen.
+        accountsByTier.values().stream()
+            .flatMap(List::stream)
+            .filter(a -> a.valueEur() != null)
+            .max(Comparator.comparing(WealthPyramidResponse.TierAccount::valueEur))
+            .ifPresent(biggest -> {
+                BigDecimal share = percentOf(biggest.valueEur(), totalAssets);
+                if (share.compareTo(SINGLE_ASSET_ALERT) > 0) {
+                    alerts.add(new WealthPyramidResponse.Alert(
+                        "SINGLE_ASSET_CONCENTRATION", biggest.name(),
+                        scale2(biggest.valueEur()), scale2(share)));
+                }
+            });
+
+        // A tier at exactly zero is not a small gap, it is an absence — and the allocation score
+        // dilutes it into a couple of points.
+        for (WealthTier tier : INVESTMENT_TIERS) {
+            if (byTier.get(tier).signum() == 0) {
+                alerts.add(new WealthPyramidResponse.Alert(
+                    "EMPTY_TIER", tier.name(), BigDecimal.ZERO, BigDecimal.ZERO));
+            }
+        }
+
+        // Money beyond the cushion is not a cushion. Two conditions, not one: comfortably over
+        // target *and* material against the whole patrimoine. A cushion 7 % over its target holds
+        // about a thousand euros too much on a quarter-million — naming that would be noise, and
+        // an alert that fires on noise stops being read.
+        if (known && coverage != null && coverage.compareTo(OVERFUNDED_ALERT) > 0
+            && percentOf(excess, totalAssets).compareTo(BigDecimal.ONE) > 0) {
+            alerts.add(new WealthPyramidResponse.Alert(
+                "CUSHION_OVERFUNDED", null, scale2(excess),
+                scale2(percentOf(excess, totalAssets))));
+        }
+
+        return alerts;
+    }
+
+    /**
+     * Weighs the two sub-scores, with either or both possibly absent.
+     *
+     * <p>When one is missing the other carries the whole score — but only because there is
+     * genuinely nothing else to weigh, not as a fallback that rewards leaving a field empty. When
+     * both are missing there is no score, and the response says so rather than picking a number.
+     */
+    private static Integer combine(Integer safety, BigDecimal allocation,
+                                   BigDecimal cryptoPenalty, BigDecimal leverageBonus) {
+        BigDecimal base;
+        if (safety != null && allocation != null) {
+            base = SAFETY_WEIGHT.multiply(BigDecimal.valueOf(safety))
+                .add(ALLOCATION_WEIGHT.multiply(allocation));
+        } else if (safety != null) {
+            base = BigDecimal.valueOf(safety);
+        } else if (allocation != null) {
+            base = allocation;
+        } else {
+            return null;
+        }
+        return base.subtract(cryptoPenalty).add(leverageBonus)
+            .max(BigDecimal.ZERO).min(HUNDRED)
+            .setScale(0, RoundingMode.HALF_UP).intValue();
     }
 
     /**
      * Asymmetric on purpose: falling short is dangerous and scores in proportion, overshooting is
      * only a drag on yield and bottoms out at 60 rather than collapsing to zero.
      */
-    private Integer safetyScore(BigDecimal coverage) {
+    private Integer safetyScore(BigDecimal coverage, BigDecimal excess, BigDecimal totalAssets) {
         if (coverage == null) return null;
         if (coverage.compareTo(COMFORTABLE_COVERAGE) <= 0) {
             return HUNDRED.multiply(coverage).setScale(0, RoundingMode.HALF_UP).intValue();
         }
-        BigDecimal over = coverage.subtract(COMFORTABLE_COVERAGE)
-            .divide(PENALTY_SPAN, SCALE, RoundingMode.HALF_UP).min(BigDecimal.ONE);
+        // Over-funding is scored by how much of the *whole* patrimoine sits idle beyond need, not
+        // by the coverage ratio alone. Against the ratio, a cushion three times its target was
+        // penalised as hard as one thirty times over — and someone with a small target and a
+        // modest surplus was punished like someone whose entire wealth was doing nothing.
+        //
+        // The share of total assets is what actually costs a member: 1 101 EUR of surplus on a
+        // 265 000 EUR patrimoine is a rounding error; 185 000 EUR of surplus on 200 000 EUR is the
+        // whole strategy.
+        if (totalAssets == null || totalAssets.signum() <= 0) return HUNDRED.intValue();
+        BigDecimal idleShare = excess.divide(totalAssets, SCALE, RoundingMode.HALF_UP);
+        BigDecimal over = idleShare.divide(IDLE_PENALTY_SPAN, SCALE, RoundingMode.HALF_UP)
+            .min(BigDecimal.ONE);
         return HUNDRED.subtract(MAX_SAFETY_PENALTY.multiply(over))
             .setScale(0, RoundingMode.HALF_UP).intValue();
     }

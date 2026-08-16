@@ -103,6 +103,25 @@ class WealthPyramidServiceTest {
             MemberAllocationProfile.builder().monthlyEssentialExpenses(new BigDecimal(monthly)).build());
     }
 
+    private void cushion(String monthly, int months) {
+        when(allocationTargetService.profileFor(MEMBER)).thenReturn(MemberAllocationProfile.builder()
+            .monthlyEssentialExpenses(new BigDecimal(monthly))
+            .safetyNetMonths((short) months)
+            .build());
+    }
+
+    private void targets(String monthly, int months, String realEstate, String equity,
+                         String crypto, String alternative) {
+        when(allocationTargetService.profileFor(MEMBER)).thenReturn(MemberAllocationProfile.builder()
+            .monthlyEssentialExpenses(new BigDecimal(monthly))
+            .safetyNetMonths((short) months)
+            .realEstatePct(new BigDecimal(realEstate))
+            .equityPct(new BigDecimal(equity))
+            .cryptoPct(new BigDecimal(crypto))
+            .alternativePct(new BigDecimal(alternative))
+            .build());
+    }
+
     // --- Classification ---
 
     @Test
@@ -404,6 +423,101 @@ class WealthPyramidServiceTest {
 
         assertThat(response.totalAssetsEur()).isEqualByComparingTo("0");
         assertThat(response.allocatableEur()).isEqualByComparingTo("0");
-        assertThat(response.score().global()).isBetween(0, 100);
+        // And has no score rather than a flattering one: nothing to allocate and no stated
+        // expenses means there is nothing to judge. It used to return 100.
+        assertThat(response.score().global()).isNull();
+        assertThat(response.score().allocation()).isNull();
+    }
+
+    @Test
+    void everythingInCashIsNotScoredAsAPerfectAllocation() {
+        // The single biggest lie the formula told. With nothing allocatable the allocation score
+        // was 100, so an all-cash portfolio scored 84 while a textbook one with a slightly short
+        // cushion scored 88.
+        cash(AccountType.LIVRET_A, "200000");
+        cushion("1500", 6);
+
+        WealthPyramidResponse response = service.pyramid(MEMBER);
+
+        assertThat(response.score().allocation()).isNull();
+        // Now the cushion carries it alone, and 185 000 EUR idle out of 200 000 is what the score
+        // reflects rather than a coverage ratio that saturates at three months' worth.
+        assertThat(response.score().global()).isLessThan(70);
+    }
+
+    @Test
+    void leavingTheExpensesBlankNoLongerBuysAPerfectScore() {
+        // The perverse incentive: no expenses meant no safety term, and with nothing allocatable
+        // the surviving allocation term was an invented 100. Stating your expenses could only
+        // lower your score.
+        cash(AccountType.CHECKING, "120000");
+
+        WealthPyramidResponse response = service.pyramid(MEMBER);
+
+        assertThat(response.score().global()).isNull();
+        assertThat(response.score().allocation()).isNull();
+        assertThat(response.safetyNet().known()).isFalse();
+    }
+
+    @Test
+    void aModestCushionSurplusIsNotPunishedLikeIdleWealth() {
+        // Scored against the coverage ratio alone, a cushion 7 % over target lost points at the
+        // same rate as one thirty times over. What costs a member is the share of the whole
+        // patrimoine sitting idle, and 1 101 EUR on 265 000 is a rounding error.
+        cash(AccountType.LIVRET_A, "16101");
+        cash(AccountType.REAL_ESTATE, "249085");
+        cushion("1500", 10);
+
+        WealthPyramidResponse response = service.pyramid(MEMBER);
+
+        assertThat(response.safetyNet().excessEur()).isEqualByComparingTo("1101.00");
+        assertThat(response.safetyNet().score()).isGreaterThanOrEqualTo(99);
+    }
+
+    @Test
+    void oneAssetCarryingMostOfThePatrimoineIsNamedWhateverTheTargets() {
+        // The observation a target-based score cannot make: a member who wants 75 % property
+        // scores perfectly on 75 % property, whether that is one flat or a dozen.
+        cash(AccountType.REAL_ESTATE, "189351");
+        cash(AccountType.PEA, "42159");
+        cash(AccountType.LIVRET_A, "16101");
+        targets("1500", 10, "75", "18", "5", "2");
+
+        WealthPyramidResponse response = service.pyramid(MEMBER);
+
+        assertThat(response.alerts()).extracting(WealthPyramidResponse.Alert::code)
+            .contains("SINGLE_ASSET_CONCENTRATION");
+        WealthPyramidResponse.Alert concentration = response.alerts().stream()
+            .filter(a -> a.code().equals("SINGLE_ASSET_CONCENTRATION")).findFirst().orElseThrow();
+        assertThat(concentration.percent()).isGreaterThan(new BigDecimal("70"));
+        // And the score still says the allocation is nearly perfect, which is exactly why the
+        // alert has to exist separately.
+        assertThat(response.score().allocation()).isGreaterThan(90);
+    }
+
+    @Test
+    void aTierAtZeroIsCalledOutRatherThanDilutedIntoAFewPoints() {
+        cash(AccountType.REAL_ESTATE, "100000");
+        cushion("1000", 6);
+
+        WealthPyramidResponse response = service.pyramid(MEMBER);
+
+        assertThat(response.alerts()).extracting(WealthPyramidResponse.Alert::code)
+            .contains("EMPTY_TIER");
+        assertThat(response.alerts()).extracting(WealthPyramidResponse.Alert::label)
+            .contains("EQUITY", "CRYPTO", "ALTERNATIVE");
+    }
+
+    @Test
+    void aBarelyOverfundedCushionRaisesNoAlert() {
+        // An alert that fires on noise stops being read.
+        cash(AccountType.LIVRET_A, "16101");
+        cash(AccountType.REAL_ESTATE, "249085");
+        cushion("1500", 10);
+
+        WealthPyramidResponse response = service.pyramid(MEMBER);
+
+        assertThat(response.alerts()).extracting(WealthPyramidResponse.Alert::code)
+            .doesNotContain("CUSHION_OVERFUNDED");
     }
 }

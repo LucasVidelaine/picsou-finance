@@ -1,11 +1,11 @@
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, Check, TrendingUp } from 'lucide-react'
+import { AlertTriangle, Check, TrendingUp, TriangleAlert } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { CurrencyDisplay } from '@/components/shared/CurrencyDisplay'
-import { cn } from '@/lib/utils'
-import type { WealthPyramid, WealthTier, WealthTierLine } from '@/types/api'
+import { cn, formatCurrency } from '@/lib/utils'
+import type { WealthAlert, WealthPyramid, WealthTier, WealthTierLine } from '@/types/api'
 
 /**
  * Tier colours reuse the Accounts page's asset-group palette so the same money keeps the same
@@ -96,9 +96,44 @@ function TierRow({ line }: { line: WealthTierLine }) {
   )
 }
 
+/**
+ * Observations the score cannot make.
+ *
+ * The score measures distance to targets the member chose, so a portfolio whose targets were set
+ * to match it scores full marks however it is shaped. These come from the portfolio alone and
+ * cannot be silenced by editing a target — which is the whole point of showing them beside the
+ * number rather than folding them into it.
+ */
+function Alerts({ alerts }: { alerts: WealthAlert[] }) {
+  const { t } = useTranslation()
+  if (alerts.length === 0) return null
+
+  return (
+    <ul className="mt-4 space-y-2 border-t border-border pt-4">
+      {alerts.map((alert) => (
+        <li key={`${alert.code}-${alert.label ?? ''}`} className="flex gap-2 text-sm">
+          <TriangleAlert
+            className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-500"
+            aria-hidden="true"
+          />
+          <span className="text-muted-foreground">
+            {t(`analysis.alerts.${alert.code}`, {
+              label: alert.label
+                ? t(`analysis.tiers.${alert.label}`, alert.label)
+                : '',
+              percent: alert.percent.toFixed(0),
+              value: formatCurrency(alert.valueEur, 'EUR'),
+            })}
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 export function PyramidSection({ pyramid }: { pyramid: WealthPyramid }) {
   const { t } = useTranslation()
-  const { safetyNet, score } = pyramid
+  const { safetyNet, score, alerts } = pyramid
 
   // Coverage is capped for the bar only — the figure beside it still tells the truth.
   const coveragePercent = safetyNet.coverage === null ? 0 : Math.min(100, safetyNet.coverage * 100)
@@ -110,16 +145,24 @@ export function PyramidSection({ pyramid }: { pyramid: WealthPyramid }) {
           <CardTitle>{t('analysis.score.title')}</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-baseline gap-2">
-            <span className={cn('text-[44px] leading-none font-bold', scoreTone(score.global))}>
-              {score.global}
-            </span>
-            <span className="text-lg text-muted-foreground">/ 100</span>
-          </div>
+          {/* No score rather than a flattering one: with nothing to allocate and no stated
+              expenses there is nothing to judge, and the old fallback returned 100. */}
+          {score.global === null ? (
+            <p className="text-sm text-muted-foreground">{t('analysis.score.notRatedYet')}</p>
+          ) : (
+            <div className="flex items-baseline gap-2">
+              <span className={cn('text-[44px] leading-none font-bold', scoreTone(score.global))}>
+                {score.global}
+              </span>
+              <span className="text-lg text-muted-foreground">/ 100</span>
+            </div>
+          )}
 
-          <p className="mt-3 text-sm text-muted-foreground">
-            {t('analysis.score.misplaced', { value: score.misplacedPercent.toFixed(1) })}
-          </p>
+          {score.allocation !== null && (
+            <p className="mt-3 text-sm text-muted-foreground">
+              {t('analysis.score.misplaced', { value: score.misplacedPercent.toFixed(1) })}
+            </p>
+          )}
 
           <dl className="mt-4 space-y-2 text-sm">
             <div className="flex items-center justify-between gap-3">
@@ -132,7 +175,11 @@ export function PyramidSection({ pyramid }: { pyramid: WealthPyramid }) {
             </div>
             <div className="flex items-center justify-between gap-3">
               <dt className="text-muted-foreground">{t('analysis.score.allocation')}</dt>
-              <dd className="text-foreground">{score.allocation} / 100</dd>
+              <dd className="text-foreground">
+                {score.allocation === null
+                  ? t('analysis.score.notRated')
+                  : `${score.allocation} / 100`}
+              </dd>
             </div>
             {score.cryptoPenalty > 0 && (
               <div className="flex items-center justify-between gap-3">
@@ -151,6 +198,8 @@ export function PyramidSection({ pyramid }: { pyramid: WealthPyramid }) {
               </div>
             )}
           </dl>
+
+          <Alerts alerts={alerts} />
 
           {!safetyNet.known && (
             <p className="mt-4 flex gap-2 rounded-lg bg-muted p-3 text-xs text-muted-foreground">

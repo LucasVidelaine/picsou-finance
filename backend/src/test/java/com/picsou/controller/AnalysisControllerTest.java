@@ -47,7 +47,8 @@ class AnalysisControllerTest {
                 BigDecimal.ZERO, BigDecimal.ZERO, null, null, BigDecimal.ZERO, false, null),
             List.of(),
             new WealthPyramidResponse.Score(70, 70, BigDecimal.ZERO, BigDecimal.ZERO,
-                BigDecimal.ZERO, null, null));
+                BigDecimal.ZERO, null, null),
+            List.of());
         when(pyramidService.pyramid(MEMBER)).thenReturn(expected);
 
         assertThat(controller.pyramid()).isSameAs(expected);

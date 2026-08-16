@@ -928,13 +928,28 @@ export interface SafetyNetLine {
 }
 
 export interface WealthScore {
-  global: number
-  allocation: number
+  /** Null when neither sub-score could be computed — nothing to allocate and no stated expenses. */
+  global: number | null
+  /** Null when nothing is allocatable. Having no allocation is not a perfect allocation. */
+  allocation: number | null
   misplacedPercent: number
   cryptoPenalty: number
   leverageBonus: number
   cryptoTopTenShare: number | null
   loanToValue: number | null
+}
+
+/**
+ * An observation about the portfolio's shape that holds whatever the member's targets say.
+ *
+ * The score measures conformity to self-chosen targets, so it cannot question the targets. These
+ * come from the portfolio alone and cannot be silenced by editing one.
+ */
+export interface WealthAlert {
+  code: 'SINGLE_ASSET_CONCENTRATION' | 'EMPTY_TIER' | 'CUSHION_OVERFUNDED'
+  label: string | null
+  valueEur: number
+  percent: number
 }
 
 export interface WealthPyramid {
@@ -943,6 +958,7 @@ export interface WealthPyramid {
   safetyNet: SafetyNetLine
   tiers: WealthTierLine[]
   score: WealthScore
+  alerts: WealthAlert[]
 }
 
 export interface AllocationTargets {

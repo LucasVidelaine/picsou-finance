@@ -29,7 +29,8 @@ public record WealthPyramidResponse(
     BigDecimal allocatableEur,
     SafetyNet safetyNet,
     List<TierLine> tiers,
-    Score score
+    Score score,
+    List<Alert> alerts
 ) {
 
     /**
@@ -76,11 +77,14 @@ public record WealthPyramidResponse(
     public record TierAccount(Long accountId, String name, String color, BigDecimal valueEur) {}
 
     /**
-     * @param global         0-100. When {@link SafetyNet#known()} is false this is the allocation
-     *                       score alone, adjusted by the modifiers — scoring someone zero because
-     *                       they have not filled in a form would be a lie
+     * @param global         0-100, or <strong>null</strong> when neither sub-score could be
+     *                       computed: no stated expenses and nothing allocatable. Falling back to
+     *                       whichever term survived is what let an all-cash member with an empty
+     *                       expenses field score 100 — and made declaring their expenses the only
+     *                       way to score worse
      * @param allocation     {@code 100 × (1 - ½Σ|actual - target|)}: 100 minus the fraction of
-     *                       wealth sitting in the wrong tier, expressed in points
+     *                       wealth sitting in the wrong tier. <strong>Null</strong> when nothing
+     *                       is allocatable — having no allocation is not the same as a perfect one
      * @param misplacedPercent the same quantity in its plain form — the share of allocatable
      *                       wealth that would have to move to hit every target
      * @param cryptoPenalty  0-10, scaled by how much crypto actually weighs
@@ -89,12 +93,28 @@ public record WealthPyramidResponse(
      * @param loanToValue    null when the member owns no property
      */
     public record Score(
-        int global,
-        int allocation,
+        Integer global,
+        Integer allocation,
         BigDecimal misplacedPercent,
         BigDecimal cryptoPenalty,
         BigDecimal leverageBonus,
         BigDecimal cryptoTopTenShare,
         BigDecimal loanToValue
     ) {}
+
+    /**
+     * A fact about the portfolio's shape that holds regardless of the member's own targets.
+     *
+     * <p>The score measures conformity to targets the member set themselves, so it cannot say
+     * anything about whether those targets are wise: aligning them with the current portfolio
+     * scores full marks forever. These are the observations that survive that — they are derived
+     * from the portfolio alone and cannot be silenced by editing a target.
+     *
+     * <p>Deliberately observations rather than advice. Picsou states that 71 % of a patrimoine
+     * sits in one asset; it does not say whether that is wrong for this member.
+     *
+     * @param code  what was observed, translated client-side
+     * @param label the subject — an account name, a tier — when the observation is about one
+     */
+    public record Alert(String code, String label, BigDecimal valueEur, BigDecimal percent) {}
 }
