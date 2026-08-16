@@ -1,6 +1,6 @@
 # Feature: Recurring investment plans and the wealth projection
 
-> Last updated: 2026-08-13
+> Last updated: 2026-08-16
 
 ## Context
 
@@ -93,13 +93,43 @@ Two defences worth keeping:
 - **Contributions at the end of the month.** At the start, the very first payment earns a month
   of growth it never saw, and the error compounds across the whole horizon.
 
-Four scenarios — 2 / 5 / 7.5 / 10 % — defined server-side so a labelled line can never disagree
-with the rate that produced it. They **ignore each plan's own `expected_return`**: the chart
-compares one portfolio under four assumptions, and folding a per-goal rate into the line labelled
-"5 %" would make the label false. The field is recorded for the user's own reference.
+**A rate per tier, and a rate per plan.** Cash compounds at 2 %, equity and crypto at 7.5 %,
+property and alternatives at **zero** — a statement rather than an omission, since Picsou does not
+forecast house prices. A plan is credited to the tier of the account it funds, at its own
+`expected_return` when one was given.
+
+That last point reverses an earlier decision, and the reason is worth keeping. The four scenarios
+used to be absolute rates — 2 / 5 / 7.5 / 10 % applied to everything, cash included — and the
+per-plan rate was deliberately ignored because folding it into a line labelled "5 %" would have
+made the label false. The label was *already* false: a member with 250 €/month going to a Livret A
+had it compounded at 7.5 % on the "realistic" curve, having typed 1.7 % into the form themselves.
+
+**The scenarios are now spreads on risky assets**, `-2.5 / -1 / 0 / +2.5` points on equity and
+crypto only — a passbook does not have a good year. Each carries the **blended rate it actually
+works out to**, which varies per member: the same optimistic curve is 10 % for someone fully
+invested and 6 % for someone half in cash. Expressed that way, both the per-plan rate and an
+honest label are possible.
+
+The starting split comes from `WealthPyramidService`, not from account types, so the two panels of
+one screen cannot disagree about the same euro — and current-account money, which the pyramid
+carves off as this month's spending, is no longer compounded for forty years.
+
+Contributions are **share-weighted like the base**: a plan funding a half-owned joint account used
+to add its whole amount on top of a base that counted half the account.
 
 The maths is monthly, the points are yearly: 480 points × 4 lines is a large payload for a chart
 that cannot render them distinctly anyway.
+
+### Where the mix is heading
+
+The scenarios answer *how much*. `allocation[]` answers *in what* — every tier projected forward
+against the member's own targets, under the reference scenario only. One scenario deliberately:
+four sets of shares would be four ways to read the same qualitative answer, and what moves that
+answer is where the money goes, not the return assumption.
+
+This is the join the two panels never had. The pyramid knew today's gap, the curve knew tomorrow's
+total, and neither could say whether the plans close the gap or widen it. A tier no plan funds
+stays at zero however long the horizon — which is the observation worth acting on.
 
 ### Key files
 

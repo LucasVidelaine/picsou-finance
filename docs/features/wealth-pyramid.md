@@ -1,6 +1,6 @@
 # Feature: Wealth pyramid (Analysis)
 
-> Last updated: 2026-08-13
+> Last updated: 2026-08-16
 
 ## Context
 
@@ -96,17 +96,41 @@ a member can act on, and "the target here is 157 450 €" is.
 
 | Part | Formula | Why |
 |---|---|---|
-| Safety net | `100·r` for `r ≤ 1`; `100 − 40·min(1, (r−1)/2)` above, flooring at 60 | Asymmetric: falling short is dangerous and scores in proportion, overshooting is only a drag on yield |
-| Allocation | `100 · (1 − ½Σ\|actual − target\|)` | Half the L1 distance is literally *the fraction of allocatable wealth sitting in the wrong tier*, so the UI can state it and be telling the truth |
+| Safety net | `100·r` for `r ≤ 1`; above, `100 − 40·min(1, idleShare/0.50)` where `idleShare = excess / totalAssets` | Asymmetric: falling short is dangerous and scores in proportion. Over-funding is measured against the **whole patrimoine**, not the coverage ratio — a cushion 7 % over target holds a rounding error, one holding half your wealth is the strategy |
+| Allocation | `100 · (1 − ½Σ\|actual − target\|)`, **null when nothing is allocatable** | Half the L1 distance is literally *the fraction of allocatable wealth sitting in the wrong tier*. Null rather than 100 for an all-cash portfolio: having no allocation is not a perfect one |
 | Crypto penalty | `10 · w_crypto · max(0, (0.80 − topTenShare)/0.80)`, 0–10 | Scaled by weight: a 2 %-crypto sleeve of small caps loses 0.2 points, a 30 % one loses 3 |
 | Leverage bonus | `5 · clamp(ltv/0.60,0,1) · max(0, 1 − max(0,(ltv−0.85)/0.15))`, 0–5 | Rewards borrowing against property, peaks 60–85 % LTV, back to 0 at 100 %. The outer `max` is what keeps an LTV above 100 % at zero rather than negative |
 
 `global = clamp(0, 100, 0.40·safety + 0.60·allocation − cryptoPenalty + leverageBonus)`
 
-**When `monthlyEssentialExpenses` is null the safety net is unrated, not zero.** `score.global`
-becomes the allocation score plus the modifiers and the response carries `safetyNet.known: false`.
-Scoring someone 0/100 because they have not filled in a form is a lie, and it is the kind that
-makes people stop believing the page.
+**Either term may be absent, and when both are there is no score.** When
+`monthlyEssentialExpenses` is null the cushion is unrated, not zero — scoring someone 0/100 for an
+unfilled form is a lie. But the reverse fallback was a lie too: whichever term survived used to
+carry the whole score, so a member holding everything in a current account with the expenses field
+blank scored **100/100**, and stating their expenses could only lower it. `score.global` is now
+`null` when neither term exists, and the screen says so.
+
+### What the score cannot tell you, and what does
+
+The score measures distance to targets **the member set themselves**. Aligning the targets with
+the portfolio therefore scores full marks whatever the portfolio looks like — 97/100 on a real one
+holding 79 % of its allocatable wealth in a single flat. That cannot be repaired inside the score
+without Picsou deciding what a good patrimoine is.
+
+So it is answered beside it. `alerts[]` carries observations derived from the portfolio alone,
+which no edit to a target can silence:
+
+| Code | Fires when |
+|---|---|
+| `SINGLE_ASSET_CONCENTRATION` | one account is more than 40 % of total assets |
+| `EMPTY_TIER` | an investment tier holds exactly zero — an absence, not a small gap |
+| `CUSHION_OVERFUNDED` | coverage above 1.20 **and** the excess is more than 1 % of total assets |
+
+Two conditions on the last one, not one: an alert that fires on a thousand euros of surplus on a
+quarter-million stops being read.
+
+They are observations, not advice. Picsou states that 71 % of a patrimoine sits in one asset; it
+does not say whether that is wrong for this member.
 
 ### Essential-expense estimate
 

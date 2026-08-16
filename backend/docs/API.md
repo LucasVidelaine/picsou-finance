@@ -693,10 +693,14 @@ directly held share contributed its ISIN domicile. The two are different quantit
 The investable portfolio projected forward under four return assumptions, fed by the member's
 recurring investment plans. `years` is clamped to 1–40 (default 20).
 
-The base is **investable only** — accounts in the `EQUITY`, `CRYPTO` and `SAFETY_NET` tiers.
-Property, loans and alternative assets are excluded: a house does not compound at an equity rate,
-and including it would inflate every scenario. `baseValueEur` is returned so the client can state
-what it is projecting from rather than letting it be mistaken for net worth.
+The base is **investable only** — the `EQUITY`, `CRYPTO` and `SAFETY_NET` tiers. Property, loans
+and alternative assets are excluded from the headline curve: a house does not compound at an
+equity rate, and including it would inflate every scenario. `baseValueEur` is returned so the
+client can state what it is projecting from rather than letting it be mistaken for net worth.
+
+The starting split comes from the **wealth pyramid**, not from account types, so the two panels of
+one screen cannot disagree about the same euro: an account is broken down line by line and manual
+overrides are honoured. Current-account money is excluded, as it is there.
 
 **Response `200`:**
 ```json
@@ -706,21 +710,39 @@ what it is projecting from rather than letting it be mistaken for net worth.
   "years": 20,
   "scenarios": [
     {
-      "key": "LIVRET_A", "annualPercent": 2.0,
+      "key": "REFERENCE", "annualPercent": 6.40, "riskyDelta": 0.0,
       "points": [{ "date": "2026-08-31", "valueEur": 96400.00, "contributedEur": 96400.00 }]
+    }
+  ],
+  "allocation": [
+    {
+      "date": "2036-12-31",
+      "tiers": [
+        { "tier": "REAL_ESTATE", "valueEur": 189351.00, "percent": 57.00, "targetPercent": 75.00 },
+        { "tier": "EQUITY", "valueEur": 140000.00, "percent": 37.00, "targetPercent": 18.00 },
+        { "tier": "SAFETY_NET", "valueEur": 16101.00, "percent": 1.00, "targetPercent": null }
+      ]
     }
   ]
 }
 ```
 
-Scenarios are ordered from prudent to optimistic (`LIVRET_A`, `PESSIMISTIC`, `REALISTIC`,
-`OPTIMISTIC`) and carry their own `annualPercent`, so a client never restates a rate. The maths
-is monthly using the **geometric** rate `(1 + r)^(1/12) − 1` with contributions credited at
-month end; the points are yearly.
+Scenarios run prudent to optimistic (`PESSIMISTIC`, `CAUTIOUS`, `REFERENCE`, `OPTIMISTIC`) and
+are **spreads on risky assets**, not absolute rates: `riskyDelta` points are added to equity and
+crypto only, because a passbook does not have a good year. `annualPercent` is the **blended rate
+the scenario actually works out to** for this member — the same optimistic curve is 10 % for
+someone fully invested and 6 % for someone half in cash — so a client must report it rather than
+restate an assumption.
 
-Each plan's own `expectedReturn` is deliberately **not** used: the chart compares one portfolio
-under four labelled assumptions, and blending a per-goal rate into the "5 %" line would make that
-label false.
+Each tier earns its own rate (cash 2 %, equity and crypto 7.5 %, property and alternatives 0 %),
+and a plan is credited to the tier of the account it funds, at its own `expectedReturn` when one
+was given. Contributions are share-weighted like the base. The maths is monthly using the
+**geometric** rate `(1 + r)^(1/12) − 1` with contributions credited at month end; the points are
+yearly.
+
+`allocation[]` answers the other question: where the mix lands against the member's own targets,
+under the reference scenario only. `targetPercent` is null for `SAFETY_NET`, which is measured in
+euros against an absolute target rather than as a share.
 
 #### `GET /api/analysis/allocation-targets`
 
