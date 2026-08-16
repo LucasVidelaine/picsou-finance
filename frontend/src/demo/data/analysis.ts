@@ -202,18 +202,24 @@ export const mockDiversification: Diversification = {
 export function mockProjection(years: number): Projection {
   const base = 96400
   const monthly = 300
-  const rates: { key: Projection['scenarios'][number]['key']; annualPercent: number }[] = [
-    { key: 'LIVRET_A', annualPercent: 2 },
-    { key: 'PESSIMISTIC', annualPercent: 5 },
-    { key: 'REALISTIC', annualPercent: 7.5 },
-    { key: 'OPTIMISTIC', annualPercent: 10 },
+  // Blended rates, not headline ones: the demo portfolio is part equity part cushion, so the
+  // optimistic curve is nowhere near the equity assumption — which is the point of reporting it.
+  const rates: {
+    key: Projection['scenarios'][number]['key']
+    annualPercent: number
+    riskyDelta: number
+  }[] = [
+    { key: 'PESSIMISTIC', annualPercent: 4.4, riskyDelta: -2.5 },
+    { key: 'CAUTIOUS', annualPercent: 5.6, riskyDelta: -1 },
+    { key: 'REFERENCE', annualPercent: 6.4, riskyDelta: 0 },
+    { key: 'OPTIMISTIC', annualPercent: 8.2, riskyDelta: 2.5 },
   ]
 
   return {
     baseValueEur: base,
     monthlyInflowEur: monthly,
     years,
-    scenarios: rates.map(({ key, annualPercent }) => {
+    scenarios: rates.map(({ key, annualPercent, riskyDelta }) => {
       const monthlyRate = Math.pow(1 + annualPercent / 100, 1 / 12) - 1
       let value = base
       let contributed = base
@@ -229,7 +235,27 @@ export function mockProjection(years: number): Projection {
           })
         }
       }
-      return { key, annualPercent, points }
+      return { key, annualPercent, riskyDelta, points }
+    }),
+    // Property earns nothing here and receives nothing, so its share falls as the plans feed
+    // equity — the trajectory the wealth curve alone could never show.
+    allocation: Array.from({ length: years + 1 }, (_, y) => {
+      const property = 138000
+      const equity = 96400 + monthly * 12 * y * 1.2
+      const crypto = 32800 * Math.pow(1.05, y)
+      const cushion = 18200
+      const total = property + equity + crypto + cushion
+      const share = (v: number) => Math.round((v / total) * 10000) / 100
+      return {
+        date: isoMonthEnd(y * 12),
+        tiers: [
+          { tier: 'REAL_ESTATE' as const, valueEur: property, percent: share(property), targetPercent: 30 },
+          { tier: 'EQUITY' as const, valueEur: equity, percent: share(equity), targetPercent: 50 },
+          { tier: 'CRYPTO' as const, valueEur: crypto, percent: share(crypto), targetPercent: 10 },
+          { tier: 'ALTERNATIVE' as const, valueEur: 0, percent: 0, targetPercent: 10 },
+          { tier: 'SAFETY_NET' as const, valueEur: cushion, percent: share(cushion), targetPercent: null },
+        ],
+      }
     }),
   }
 }

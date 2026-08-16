@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { ProjectionSection } from './ProjectionSection'
 import type { Projection } from '@/types/api'
 
@@ -34,11 +34,14 @@ function projection(overrides: Partial<Projection> = {}): Projection {
     baseValueEur: 96400,
     monthlyInflowEur: 300,
     years: 20,
+    allocation: [],
+    // Blended rates, not headline assumptions: what a scenario works out to depends on where the
+    // money sits, so the payload carries the number and the client never restates it.
     scenarios: [
-      { key: 'LIVRET_A', annualPercent: 2, points },
-      { key: 'PESSIMISTIC', annualPercent: 5, points },
-      { key: 'REALISTIC', annualPercent: 7.5, points },
-      { key: 'OPTIMISTIC', annualPercent: 10, points },
+      { key: 'PESSIMISTIC', annualPercent: 4.4, riskyDelta: -2.5, points },
+      { key: 'CAUTIOUS', annualPercent: 5.6, riskyDelta: -1, points },
+      { key: 'REFERENCE', annualPercent: 6.4, riskyDelta: 0, points },
+      { key: 'OPTIMISTIC', annualPercent: 8.2, riskyDelta: 2.5, points },
     ],
     ...overrides,
   }
@@ -54,9 +57,9 @@ describe('ProjectionSection', () => {
 
     // The rates are never restated client-side: a label that disagrees with the curve behind it
     // is worse than no label.
-    expect(screen.getByText('analysis.projection.scenarios.LIVRET_A:2.0')).toBeInTheDocument()
-    expect(screen.getByText('analysis.projection.scenarios.REALISTIC:7.5')).toBeInTheDocument()
-    expect(screen.getByText('analysis.projection.scenarios.OPTIMISTIC:10.0')).toBeInTheDocument()
+    expect(screen.getByText('analysis.projection.scenarios.PESSIMISTIC:4.4')).toBeInTheDocument()
+    expect(screen.getByText('analysis.projection.scenarios.REFERENCE:6.4')).toBeInTheDocument()
+    expect(screen.getByText('analysis.projection.scenarios.OPTIMISTIC:8.2')).toBeInTheDocument()
   })
 
   it('keeps the legend in the payload order, not alphabetical', () => {
@@ -64,10 +67,12 @@ describe('ProjectionSection', () => {
 
     const labels = screen.getAllByRole('listitem').map((li) => li.textContent)
     expect(labels).toEqual([
-      'analysis.projection.scenarios.LIVRET_A:2.0',
-      'analysis.projection.scenarios.PESSIMISTIC:5.0',
-      'analysis.projection.scenarios.REALISTIC:7.5',
-      'analysis.projection.scenarios.OPTIMISTIC:10.0',
+      // Contributions first: they are the floor the gain sits on, not a scenario.
+      'analysis.projection.contributed',
+      'analysis.projection.scenarios.PESSIMISTIC:4.4',
+      'analysis.projection.scenarios.CAUTIOUS:5.6',
+      'analysis.projection.scenarios.REFERENCE:6.4',
+      'analysis.projection.scenarios.OPTIMISTIC:8.2',
     ])
   })
 
@@ -98,5 +103,45 @@ describe('ProjectionSection', () => {
     expect(screen.getByRole('button', { name: 'analysis.projection.years:10' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'analysis.projection.years:30' })).toBeInTheDocument()
     expect(useProjection).toHaveBeenCalledWith(20)
+  })
+
+  it('switches to the mix and shows where each tier lands against its target', () => {
+    useProjection.mockReturnValue({
+      data: projection({
+        allocation: [
+          {
+            date: '2026-12-31',
+            tiers: [
+              { tier: 'REAL_ESTATE', valueEur: 189351, percent: 79.2, targetPercent: 75 },
+              { tier: 'EQUITY', valueEur: 42159, percent: 17.6, targetPercent: 18 },
+              { tier: 'CRYPTO', valueEur: 7667, percent: 3.2, targetPercent: 5 },
+              { tier: 'ALTERNATIVE', valueEur: 0, percent: 0, targetPercent: 2 },
+              { tier: 'SAFETY_NET', valueEur: 16101, percent: 0, targetPercent: null },
+            ],
+          },
+          {
+            date: '2036-12-31',
+            tiers: [
+              { tier: 'REAL_ESTATE', valueEur: 189351, percent: 57.0, targetPercent: 75 },
+              { tier: 'EQUITY', valueEur: 140000, percent: 37.0, targetPercent: 18 },
+              { tier: 'CRYPTO', valueEur: 18000, percent: 5.0, targetPercent: 5 },
+              { tier: 'ALTERNATIVE', valueEur: 0, percent: 0, targetPercent: 2 },
+              { tier: 'SAFETY_NET', valueEur: 16101, percent: 1.0, targetPercent: null },
+            ],
+          },
+        ],
+      }),
+    })
+    render(<ProjectionSection />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'analysis.projection.views.allocation' }))
+
+    // The answer the wealth curve could not give: property drifts away from its target while
+    // alternatives, which no plan funds, stay at zero however long the horizon.
+    expect(screen.getByText('79.2%')).toBeInTheDocument()
+    expect(screen.getByText('57.0%')).toBeInTheDocument()
+    expect(screen.getAllByText('0.0%').length).toBeGreaterThan(0)
+    // The cushion is measured in euros against an absolute target, so it has no share to compare.
+    expect(screen.getByText('—')).toBeInTheDocument()
   })
 })

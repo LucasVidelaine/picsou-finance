@@ -281,11 +281,21 @@
       "nothingToProject": "Define una inversión mensual en Objetivos para ver una proyección.",
       "disclaimer": "Proyectado a partir de tus aportaciones recurrentes, capitalizado mensualmente. Excluye inmuebles, préstamos y activos alternativos. No es una previsión.",
       "scenarios": {
-        "LIVRET_A": "Livret A ({{value}} %)",
         "PESSIMISTIC": "Pesimista ({{value}} %)",
-        "REALISTIC": "Realista ({{value}} %)",
+        "CAUTIOUS": "Prudente ({{value}} %)",
+        "REFERENCE": "Referencia ({{value}} %)",
         "OPTIMISTIC": "Optimista ({{value}} %)"
-      }
+      },
+      "contributed": "Sus aportaciones",
+      "views": {
+        "wealth": "Patrimonio",
+        "allocation": "Reparto"
+      },
+      "target": "Objetivo",
+      "blendNote": "Tasa efectiva de su mezcla: cada aportación capitaliza al tipo de su soporte.",
+      "tier": "Bolsa",
+      "today": "Hoy",
+      "atHorizon": "En {{count}} años"
     },
     "classification": {
       "title": "Clasificar este valor",

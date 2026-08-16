@@ -4,6 +4,7 @@ import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { CurrencyDisplay } from '@/components/shared/CurrencyDisplay'
+import { AllocationTrajectory } from './AllocationTrajectory'
 import {
   ChartContainer,
   ChartTooltip,
@@ -33,15 +34,21 @@ function formatCompactEur(value: number, locale: string): string {
  * skipping chart-5 because it disappears against a dark background at a 2px stroke.
  */
 const SCENARIO_COLORS: Record<ProjectionScenario['key'], string> = {
-  LIVRET_A: 'var(--chart-4)',
-  PESSIMISTIC: 'var(--chart-3)',
-  REALISTIC: 'var(--chart-2)',
+  PESSIMISTIC: 'var(--chart-4)',
+  CAUTIOUS: 'var(--chart-3)',
+  REFERENCE: 'var(--chart-2)',
   OPTIMISTIC: 'var(--chart-1)',
 }
+
+/** Contributions are drawn beneath every scenario, so they read as the floor the gain sits on. */
+const CONTRIBUTED_COLOR = 'var(--color-muted-foreground)'
 
 export function ProjectionSection() {
   const { t, i18n } = useTranslation()
   const [years, setYears] = useState<number>(20)
+  // Two questions, one card: how much, and in what. Tabs rather than two cards because they
+  // share a horizon — switching view must not lose it.
+  const [view, setView] = useState<'wealth' | 'allocation'>('wealth')
   const projection = useProjection(years)
   const locale = localeFromLanguage(i18n.resolvedLanguage ?? i18n.language)
 
@@ -66,7 +73,13 @@ export function ProjectionSection() {
     const first = scenarios[0]
     if (!first) return []
     return first.points.map((point, i) => {
-      const row: Record<string, string | number> = { date: point.date }
+      // The same for every scenario — it is capital in, not a return — so it is read off the
+      // first and drawn once. The gap above it is the gain, which is the figure this chart was
+      // computing all along and never showed.
+      const row: Record<string, string | number> = {
+        date: point.date,
+        contributed: point.contributedEur,
+      }
       for (const scenario of scenarios) {
         row[scenario.key] = scenario.points[i]?.valueEur ?? 0
       }
@@ -81,7 +94,21 @@ export function ProjectionSection() {
     <Card>
       <CardHeader className="flex flex-row items-start justify-between gap-4">
         <CardTitle>{t('analysis.projection.title')}</CardTitle>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex gap-1">
+            {(['wealth', 'allocation'] as const).map((key) => (
+              <Button
+                key={key}
+                variant={view === key ? 'default' : 'outline'}
+                size="sm"
+                aria-pressed={view === key}
+                onClick={() => setView(key)}
+              >
+                {t(`analysis.projection.views.${key}`)}
+              </Button>
+            ))}
+          </div>
+          <div className="flex gap-1">
           {HORIZONS.map((horizon) => (
             <Button
               key={horizon}
@@ -92,6 +119,7 @@ export function ProjectionSection() {
               {t('analysis.projection.years', { count: horizon })}
             </Button>
           ))}
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -116,6 +144,10 @@ export function ProjectionSection() {
               )}
             </p>
 
+            {view === 'allocation' ? (
+              <AllocationTrajectory allocation={projection.data.allocation} />
+            ) : (
+              <>
             <ChartContainer config={config} className={cn('h-[320px] w-full')}>
               <AreaChart data={rows} margin={{ left: 4, right: 8, top: 8, bottom: 0 }}>
                 <defs>
@@ -141,6 +173,17 @@ export function ProjectionSection() {
                   tickFormatter={(value: number) => formatCompactEur(value, locale)}
                 />
                 <ChartTooltip content={<ChartTooltipContent indicator="line" />} />
+                <Area
+                  type="monotone"
+                  dataKey="contributed"
+                  stroke={CONTRIBUTED_COLOR}
+                  fill={CONTRIBUTED_COLOR}
+                  fillOpacity={0.12}
+                  strokeWidth={1}
+                  strokeDasharray="4 3"
+                  dot={false}
+                  name={t('analysis.projection.contributed')}
+                />
                 {Object.keys(config).map((key) => (
                   <Area
                     key={key}
@@ -158,6 +201,16 @@ export function ProjectionSection() {
             {/* Rendered here rather than through Recharts' <Legend>, which sorts alphabetically
                 and so scrambles a series whose whole meaning is its order. */}
             <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
+              <li className="flex items-center gap-1.5 text-xs">
+                <span
+                  className="size-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: CONTRIBUTED_COLOR }}
+                  aria-hidden="true"
+                />
+                <span className="text-muted-foreground">
+                  {t('analysis.projection.contributed')}
+                </span>
+              </li>
               {(projection.data.scenarios ?? []).map((scenario) => (
                 <li key={scenario.key} className="flex items-center gap-1.5 text-xs">
                   <span
@@ -173,6 +226,11 @@ export function ProjectionSection() {
                 </li>
               ))}
             </ul>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {t('analysis.projection.blendNote')}
+            </p>
+              </>
+            )}
 
             <p className="mt-3 text-xs text-muted-foreground">
               {t('analysis.projection.disclaimer')}

@@ -281,11 +281,21 @@
       "nothingToProject": "Set a monthly investment under Goals to see a projection.",
       "disclaimer": "Projected from your recurring contributions, compounded monthly. Excludes property, loans and alternative assets. This is not a forecast.",
       "scenarios": {
-        "LIVRET_A": "Livret A ({{value}}%)",
-        "PESSIMISTIC": "Pessimistic ({{value}}%)",
-        "REALISTIC": "Realistic ({{value}}%)",
-        "OPTIMISTIC": "Optimistic ({{value}}%)"
-      }
+        "PESSIMISTIC": "Pessimistic ({{value}} %)",
+        "CAUTIOUS": "Cautious ({{value}} %)",
+        "REFERENCE": "Reference ({{value}} %)",
+        "OPTIMISTIC": "Optimistic ({{value}} %)"
+      },
+      "contributed": "Your contributions",
+      "views": {
+        "wealth": "Wealth",
+        "allocation": "Mix"
+      },
+      "target": "Target",
+      "blendNote": "Effective blended rate: each contribution compounds at its own vehicle's rate.",
+      "tier": "Tier",
+      "today": "Today",
+      "atHorizon": "In {{count}} years"
     },
     "classification": {
       "title": "Classify this security",

@@ -281,11 +281,21 @@
       "nothingToProject": "Définissez un investissement mensuel dans Objectifs pour voir une projection.",
       "disclaimer": "Projection à partir de vos versements récurrents, capitalisée mensuellement. Hors immobilier, prêts et actifs alternatifs. Ce n'est pas une prévision.",
       "scenarios": {
-        "LIVRET_A": "Livret A ({{value}} %)",
         "PESSIMISTIC": "Pessimiste ({{value}} %)",
-        "REALISTIC": "Réaliste ({{value}} %)",
+        "CAUTIOUS": "Prudent ({{value}} %)",
+        "REFERENCE": "Référence ({{value}} %)",
         "OPTIMISTIC": "Optimiste ({{value}} %)"
-      }
+      },
+      "contributed": "Vos versements",
+      "views": {
+        "wealth": "Patrimoine",
+        "allocation": "Répartition"
+      },
+      "target": "Cible",
+      "blendNote": "Taux effectif de votre mélange : chaque versement capitalise au taux de son support.",
+      "tier": "Poche",
+      "today": "Aujourd'hui",
+      "atHorizon": "À {{count}} ans"
     },
     "classification": {
       "title": "Classer ce titre",

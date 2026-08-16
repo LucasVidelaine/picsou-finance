@@ -281,11 +281,21 @@
       "nothingToProject": "Lege unter Ziele eine monatliche Anlage an, um eine Projektion zu sehen.",
       "disclaimer": "Projiziert aus deinen wiederkehrenden Einzahlungen, monatlich verzinst. Ohne Immobilien, Kredite und alternative Anlagen. Das ist keine Prognose.",
       "scenarios": {
-        "LIVRET_A": "Livret A ({{value}} %)",
         "PESSIMISTIC": "Pessimistisch ({{value}} %)",
-        "REALISTIC": "Realistisch ({{value}} %)",
+        "CAUTIOUS": "Vorsichtig ({{value}} %)",
+        "REFERENCE": "Referenz ({{value}} %)",
         "OPTIMISTIC": "Optimistisch ({{value}} %)"
-      }
+      },
+      "contributed": "Ihre Einzahlungen",
+      "views": {
+        "wealth": "Vermögen",
+        "allocation": "Aufteilung"
+      },
+      "target": "Ziel",
+      "blendNote": "Effektiver Mischsatz: jede Einzahlung verzinst sich zum Satz ihres Trägers.",
+      "tier": "Stufe",
+      "today": "Heute",
+      "atHorizon": "In {{count}} Jahren"
     },
     "classification": {
       "title": "Wertpapier einordnen",

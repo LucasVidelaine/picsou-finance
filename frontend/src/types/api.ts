@@ -384,9 +384,29 @@ export interface ProjectionPoint {
 }
 
 export interface ProjectionScenario {
-  key: 'LIVRET_A' | 'PESSIMISTIC' | 'REALISTIC' | 'OPTIMISTIC'
+  key: 'PESSIMISTIC' | 'CAUTIOUS' | 'REFERENCE' | 'OPTIMISTIC'
+  /**
+   * The effective blended rate this scenario works out to, given where the money sits and where
+   * each plan sends it. Not a headline applied to everything — the same "optimistic" curve is
+   * 10 % for someone fully invested and 3 % for someone whose plans mostly feed a passbook.
+   */
   annualPercent: number
+  /** Points added to risky assets to obtain this scenario. Cash does not have a good year. */
+  riskyDelta: number
   points: ProjectionPoint[]
+}
+
+/** The mix at one horizon, under the reference scenario, beside the member's own targets. */
+export interface AllocationPoint {
+  date: string
+  tiers: AllocationTierShare[]
+}
+
+export interface AllocationTierShare {
+  tier: WealthTier
+  valueEur: number
+  percent: number
+  targetPercent: number | null
 }
 
 export interface Projection {
@@ -395,6 +415,8 @@ export interface Projection {
   monthlyInflowEur: number
   years: number
   scenarios: ProjectionScenario[]
+  /** Where the mix is heading — the question the pyramid asks and a total could never answer. */
+  allocation: AllocationPoint[]
 }
 
 export interface GoalMonthEntry {
