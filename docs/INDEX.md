@@ -59,6 +59,7 @@
 | 2026-08-13 | [A country breakdown mixes domicile and exposure, and says so](./decisions/2026-08-13-equity-domicile-vs-etf-exposure.md) | Active |
 | 2026-08-13 | [Persist security profiles and warm them on a schedule](./decisions/2026-08-13-persisted-security-profiles.md) | Active |
 | 2026-08-15 | [Key security lookups on the ISIN, and read fund facts from justETF](./decisions/2026-08-15-isin-keyed-lookups-and-justetf.md) | Active |
+| 2026-08-18 | [Client-supplied labels for the xlsx account export](./decisions/2026-08-18-client-supplied-labels-for-xlsx-export.md) | Active |
 
 ## Feature notes
 
@@ -114,6 +115,7 @@
 | 2FA (TOTP) and Remember Me | 2026-06-01 | [mfa-and-remember-me.md](./features/mfa-and-remember-me.md) |
 | Login timing equalization (username-enumeration defense, GHSA-ww5m-pxgq-8qq6) | 2026-06-27 | [login-timing-attack.md](./features/login-timing-attack.md) |
 | GDPR data export (JSON + CSV) | 2026-04-26 | [data-export.md](./features/data-export.md) |
+| Account spreadsheet export (xlsx) | 2026-08-18 | [account-xlsx-export.md](./features/account-xlsx-export.md) |
 
 ## Lessons
 

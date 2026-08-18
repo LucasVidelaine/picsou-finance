@@ -387,6 +387,53 @@ priced — a manually entered position, or one whose ticker no provider resolves
 ]
 ```
 
+#### `POST /api/accounts/export`
+
+Builds an `.xlsx` workbook with one sheet per selected account — identity, positions, and property
+or loan detail. Every id is resolved through the member-scoped read path, so an account outside the
+caller's perimeter fails the request rather than appearing in the file.
+
+- **Auth:** Required
+- **Rate limit:** 20 per hour per user (`accountExportBuckets`)
+- **No re-authentication**, unlike `POST /api/me/export` — this is a subset the user picks, not a
+  full personal-data dump.
+
+**Request body — `AccountsExportRequest`:**
+| Field | Type | Constraints |
+|-------|------|-------------|
+| `accountIds` | `number[]` | @NotEmpty, @Size(max = 200) |
+| `labels` | `object` | optional — column headings keyed by `LabelKey` name |
+
+`labels` carries the localized column and section headings, because the backend has no message
+bundle. Keys match the `LabelKey` enum case- and separator-insensitively (`ACCOUNT_NAME`,
+`accountName` and `account-name` are the same key); unknown keys are ignored, and any key omitted
+falls back to that column's English default. Omitting `labels` entirely yields a complete English
+workbook, which is what makes this endpoint usable from `curl` or the MCP server. See
+[the ADR](../../docs/decisions/2026-08-18-client-supplied-labels-for-xlsx-export.md).
+
+```json
+{
+  "accountIds": [1, 4, 7],
+  "labels": { "quantity": "Quantité", "averageBuyIn": "Prix de revient moyen" }
+}
+```
+
+**Response `200`** — streamed workbook:
+
+```
+Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+Content-Disposition: attachment; filename="picsou-comptes-20260818-143211.xlsx"
+```
+
+**Errors:** 404 (an id the member may not read), 422 (empty or oversized `accountIds`),
+429 (hourly quota spent)
+
+A failure that happens after the response headers are flushed cannot become a `ProblemDetail`; it
+is logged and the client receives a truncated file. See
+[the feature note](../../docs/features/account-xlsx-export.md).
+
+---
+
 #### `POST /api/accounts/{id}/valuation/refresh`
 
 Re-estimates a `REAL_ESTATE` account from open data. **Owner only** — a co-owner may read a

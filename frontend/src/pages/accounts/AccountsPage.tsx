@@ -6,6 +6,7 @@ import { useHistory } from '@/features/history/hooks'
 import { AccountForm } from '@/components/shared/AccountForm'
 import { AddAccountModal } from '@/components/shared/AddAccountModal'
 import { AddPropertyModal } from '@/components/property/AddPropertyModal'
+import { ExportAccountsModal } from '@/components/shared/ExportAccountsModal'
 import { AccountCard } from '@/components/shared/AccountCard'
 import { AccountsStackedChart } from '@/components/shared/AccountsStackedChart'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
@@ -15,10 +16,11 @@ import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Plus, Wallet, Pencil, Trash2, TrendingUp, TrendingDown } from 'lucide-react'
+import { Plus, Wallet, Pencil, Trash2, TrendingUp, TrendingDown, Download } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { HOLDING_ACCOUNT_TYPES } from '@/lib/constants'
 import { accountInvestedAt, accountPnlAt, hasMeasurableGain } from '@/features/accounts/pnl'
+import { useAppStore } from '@/stores/app-store'
 import type { Account, AccountRequest, AccountType } from '@/types/api'
 
 type AssetFilter = 'ALL' | 'STOCKS' | 'METALS' | 'SAVINGS' | 'CHECKING' | 'CRYPTO' | 'REAL_ESTATE' | 'DEBTS'
@@ -93,12 +95,16 @@ export function AccountsPage() {
   const navigate = useNavigate()
 
   const { data: accounts, isLoading } = useAccounts()
+  // The demo adapter has no handler for the export route, and an unhandled route resolves to
+  // {} -- which here would download a corrupt workbook instead of failing visibly.
+  const demoMode = useAppStore(state => state.demoMode)
   const updateAccount = useUpdateAccount()
   const updateDebt = useUpdateDebtMetadata()
   const deleteAccount = useDeleteAccount()
 
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showPropertyModal, setShowPropertyModal] = useState(false)
+  const [showExportModal, setShowExportModal] = useState(false)
   const [showEditForm, setShowEditForm] = useState(false)
   const [editingAccount, setEditingAccount] = useState<Account | null>(null)
   const [deleteId, setDeleteId] = useState<number | null>(null)
@@ -325,10 +331,23 @@ export function AccountsPage() {
       <PageHeader
         title={t('accounts.title')}
         actions={
-          <Button onClick={handleOpenCreate} size="sm">
-            <Plus className="size-4" />
-            {addingProperty ? t('property.add.action') : t('accounts.addAccount')}
-          </Button>
+          <div className="flex items-center gap-2">
+            {!demoMode && (
+              <Button
+                onClick={() => setShowExportModal(true)}
+                size="sm"
+                variant="outline"
+                disabled={!accounts || accounts.length === 0}
+              >
+                <Download className="size-4" />
+                {t('accounts.export.button')}
+              </Button>
+            )}
+            <Button onClick={handleOpenCreate} size="sm">
+              <Plus className="size-4" />
+              {addingProperty ? t('property.add.action') : t('accounts.addAccount')}
+            </Button>
+          </div>
         }
       />
 
@@ -448,6 +467,12 @@ export function AccountsPage() {
       {showPropertyModal && (
         <AddPropertyModal open onOpenChange={setShowPropertyModal} />
       )}
+
+      <ExportAccountsModal
+        open={showExportModal}
+        onOpenChange={setShowExportModal}
+        accounts={accounts ?? []}
+      />
 
       <AddAccountModal
         open={showCreateModal}
