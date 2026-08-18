@@ -1,6 +1,6 @@
 # Feature: Accounts Overview (PnL chart + summary card + asset type filters)
 
-> Last updated: 2026-08-13
+> Last updated: 2026-08-18
 
 ## Context
 
@@ -72,9 +72,46 @@ the free-text `property_type` column — never on the raw string.
 
 ### Summary card
 
-A `Card` at the top of the page shows the total balance for the filtered accounts. If the current filter contains investment accounts — whatever `AccountType.isInvestment()` returns, today PEA, COMPTE_TITRES, ASSURANCE_VIE and CRYPTO — it also displays the aggregate PnL (total balance - total invested) with a green/red trend icon and percentage, using the same style as the Dashboard net worth card.
+A `Card` at the top of the page shows the total balance for the filtered accounts. When the filter
+holds anything with a cost basis distinct from its value, it also displays the aggregate PnL with a
+green/red trend icon and percentage, in the same style as the Dashboard net worth card.
 
-PnL values come from the `invested` dataset in `useAllAccountsHistory` — the last point's invested amounts are summed for all filtered accounts.
+That test is `hasPnl`, and it covers two different sources of a basis:
+
+- **an investment account** — `HOLDING_ACCOUNT_TYPES` (PEA, COMPTE_TITRES, CRYPTO,
+  EMPLOYEE_SAVINGS, ASSURANCE_VIE), whose basis is the sum of its holdings' cost
+- **a property** — `hasMeasurableGain(account)`, i.e. a `REAL_ESTATE` account whose
+  `realEstate.costBasis` is positive
+
+Cash-only filters (SAVINGS, CHECKING) are still excluded: their PnL is 0 by construction.
+
+#### Where a property's gain comes from
+
+A property holds nothing, so `AccountService.valuation()` falls back to
+`invested = currentBalance` and the snapshot's `pnl` is structurally 0 — the Immobilier filter
+showed a total and no gain line for exactly that reason. Its real basis is the purchase price plus
+every acquisition fee, already on the wire as `RealEstateMetadataResponse.costBasis`, and already
+what `RealEstateSummaryCard` and `PropertyValuationChart` measure against.
+
+`frontend/src/features/accounts/pnl.ts` substitutes it. Two pure helpers, used by the summary card
+*and* both branches of the chart so the three cannot drift apart:
+
+| | `accountInvestedAt` | `accountPnlAt` |
+|---|---|---|
+| not `REAL_ESTATE` | `point.invested` | `point.pnl` |
+| property, basis > 0 | `costBasis` | `point.total - costBasis` |
+| property, no basis | `point.total` | `0` |
+
+The third row is the one that matters. A property described but never given a purchase price
+contributes its own balance to the denominator, so it reports no gain. Leaving it out of the
+denominator while its balance stayed in the numerator is the partial-basis mismatch
+`AccountService.valuation()`'s javadoc warns about — it would report a gain the size of the whole
+property.
+
+This is a **frontend-only** substitution, on purpose. Making `calculateInvestedAmount` return the
+cost basis for a property would be the tidier fix, but existing `balance_snapshots` rows carry
+`invested = balance` for properties, so the curve would step at the deployment date — and it would
+silently move the dashboard's net-worth PnL too.
 
 ### PnL line chart
 
@@ -85,7 +122,13 @@ Data preparation depends on the active filter:
 - **ALL filter**: PnL is aggregated by asset type group (one line per group: STOCKS, CRYPTO, etc.).
 - **Specific filter** (e.g. STOCKS): PnL is computed per individual account.
 
-The chart is only rendered when `hasHoldings` is true (current filter contains investment accounts). For cash-only filters (SAVINGS, CHECKING), the chart is hidden since PnL is always 0.
+The chart is rendered on the same `hasPnl` test as the summary line, so the Immobilier filter now
+draws a curve too: historical balance minus a constant cost basis, over real data — the daily
+snapshot job already records the balance `PropertyValuationService` writes each month. For cash-only
+filters (SAVINGS, CHECKING) the chart stays hidden, since PnL is always 0.
+
+Both branches of `chartPnlData` group by **account object**, not by id string, because a property's
+PnL is only computable from the account itself — that is where its cost basis lives.
 
 ### Asset type filters
 

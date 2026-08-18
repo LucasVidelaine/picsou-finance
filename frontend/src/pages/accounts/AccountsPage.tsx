@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Plus, Wallet, Pencil, Trash2, TrendingUp, TrendingDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { HOLDING_ACCOUNT_TYPES } from '@/lib/constants'
+import { accountInvestedAt, accountPnlAt, hasMeasurableGain } from '@/features/accounts/pnl'
 import type { Account, AccountRequest, AccountType } from '@/types/api'
 
 type AssetFilter = 'ALL' | 'STOCKS' | 'METALS' | 'SAVINGS' | 'CHECKING' | 'CRYPTO' | 'REAL_ESTATE' | 'DEBTS'
@@ -119,8 +120,12 @@ export function AccountsPage() {
     return accounts.filter(a => types.includes(a.type))
   }, [accounts, filter])
 
-  // Whether current filter contains investment accounts (for PnL display)
-  const hasHoldings = filteredAccounts.some(a => HOLDING_ACCOUNT_TYPES.includes(a.type))
+  // Whether the current filter has a gain/loss worth showing: an investment account, whose
+  // basis comes from its holdings, or a property, whose basis is its purchase price plus fees.
+  // Cash-only filters are excluded on purpose -- their PnL is always 0.
+  const hasPnl = filteredAccounts.some(
+    a => HOLDING_ACCOUNT_TYPES.includes(a.type) || hasMeasurableGain(a)
+  )
 
   // Summary card values
   const totalBalance = filteredAccounts.reduce((sum, a) =>
@@ -139,8 +144,8 @@ export function AccountsPage() {
     for (const a of filteredAccounts) {
       const ap = latest.accounts[String(a.id)]
       if (ap) {
-        inv += ap.invested
-        pnlSum += ap.pnl
+        inv += accountInvestedAt(a, ap)
+        pnlSum += accountPnlAt(a, ap)
       }
     }
     const pct = inv > 0 ? ((pnlSum / inv) * 100).toFixed(1) : null
@@ -178,39 +183,38 @@ export function AccountsPage() {
     if (!historyData || !accounts) return []
 
     if (filter !== 'ALL') {
-      const ids = accounts
-        .filter(a => ASSET_FILTER_MAP[filter]!.includes(a.type))
-        .map(a => String(a.id))
+      const shown = accounts.filter(a => ASSET_FILTER_MAP[filter]!.includes(a.type))
 
       return historyData
         .filter(p => p.accounts)
         .map(point => {
           const row: { date: string; [key: string]: string | number } = { date: point.date! }
-          for (const id of ids) {
-            const ap = point.accounts![id]
-            row[id] = ap ? ap.pnl : 0
+          for (const a of shown) {
+            const ap = point.accounts![String(a.id)]
+            row[String(a.id)] = ap ? accountPnlAt(a, ap) : 0
           }
           return row
         })
     }
 
-    // ALL → aggregate PnL per type group
-    const groupIds: Record<string, Set<string>> = {}
+    // ALL → aggregate PnL per type group. Grouped by account rather than by id string, because
+    // a property's PnL is only computable from the account itself (its cost basis lives there).
+    const groupMembers: Record<string, Account[]> = {}
     for (const a of accounts) {
       const group = TYPE_TO_GROUP[a.type]
-      if (!groupIds[group]) groupIds[group] = new Set()
-      groupIds[group].add(String(a.id))
+      if (!groupMembers[group]) groupMembers[group] = []
+      groupMembers[group].push(a)
     }
 
     return historyData
       .filter(p => p.accounts)
       .map(point => {
         const row: { date: string; [key: string]: string | number } = { date: point.date! }
-        for (const [group, ids] of Object.entries(groupIds)) {
+        for (const [group, members] of Object.entries(groupMembers)) {
           let pnlSum = 0
-          for (const id of ids) {
-            const ap = point.accounts![id]
-            if (ap) pnlSum += ap.pnl
+          for (const a of members) {
+            const ap = point.accounts![String(a.id)]
+            if (ap) pnlSum += accountPnlAt(a, ap)
           }
           row[group] = pnlSum
         }
@@ -352,7 +356,7 @@ export function AccountsPage() {
             <CardContent>
               <CardTitle>{t('accounts.total')}</CardTitle>
               <CurrencyDisplay value={totalBalance} className="text-4xl font-bold" />
-              {hasHoldings && totalInvested > 0 && (
+              {hasPnl && totalInvested > 0 && (
                 <div className="mt-3 flex items-center gap-2">
                   {pnlPositive
                     ? <TrendingUp className="text-emerald-500" size={18} />
@@ -372,7 +376,7 @@ export function AccountsPage() {
           </Card>
 
           {/* PnL chart */}
-          {hasHoldings && (
+          {hasPnl && (
             <Card>
               <CardHeader>
                 <CardTitle>{t('accounts.pnl')}</CardTitle>
