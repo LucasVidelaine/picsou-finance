@@ -1,6 +1,6 @@
 # Feature: Account spreadsheet export (xlsx)
 
-> Last updated: 2026-08-18
+> Last updated: 2026-08-19
 
 ## Context
 
@@ -49,7 +49,32 @@ AccountsWorkbookService.export(ids, memberId, labels, out)
    └─ finally { dispose(); close(); }
 ```
 
-### What a sheet contains
+### What the summary sheet contains
+
+Three blocks, in the order a reader needs them: **who**, **what goes out every month**, then
+**what is held**.
+
+| Block | Shown when | Contents |
+|---|---|---|
+| Profile | any field is stated | age, target retirement age, household, shares, dependents, gross annual income, monthly net before tax, derived monthly net, savings capacity, risk profile, and the two rates |
+| Recurring investments | the member has at least one plan | monthly total, savings rate, then one row per plan (name, account, monthly amount, expected return, window) |
+| Monthly position breakdown | at least one plan is detailed | one row per allocated line, plus the plan's unallocated remainder |
+| Accounts | always | one row per exported account |
+
+A portfolio read without knowing the reader's age or bracket is a list of numbers; the profile is
+what makes it a situation. **Every unstated field is omitted** — a label with an empty cell beside
+it says less than no label at all — and a block whose fields are all unstated disappears entirely.
+
+**The birth date is deliberately not written**, only the age. The age is what bears on a
+portfolio; the date is personal data with nothing further to say, and an export travels.
+
+**Savings targets are not in the plans block.** Its columns are a monthly amount and a split, and
+a goal with a deadline has neither. They stay in the GDPR export's `goals.csv`.
+
+The savings rate is `SavingsRateCalculator`, which mirrors the frontend's `plan-math.ts` — see
+the gotcha below.
+
+### What an account sheet contains
 
 Every sheet opens with the account's identity — type, provider, currency, balance, balance in EUR,
 cash balance, ownership share, last sync, creation date. Then whichever of these the account
@@ -77,6 +102,8 @@ trade-offs that come with it.
 ### Key files
 
 **Backend**
+- `service/SavingsRateCalculator.java` — monthly contributions and the rate, shared with nothing
+  else yet
 - `controller/AccountExportController.java` — `POST /api/accounts/export`, rate limit, audit log,
   streaming response
 - `export/xlsx/AccountsWorkbookService.java` — gathers each account's data, opens the workbook,
@@ -107,6 +134,9 @@ trade-offs that come with it.
 | A new `export/xlsx` package, not the existing `EntityExporter` | `EntityExporter` is package-private, CSV/JSON-shaped and scoped to the whole user. This is per-account and cell-typed — implementing it would have meant widening an interface built for a different question. | Extending `EntityExporter` with an `xlsx` method |
 | Rate limit but no re-auth | A subset the user picks from their own account list during ordinary use, not a full personal-data dump. A TOTP prompt on every export would make the feature unpleasant enough to go unused. | Reusing `ReAuthService` like `MeExportController` |
 | Client-supplied headings | The frontend already owns a four-language catalogue of this exact vocabulary. | A Spring `MessageSource` bundle — see the ADR |
+| Profile and plans on the summary sheet | The context that turns a list of figures into a situation, and it belongs where the reader starts | A separate sheet per block |
+| Unstated fields omitted entirely | A label with an empty cell reads as a gap in the data rather than a question never answered | Printing every field with blanks |
+| Age exported, birth date not | The age is what bears on a portfolio; the date is PII that adds nothing, and an export travels | Writing the stored date |
 | All accounts ticked on open | Exporting the lot is the common intent; unticking two beats ticking eight. | Empty selection |
 | Export button hidden in demo mode | The demo adapter has no handler for the route, and an unhandled route resolves to `{}` — which would download a corrupt file rather than fail visibly. | Leaving it enabled |
 
@@ -132,6 +162,14 @@ trade-offs that come with it.
 - **A mid-stream failure cannot become a JSON 500.** Spring has flushed the 200 and the content
   headers before the first byte of the workbook exists, so `IOException` is logged and swallowed
   and the user gets a truncated file. Same constraint as [`data-export.md`](./data-export.md).
+- **The savings rate is computed twice.** `SavingsRateCalculator` (backend, for this workbook) and
+  `plan-math.ts` (frontend, for the Goals page) implement the same two rules: which plans are
+  running on a date, and contributions over net monthly income. Both suites pin the same worked
+  example — 400 + 200 over 3 000 is 20.0 % — so a change to one side fails a test next to the
+  other. Any third rule added to either must be added to both.
+- **The two rates go in through `fieldPercent`.** `marginalTaxRate` and `withholdingTaxRate` are
+  already out of 100, exactly like `pnlPercent`; Excel's own percent format would rescale 30 to
+  3000 %.
 - **`LabelKey` and `features/export/labels.ts` must stay in step.** A new column added on one side
   only prints an English heading in a localized workbook — visible, but quiet. Both files say so.
 - **Balances are the account's full value, not the viewer's share.** `sharePercent` is written
@@ -155,6 +193,13 @@ Backend:
   never-valued property keeping its metadata block, the loan rate written out of 100, the full
   schedule and nothing after it, a `LOAN` with no `Debt` row, and supplied labels replacing the
   English headings.
+  Plus the summary blocks: the profile precedes the accounts and omits what is unstated, it
+  disappears when nothing is stated, both rates are written out of 100, the plans block reports
+  the total and the rate, the rate row is dropped with no stated income, the breakdown lists each
+  line and states the remainder, and a savings target does not produce a plans block.
+- `SavingsRateCalculatorTest` — the running-plan window (including the start and end days
+  themselves), savings targets ignored, the rate rounded to one decimal, and null rather than
+  zero without a denominator.
 - `SheetLabelsTest` — fallback per key, case/separator-insensitive matching, unknown keys ignored,
   control characters stripped, length capped, blank and null values falling back, and every
   `LabelKey` resolving to something non-blank.

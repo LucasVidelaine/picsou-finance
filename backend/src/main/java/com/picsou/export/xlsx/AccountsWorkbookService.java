@@ -1,14 +1,21 @@
 package com.picsou.export.xlsx;
 
 import com.picsou.dto.AccountResponse;
+import com.picsou.dto.GoalAllocationResponse;
+import com.picsou.dto.GoalProgressResponse;
 import com.picsou.dto.HoldingResponse;
+import com.picsou.dto.MemberProfileResponse;
 import com.picsou.model.AccountType;
 import com.picsou.model.Debt;
+import com.picsou.model.GoalType;
 import com.picsou.model.PropertyValuation;
 import com.picsou.repository.DebtRepository;
 import com.picsou.repository.PropertyValuationRepository;
 import com.picsou.service.AccountService;
+import com.picsou.service.GoalService;
 import com.picsou.service.LoanAmortizationService;
+import com.picsou.service.MemberProfileService;
+import com.picsou.service.SavingsRateCalculator;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.util.WorkbookUtil;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
@@ -19,9 +26,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 import java.util.Set;
 
@@ -54,15 +65,24 @@ public class AccountsWorkbookService {
     private final PropertyValuationRepository valuationRepository;
     private final DebtRepository debtRepository;
     private final LoanAmortizationService loanAmortizationService;
+    private final MemberProfileService memberProfileService;
+    private final GoalService goalService;
+    private final SavingsRateCalculator savingsRateCalculator;
 
     public AccountsWorkbookService(AccountService accountService,
                                    PropertyValuationRepository valuationRepository,
                                    DebtRepository debtRepository,
-                                   LoanAmortizationService loanAmortizationService) {
+                                   LoanAmortizationService loanAmortizationService,
+                                   MemberProfileService memberProfileService,
+                                   GoalService goalService,
+                                   SavingsRateCalculator savingsRateCalculator) {
         this.accountService = accountService;
         this.valuationRepository = valuationRepository;
         this.debtRepository = debtRepository;
         this.loanAmortizationService = loanAmortizationService;
+        this.memberProfileService = memberProfileService;
+        this.goalService = goalService;
+        this.savingsRateCalculator = savingsRateCalculator;
     }
 
     /**
@@ -83,7 +103,8 @@ public class AccountsWorkbookService {
         SXSSFWorkbook wb = new SXSSFWorkbook(ROW_ACCESS_WINDOW);
         try {
             WorkbookStyles styles = new WorkbookStyles(wb);
-            writeSummarySheet(wb, styles, labels, data);
+            writeSummarySheet(wb, styles, labels, data,
+                memberProfileService.get(memberId), goalService.findAll(memberId));
 
             AccountSheetWriter writer = new AccountSheetWriter(labels, styles);
             Set<String> used = new HashSet<>();
@@ -124,7 +145,8 @@ public class AccountsWorkbookService {
     }
 
     private void writeSummarySheet(SXSSFWorkbook wb, WorkbookStyles styles, SheetLabels labels,
-                                   List<AccountExportData> data) {
+                                   List<AccountExportData> data, MemberProfileResponse profile,
+                                   List<GoalProgressResponse> goals) {
         Sheet sheet = wb.createSheet(safeName(labels.get(SUMMARY_SHEET), "Summary"));
         sheet.setColumnWidth(0, 34 * 256);
         for (int i = 1; i <= 7; i++) {
@@ -133,6 +155,13 @@ public class AccountsWorkbookService {
 
         SheetCursor cursor = new SheetCursor(sheet, styles);
         cursor.field(labels.get(EXPORTED_AT), Instant.now());
+
+        // Who the figures belong to, then what they are committed to every month, then the
+        // accounts themselves. A portfolio read without knowing the reader's age or bracket is a
+        // list of numbers; this is the context that makes it a situation.
+        writeProfileBlock(cursor, labels, profile);
+        writeRecurringPlansBlock(cursor, labels, profile, goals);
+
         cursor.blank();
         cursor.headerRow(List.of(
             labels.get(ACCOUNT_NAME), labels.get(ACCOUNT_TYPE), labels.get(PROVIDER),
@@ -151,6 +180,142 @@ public class AccountsWorkbookService {
             row.percent(a.sharePercent());
             row.dateTime(a.lastSyncedAt());
         }
+    }
+
+    /**
+     * The member's personal and fiscal context.
+     *
+     * <p>Every field is skipped when unstated, and the block disappears entirely when nothing is:
+     * a column of "Age: " with nothing after it says less than no column at all, and this table
+     * is read by a person rather than parsed.
+     *
+     * <p>The birth date is deliberately not written. The age is the figure that bears on a
+     * portfolio; the date is personal data with nothing further to say, and an export travels.
+     */
+    private void writeProfileBlock(SheetCursor cursor, SheetLabels labels,
+                                   MemberProfileResponse profile) {
+        List<Map.Entry<String, Object>> fields = new ArrayList<>();
+        addIfPresent(fields, labels.get(AGE), profile.age());
+        addIfPresent(fields, labels.get(TARGET_RETIREMENT_AGE), profile.targetRetirementAge());
+        addIfPresent(fields, labels.get(HOUSEHOLD_STATUS), profile.householdStatus());
+        addIfPresent(fields, labels.get(TAX_HOUSEHOLD_PARTS), profile.taxHouseholdParts());
+        addIfPresent(fields, labels.get(DEPENDENTS), profile.dependents());
+        addIfPresent(fields, labels.get(ANNUAL_GROSS_INCOME), profile.annualGrossIncome());
+        addIfPresent(fields, labels.get(MONTHLY_NET_BEFORE_TAX), profile.monthlyNetBeforeTax());
+        addIfPresent(fields, labels.get(MONTHLY_NET_INCOME), profile.monthlyNetIncome());
+        addIfPresent(fields, labels.get(MONTHLY_SAVINGS_CAPACITY), profile.monthlySavingsCapacity());
+        addIfPresent(fields, labels.get(RISK_PROFILE), profile.riskProfile());
+
+        boolean hasRates = profile.marginalTaxRate() != null || profile.withholdingTaxRate() != null;
+        if (fields.isEmpty() && !hasRates) return;
+
+        cursor.blank();
+        cursor.title(labels.get(PROFILE));
+        for (Map.Entry<String, Object> field : fields) {
+            cursor.field(field.getKey(), field.getValue());
+        }
+        // Written through fieldPercent, never as a plain number: both are already out of 100, and
+        // Excel's own percent format would rescale them to 3000 %. Same trap as pnlPercent.
+        if (profile.marginalTaxRate() != null) {
+            cursor.fieldPercent(labels.get(MARGINAL_TAX_RATE), profile.marginalTaxRate());
+        }
+        if (profile.withholdingTaxRate() != null) {
+            cursor.fieldPercent(labels.get(WITHHOLDING_TAX_RATE), profile.withholdingTaxRate());
+        }
+    }
+
+    /**
+     * What goes out every month, into which account, and — where the member has said so — into
+     * which positions.
+     *
+     * <p>Savings targets are left out: the columns here are a monthly amount and a split, and a
+     * goal with a deadline has neither. They remain in the GDPR export's {@code goals.csv}.
+     */
+    private void writeRecurringPlansBlock(SheetCursor cursor, SheetLabels labels,
+                                          MemberProfileResponse profile,
+                                          List<GoalProgressResponse> goals) {
+        List<GoalProgressResponse> plans = goals.stream()
+            .filter(g -> g.type() == GoalType.RECURRING_INVESTMENT)
+            .toList();
+        if (plans.isEmpty()) return;
+
+        BigDecimal monthly = savingsRateCalculator.monthlyContributions(goals, LocalDate.now());
+        BigDecimal rate = savingsRateCalculator.savingsRate(monthly, profile.monthlyNetIncome());
+
+        cursor.blank();
+        cursor.title(labels.get(RECURRING_INVESTMENTS));
+        cursor.field(labels.get(MONTHLY_INVESTED_TOTAL), monthly);
+        // Null when no net income is stated. The row is dropped rather than showing a zero, which
+        // would read as "saves nothing" instead of "we were not told what they earn".
+        if (rate != null) {
+            cursor.fieldPercent(labels.get(SAVINGS_RATE), rate);
+        }
+
+        cursor.blank();
+        cursor.headerRow(List.of(
+            labels.get(PLAN_NAME), labels.get(PLAN_ACCOUNT), labels.get(MONTHLY_AMOUNT),
+            labels.get(EXPECTED_RETURN), labels.get(START_DATE), labels.get(END_DATE)
+        ));
+        for (GoalProgressResponse plan : plans) {
+            SheetCursor.RowCursor row = cursor.row();
+            row.text(plan.name());
+            row.text(accountNameOf(plan));
+            row.money(plan.monthlyAmount());
+            row.percent(plan.expectedReturn());
+            row.date(plan.startDate());
+            row.date(plan.endDate());
+        }
+
+        writeAllocationBlock(cursor, labels, plans);
+    }
+
+    /** One row per detailed line, plus the remainder a plan has not allocated. */
+    private void writeAllocationBlock(SheetCursor cursor, SheetLabels labels,
+                                      List<GoalProgressResponse> plans) {
+        if (plans.stream().allMatch(p -> p.allocations().isEmpty())) return;
+
+        cursor.blank();
+        cursor.title(labels.get(POSITION_BREAKDOWN));
+        cursor.headerRow(List.of(
+            labels.get(PLAN_NAME), labels.get(PLAN_ACCOUNT), labels.get(TICKER),
+            labels.get(POSITION_NAME), labels.get(MONTHLY_AMOUNT)
+        ));
+        for (GoalProgressResponse plan : plans) {
+            if (plan.allocations().isEmpty()) continue;
+            BigDecimal allocated = BigDecimal.ZERO;
+            for (GoalAllocationResponse line : plan.allocations()) {
+                SheetCursor.RowCursor row = cursor.row();
+                row.text(plan.name());
+                row.text(accountNameOf(plan));
+                row.text(line.ticker());
+                row.text(line.name());
+                row.money(line.monthlyAmount());
+                allocated = allocated.add(line.monthlyAmount());
+            }
+            // A split may cover only part of the amount. Stating the remainder is what keeps the
+            // rows above from silently failing to add up to the plan's own line.
+            BigDecimal remainder = plan.monthlyAmount() == null
+                ? BigDecimal.ZERO
+                : plan.monthlyAmount().subtract(allocated);
+            if (remainder.signum() > 0) {
+                SheetCursor.RowCursor row = cursor.row();
+                row.text(plan.name());
+                row.text(accountNameOf(plan));
+                row.text(labels.get(UNALLOCATED));
+                row.text(null);
+                row.money(remainder);
+            }
+        }
+    }
+
+    /** A recurring plan funds exactly one account, but an empty list must not throw here. */
+    private static String accountNameOf(GoalProgressResponse plan) {
+        return plan.accounts().isEmpty() ? null : plan.accounts().getFirst().name();
+    }
+
+    private static void addIfPresent(List<Map.Entry<String, Object>> fields, String label,
+                                     Object value) {
+        if (value != null) fields.add(Map.entry(label, value));
     }
 
     /**

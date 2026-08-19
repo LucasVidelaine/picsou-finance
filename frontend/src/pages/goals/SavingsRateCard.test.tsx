@@ -56,16 +56,18 @@ describe('SavingsRateCard', () => {
     expect(screen.getByText('20.0 %')).toBeInTheDocument()
   })
 
-  it('says which side of the French average the member is on', () => {
-    const { rerender } = render(
+  // The comparison lives in the tooltip beside the title, not as a verdict on the card: the
+  // reader can place their own number against the benchmark, and a coloured "above average"
+  // chip overstated how comparable the two figures are.
+  it('states the benchmark once, in the tooltip, and passes no verdict', () => {
+    render(
       <SavingsRateCard plans={[plan({ id: 1, monthlyAmount: 600 })]} monthlyNetIncome={3000} today={TODAY} onOpenSettings={noop} />,
     )
-    expect(screen.getByText('goals.savingsRate.above 17.5')).toBeInTheDocument()
 
-    rerender(
-      <SavingsRateCard plans={[plan({ id: 1, monthlyAmount: 100 })]} monthlyNetIncome={3000} today={TODAY} onOpenSettings={noop} />,
-    )
-    expect(screen.getByText('goals.savingsRate.below 17.5')).toBeInTheDocument()
+    // The benchmark text itself is portalled by Radix on hover, so what is assertable here is
+    // that the affordance exists and that the card states no verdict of its own.
+    expect(screen.getByLabelText('goals.savingsRate.benchmarkLabel')).toBeInTheDocument()
+    expect(screen.queryByText(/savingsRate\.(above|below)/)).not.toBeInTheDocument()
   })
 
   // A plan is a record the member keeps; one that has not started or has ended is still on the

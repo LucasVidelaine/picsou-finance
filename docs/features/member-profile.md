@@ -145,10 +145,7 @@ only exists if the two are recorded apart.
 
 ## Not done yet
 
-- **The xlsx export does not read this.** Adding a profile block means a `LabelKey` entry per field
-  and its twin in `frontend/src/features/export/labels.ts`; the two lists must stay in step (see
-  [the ADR](../decisions/2026-08-18-client-supplied-labels-for-xlsx-export.md)).
-- **The GDPR export does not include it either.** `ProfileExporter`'s CSV header is positional, and
+- **The GDPR export does not include it.** `ProfileExporter`'s CSV header is positional, and
   `member_allocation_profile` is not exported today — this follows that precedent rather than
   breaking it in passing. It is a real gap for a right-of-access request: the fields here are
   personal data.
@@ -186,7 +183,8 @@ only exists if the two are recorded apart.
 ## Links
 
 - Related: [Recurring investment plans](./goal-recurring-investment.md) — the savings rate this feeds
-- Related: [Account spreadsheet export](./account-xlsx-export.md) — the eventual consumer
+- Related: [Account spreadsheet export](./account-xlsx-export.md) — writes this profile at the top
+  of its summary sheet, age but never the birth date
 - Related: [Wealth pyramid](./wealth-pyramid.md) — `member_allocation_profile`, the table this one
   deliberately does not join
 - i18n keys: `settings.profile.*`

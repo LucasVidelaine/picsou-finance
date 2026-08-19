@@ -11,6 +11,11 @@ import type { TFunction } from 'i18next'
  */
 const LABEL_KEYS = [
   'summarySheet', 'exportedAt', 'accountFallbackName',
+  'profile', 'age', 'targetRetirementAge', 'marginalTaxRate', 'householdStatus',
+  'taxHouseholdParts', 'dependents', 'annualGrossIncome', 'monthlyNetBeforeTax',
+  'withholdingTaxRate', 'monthlyNetIncome', 'monthlySavingsCapacity', 'riskProfile',
+  'recurringInvestments', 'savingsRate', 'monthlyInvestedTotal', 'planName', 'planAccount',
+  'monthlyAmount', 'expectedReturn', 'positionBreakdown', 'unallocated',
   'accountName', 'accountType', 'provider', 'currency', 'balance', 'balanceEur',
   'cashBalance', 'sharePercent', 'lastSyncedAt', 'createdAt',
   'positions', 'ticker', 'positionName', 'quantity', 'averageBuyIn', 'currentPrice',

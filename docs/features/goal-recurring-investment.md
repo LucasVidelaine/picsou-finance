@@ -219,6 +219,10 @@ Three things the figure is careful about:
   inventing a denominator — the same principle as the allocation-targets form, which never guesses
   an expense on the member's behalf.
 
+The card states the benchmark **in the tooltip only** and passes no verdict of its own. A
+coloured "above average" chip overstated how comparable the two figures are; the reader can place
+their own number against the one the tooltip quotes.
+
 The two rates are still not the same quantity — disposable income is household-wide and includes
 benefits and property income, and standing orders are not all of saving — so the tooltip quotes
 the definition rather than presenting the comparison as arithmetic. It answers "more or less than
@@ -373,7 +377,8 @@ after.
   clearing the split leaves the holdings table untouched
 - `AllocationPicker.test.tsx` — the account's own holdings are what is offered, ticking adds and
   removes a line, the remainder and the over-allocation messages, the two empty states
-- `SavingsRateCard.test.tsx` — the percentage, both sides of the benchmark, only the plans running
+- `SavingsRateCard.test.tsx` — the percentage, the benchmark stated once in the tooltip with no
+  verdict on the card, only the plans running
   this month counted, the ask-for-income state instead of a computed-from-nothing rate, and
   nothing rendered when no plan is paying in
 - `features/analysis/hooks.test.tsx` — the projected date follows the format setting, carries the

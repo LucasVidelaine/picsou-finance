@@ -4,7 +4,6 @@ import { CurrencyDisplay } from '@/components/shared/CurrencyDisplay'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { FRENCH_HOUSEHOLD_SAVINGS_RATE } from '@/lib/constants'
-import { cn } from '@/lib/utils'
 import { monthlyContributions } from './plan-math'
 import type { GoalProgress } from '@/types/api'
 
@@ -67,7 +66,6 @@ export function SavingsRateCard({
   }
 
   const rate = (contributions / monthlyNetIncome) * 100
-  const above = rate >= FRENCH_HOUSEHOLD_SAVINGS_RATE
 
   return (
     <Card>
@@ -104,12 +102,6 @@ export function SavingsRateCard({
             {t('goals.savingsRate.perMonth')}
           </p>
         </div>
-
-        <p className={cn('text-sm font-medium', above ? 'text-emerald-500' : 'text-amber-500')}>
-          {above
-            ? t('goals.savingsRate.above', { rate: FRENCH_HOUSEHOLD_SAVINGS_RATE })
-            : t('goals.savingsRate.below', { rate: FRENCH_HOUSEHOLD_SAVINGS_RATE })}
-        </p>
       </CardContent>
     </Card>
   )

@@ -19,6 +19,32 @@ public enum LabelKey {
     EXPORTED_AT("Exported at"),
     ACCOUNT_FALLBACK_NAME("Account"),
 
+    // ─── Member profile (summary sheet) ──────────────────────────────────────
+    PROFILE("Profile"),
+    AGE("Age"),
+    TARGET_RETIREMENT_AGE("Target retirement age"),
+    MARGINAL_TAX_RATE("Marginal tax rate (%)"),
+    HOUSEHOLD_STATUS("Household"),
+    TAX_HOUSEHOLD_PARTS("Tax household shares"),
+    DEPENDENTS("Dependents"),
+    ANNUAL_GROSS_INCOME("Annual gross income"),
+    MONTHLY_NET_BEFORE_TAX("Monthly net before tax"),
+    WITHHOLDING_TAX_RATE("Withholding tax rate (%)"),
+    MONTHLY_NET_INCOME("Monthly net income"),
+    MONTHLY_SAVINGS_CAPACITY("Monthly savings capacity"),
+    RISK_PROFILE("Risk profile"),
+
+    // ─── Recurring investment plans (summary sheet) ──────────────────────────
+    RECURRING_INVESTMENTS("Recurring investments"),
+    SAVINGS_RATE("Savings rate (%)"),
+    MONTHLY_INVESTED_TOTAL("Invested monthly"),
+    PLAN_NAME("Plan"),
+    PLAN_ACCOUNT("Account"),
+    MONTHLY_AMOUNT("Monthly amount"),
+    EXPECTED_RETURN("Expected return (%)"),
+    POSITION_BREAKDOWN("Monthly position breakdown"),
+    UNALLOCATED("Unallocated"),
+
     // ─── Account header ──────────────────────────────────────────────────────
     ACCOUNT_NAME("Name"),
     ACCOUNT_TYPE("Type"),

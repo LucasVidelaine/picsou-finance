@@ -1,10 +1,16 @@
 package com.picsou.export.xlsx;
 
 import com.picsou.dto.AccountResponse;
+import com.picsou.dto.GoalAllocationResponse;
+import com.picsou.dto.GoalProgressResponse;
+import com.picsou.dto.MemberProfileResponse;
 import com.picsou.dto.DebtResponse;
 import com.picsou.dto.HoldingResponse;
 import com.picsou.dto.RealEstateMetadataResponse;
 import com.picsou.model.AccountType;
+import com.picsou.model.Goal;
+import com.picsou.model.GoalType;
+import com.picsou.model.HouseholdStatus;
 import com.picsou.model.Debt;
 import com.picsou.model.PropertyValuation;
 import com.picsou.model.RealEstateMetadata;
@@ -12,6 +18,9 @@ import com.picsou.model.ValuationConfidence;
 import com.picsou.repository.DebtRepository;
 import com.picsou.repository.PropertyValuationRepository;
 import com.picsou.service.AccountService;
+import com.picsou.service.GoalService;
+import com.picsou.service.MemberProfileService;
+import com.picsou.service.SavingsRateCalculator;
 import com.picsou.service.LoanAmortizationService;
 import com.picsou.service.LoanAmortizationService.LoanInstallment;
 import com.picsou.service.LoanAmortizationService.LoanScheduleResponse;
@@ -24,7 +33,9 @@ import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.BeforeEach;
 import org.mockito.InjectMocks;
+import org.mockito.Spy;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -54,8 +65,19 @@ class AccountsWorkbookServiceTest {
     @Mock PropertyValuationRepository valuationRepository;
     @Mock DebtRepository debtRepository;
     @Mock LoanAmortizationService loanAmortizationService;
+    @Mock MemberProfileService memberProfileService;
+    @Mock GoalService goalService;
+    // Spied, not mocked: the summary's savings rate should come out of the real arithmetic.
+    @Spy SavingsRateCalculator savingsRateCalculator = new SavingsRateCalculator();
 
     @InjectMocks AccountsWorkbookService service;
+
+    /** Nothing stated and no plans -- the shape every pre-existing case here assumes. */
+    @BeforeEach
+    void wireEmptyContext() {
+        when(memberProfileService.get(MEMBER)).thenReturn(profile(null, null, null));
+        when(goalService.findAll(MEMBER)).thenReturn(List.of());
+    }
 
     // ─── Sheet naming ────────────────────────────────────────────────────────
 
@@ -279,6 +301,123 @@ class AccountsWorkbookServiceTest {
         assertThat(summary.getRow(header + 2).getCell(5).getNumericCellValue()).isEqualTo(1234.56);
     }
 
+    // ─── Summary: member profile ─────────────────────────────────────────────
+
+    @Test
+    void profileBlock_comesBeforeTheAccountsAndSkipsWhatIsUnstated() throws IOException {
+        when(memberProfileService.get(MEMBER)).thenReturn(profile(36, "30", "48000"));
+        stubAccount(bank(1L, "PEA", AccountType.PEA));
+
+        Sheet summary = export(List.of(1L)).getSheet("Summary");
+
+        // The reader meets the person before the portfolio.
+        assertThat(rowIndexOf(summary, "Profile")).isLessThan(rowIndexOf(summary, "Name"));
+        assertThat(numberBesideLabel(summary, "Age")).isEqualTo(36);
+        assertThat(numberBesideLabel(summary, "Annual gross income")).isEqualTo(48000);
+        assertThat(stringBesideLabel(summary, "Household")).isEqualTo("COUPLE");
+        // Never stated, so never printed: a label with an empty cell says less than no label.
+        assertThat(rowIndexOf(summary, "Dependents")).isEqualTo(-1);
+        assertThat(rowIndexOf(summary, "Monthly savings capacity")).isEqualTo(-1);
+    }
+
+    @Test
+    void profileBlock_writesRatesOutOfOneHundred() throws IOException {
+        // The same trap as pnlPercent: Excel's own percent format would rescale 30 to 3000%.
+        when(memberProfileService.get(MEMBER)).thenReturn(profile(36, "30", "48000"));
+        stubAccount(bank(1L, "PEA", AccountType.PEA));
+
+        Sheet summary = export(List.of(1L)).getSheet("Summary");
+
+        assertThat(numberBesideLabel(summary, "Marginal tax rate (%)")).isEqualTo(30);
+        Cell cell = summary.getRow(rowIndexOf(summary, "Marginal tax rate (%)")).getCell(1);
+        assertThat(cell.getCellStyle().getDataFormatString()).contains("%");
+    }
+
+    @Test
+    void profileBlock_isAbsentWhenNothingIsStated() throws IOException {
+        stubAccount(bank(1L, "PEA", AccountType.PEA));
+
+        Sheet summary = export(List.of(1L)).getSheet("Summary");
+
+        assertThat(rowIndexOf(summary, "Profile")).isEqualTo(-1);
+        assertThat(rowIndexOf(summary, "Name")).isGreaterThan(-1);
+    }
+
+    // ─── Summary: recurring investment plans ─────────────────────────────────
+
+    @Test
+    void recurringPlansBlock_reportsTheTotalTheRateAndEveryPlan() throws IOException {
+        when(memberProfileService.get(MEMBER)).thenReturn(profile(36, "30", "48000"));
+        when(goalService.findAll(MEMBER)).thenReturn(List.of(
+            plan("DCA PEA", "PEA", "400", List.of()),
+            plan("DCA CTO", "CTO", "200", List.of())));
+        stubAccount(bank(1L, "PEA", AccountType.PEA));
+
+        Sheet summary = export(List.of(1L)).getSheet("Summary");
+
+        assertThat(numberBesideLabel(summary, "Invested monthly")).isEqualTo(600);
+        // 600 of a 3 000 net -- the same worked example SavingsRateCardTest pins on the client.
+        assertThat(numberBesideLabel(summary, "Savings rate (%)")).isEqualTo(20.0);
+
+        int header = rowIndexOf(summary, "Plan");
+        assertThat(summary.getRow(header + 1).getCell(0).getStringCellValue()).isEqualTo("DCA PEA");
+        assertThat(summary.getRow(header + 1).getCell(1).getStringCellValue()).isEqualTo("PEA");
+        assertThat(summary.getRow(header + 1).getCell(2).getNumericCellValue()).isEqualTo(400);
+    }
+
+    @Test
+    void recurringPlansBlock_dropsTheRateWhenNoIncomeIsStated() throws IOException {
+        // A zero here would read as "saves nothing" rather than "we were not told what they earn".
+        when(goalService.findAll(MEMBER)).thenReturn(List.of(plan("DCA PEA", "PEA", "400", List.of())));
+        stubAccount(bank(1L, "PEA", AccountType.PEA));
+
+        Sheet summary = export(List.of(1L)).getSheet("Summary");
+
+        assertThat(numberBesideLabel(summary, "Invested monthly")).isEqualTo(400);
+        assertThat(rowIndexOf(summary, "Savings rate (%)")).isEqualTo(-1);
+    }
+
+    @Test
+    void positionBreakdown_listsEveryLineAndStatesTheRemainder() throws IOException {
+        when(goalService.findAll(MEMBER)).thenReturn(List.of(plan("DCA PEA", "PEA", "400", List.of(
+            new GoalAllocationResponse("CW8", "Amundi MSCI World", new BigDecimal("250")),
+            new GoalAllocationResponse("ESE", "BNP S&P 500", new BigDecimal("100"))))));
+        stubAccount(bank(1L, "PEA", AccountType.PEA));
+
+        Sheet summary = export(List.of(1L)).getSheet("Summary");
+        int header = rowIndexOf(summary, "Monthly position breakdown") + 1;
+
+        assertThat(summary.getRow(header + 1).getCell(2).getStringCellValue()).isEqualTo("CW8");
+        assertThat(summary.getRow(header + 1).getCell(3).getStringCellValue()).isEqualTo("Amundi MSCI World");
+        assertThat(summary.getRow(header + 1).getCell(4).getNumericCellValue()).isEqualTo(250);
+        assertThat(summary.getRow(header + 2).getCell(2).getStringCellValue()).isEqualTo("ESE");
+        // 400 planned, 350 detailed: the rows above must be seen not to add up on their own.
+        assertThat(summary.getRow(header + 3).getCell(2).getStringCellValue()).isEqualTo("Unallocated");
+        assertThat(summary.getRow(header + 3).getCell(4).getNumericCellValue()).isEqualTo(50);
+    }
+
+    @Test
+    void positionBreakdown_isAbsentWhenNoPlanIsDetailed() throws IOException {
+        when(goalService.findAll(MEMBER)).thenReturn(List.of(plan("DCA PEA", "PEA", "400", List.of())));
+        stubAccount(bank(1L, "PEA", AccountType.PEA));
+
+        Sheet summary = export(List.of(1L)).getSheet("Summary");
+
+        assertThat(rowIndexOf(summary, "Monthly position breakdown")).isEqualTo(-1);
+        assertThat(rowIndexOf(summary, "Recurring investments")).isGreaterThan(-1);
+    }
+
+    @Test
+    void recurringPlansBlock_isAbsentWithoutPlans_andSavingsTargetsDoNotCount() throws IOException {
+        // A goal with a deadline has neither a monthly amount nor a split to print.
+        when(goalService.findAll(MEMBER)).thenReturn(List.of(savingsTarget("Apport")));
+        stubAccount(bank(1L, "PEA", AccountType.PEA));
+
+        Sheet summary = export(List.of(1L)).getSheet("Summary");
+
+        assertThat(rowIndexOf(summary, "Recurring investments")).isEqualTo(-1);
+    }
+
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
     private Workbook export(List<Long> ids) throws IOException {
@@ -336,6 +475,39 @@ class AccountsWorkbookServiceTest {
                 new BigDecimal("980.00"), new BigDecimal("199600.00")));
         }
         return new LoanScheduleResponse(summary, rows);
+    }
+
+    private MemberProfileResponse profile(Integer age, String tmi, String grossIncome) {
+        return new MemberProfileResponse(
+            age == null ? null : LocalDate.now().minusYears(age), age,
+            tmi == null ? null : new BigDecimal(tmi),
+            age == null ? null : HouseholdStatus.COUPLE,
+            null, null,
+            grossIncome == null ? null : new BigDecimal(grossIncome),
+            grossIncome == null ? null : new BigDecimal("3200"),
+            grossIncome == null ? null : new BigDecimal("6.25"),
+            // 3 200 less 6.25% is exactly 3 000, which keeps the rate assertion a round number.
+            grossIncome == null ? null : new BigDecimal("3000.00"),
+            null, null, null);
+    }
+
+    private GoalProgressResponse plan(String name, String accountName, String monthly,
+                                      List<GoalAllocationResponse> allocations) {
+        Goal goal = Goal.builder()
+            .id(1L).name(name).type(GoalType.RECURRING_INVESTMENT)
+            .monthlyAmount(new BigDecimal(monthly))
+            .build();
+        return GoalProgressResponse.recurring(
+            goal, List.of(bank(99L, accountName, AccountType.PEA)), BigDecimal.ZERO, allocations);
+    }
+
+    private GoalProgressResponse savingsTarget(String name) {
+        Goal goal = Goal.builder()
+            .id(2L).name(name).type(GoalType.SAVINGS_TARGET)
+            .targetAmount(new BigDecimal("50000")).deadline(LocalDate.now().plusYears(2))
+            .build();
+        return GoalProgressResponse.from(goal, List.of(), BigDecimal.ZERO, BigDecimal.ZERO,
+            24, BigDecimal.ZERO, null, true, BigDecimal.ZERO);
     }
 
     private List<String> sheetNames(Workbook wb) {
