@@ -45,6 +45,7 @@ final class AccountSheetWriter {
         }
         if (data.account().realEstate() != null) {
             writeProperty(cursor, data.account().realEstate(), data.valuations());
+            writeFinancing(cursor, data.financing());
         }
         if (data.account().debt() != null) {
             writeLoan(cursor, data.account().debt(), data.schedule());
@@ -144,6 +145,43 @@ final class AccountSheetWriter {
             row.text(v.getConfidence() == null ? null : v.getConfidence().name());
             row.integer(v.getSampleSize());
             row.integer(v.getSourceYear());
+        }
+    }
+
+    /**
+     * What is still owed on this property — **written even when nothing is**, as an explicit
+     * zero.
+     *
+     * <p>A property sheet with no debt line reads as a property whose financing nobody recorded.
+     * A property that is genuinely owned outright is a different statement, and it is one this
+     * sheet should be able to make.
+     *
+     * <p>The loans come from the member's whole set, not the export's selection: a mortgage
+     * whose loan account was left unticked would otherwise turn a financed property into a
+     * debt-free one.
+     */
+    private void writeFinancing(SheetCursor cursor, List<DebtExportData> financing) {
+        BigDecimal outstanding = financing.stream()
+            .map(DebtExportData::outstanding)
+            .map(v -> v == null ? BigDecimal.ZERO : v)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        cursor.blank();
+        cursor.field(label(PROPERTY_DEBT), outstanding);
+        if (financing.isEmpty()) return;
+
+        cursor.headerRow(List.of(
+            label(LOAN_ACCOUNT), label(LENDER), label(BORROWED_AMOUNT),
+            label(REMAINING_BALANCE), label(MONTHLY_PAYMENT), label(END_DATE)
+        ));
+        for (DebtExportData d : financing) {
+            SheetCursor.RowCursor row = cursor.row();
+            row.text(d.loanAccountName());
+            row.text(d.debt().getLenderName());
+            row.money(d.debt().getBorrowedAmount());
+            row.money(d.outstanding());
+            row.money(d.debt().getMonthlyPayment());
+            row.date(d.debt().getEndDate());
         }
     }
 

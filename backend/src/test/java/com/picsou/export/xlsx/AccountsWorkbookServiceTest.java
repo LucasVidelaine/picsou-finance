@@ -7,7 +7,9 @@ import com.picsou.dto.MemberProfileResponse;
 import com.picsou.dto.DebtResponse;
 import com.picsou.dto.HoldingResponse;
 import com.picsou.dto.RealEstateMetadataResponse;
+import com.picsou.model.Account;
 import com.picsou.model.AccountType;
+import com.picsou.model.Debt;
 import com.picsou.model.Goal;
 import com.picsou.model.GoalType;
 import com.picsou.model.HouseholdStatus;
@@ -52,6 +54,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.when;
 
@@ -77,18 +80,20 @@ class AccountsWorkbookServiceTest {
     void wireEmptyContext() {
         when(memberProfileService.get(MEMBER)).thenReturn(profile(null, null, null));
         when(goalService.findAll(MEMBER)).thenReturn(List.of());
+        when(debtRepository.findAllByMemberId(MEMBER)).thenReturn(List.of());
+        when(debtRepository.findByLinkedAccountId(anyLong())).thenReturn(List.of());
     }
 
     // ─── Sheet naming ────────────────────────────────────────────────────────
 
     @Test
-    void summarySheetComesFirst_thenOneSheetPerAccount() throws IOException {
+    void summaryAndDebtSheetsComeFirst_thenOneSheetPerAccount() throws IOException {
         stubAccount(bank(1L, "Compte courant"));
         stubAccount(bank(2L, "Livret A"));
 
         Workbook wb = export(List.of(1L, 2L));
 
-        assertThat(sheetNames(wb)).containsExactly("Summary", "Compte courant", "Livret A");
+        assertThat(sheetNames(wb)).containsExactly("Summary", "Debts", "Compte courant", "Livret A");
     }
 
     @Test
@@ -99,7 +104,7 @@ class AccountsWorkbookServiceTest {
 
         Workbook wb = export(List.of(1L, 2L));
 
-        assertThat(sheetNames(wb)).containsExactly("Summary", "Livret A", "Livret A (2)");
+        assertThat(sheetNames(wb)).containsExactly("Summary", "Debts", "Livret A", "Livret A (2)");
     }
 
     @Test
@@ -110,8 +115,8 @@ class AccountsWorkbookServiceTest {
         Workbook wb = export(List.of(1L, 2L));
 
         List<String> names = sheetNames(wb);
-        assertThat(names.get(1)).isEqualTo("PEA   Bourse  2026");
-        assertThat(names.get(2)).hasSize(31);
+        assertThat(names.get(2)).isEqualTo("PEA   Bourse  2026");
+        assertThat(names.get(3)).hasSize(31);
     }
 
     @Test
@@ -120,7 +125,7 @@ class AccountsWorkbookServiceTest {
 
         Workbook wb = export(List.of(42L));
 
-        assertThat(sheetNames(wb)).containsExactly("Summary", "Account 42");
+        assertThat(sheetNames(wb)).containsExactly("Summary", "Debts", "Account 42");
     }
 
     @Test
@@ -129,7 +134,7 @@ class AccountsWorkbookServiceTest {
 
         Workbook wb = export(List.of(1L, 1L, 1L));
 
-        assertThat(sheetNames(wb)).containsExactly("Summary", "Livret A");
+        assertThat(sheetNames(wb)).containsExactly("Summary", "Debts", "Livret A");
     }
 
     // ─── Positions ───────────────────────────────────────────────────────────
@@ -418,6 +423,113 @@ class AccountsWorkbookServiceTest {
         assertThat(rowIndexOf(summary, "Recurring investments")).isEqualTo(-1);
     }
 
+    // ─── Debt ────────────────────────────────────────────────────────────────
+
+    @Test
+    void debtSheetAndSummaryBlock_existEvenWithNoDebt() throws IOException {
+        // The point of the whole block: silence is indistinguishable from an omission. A reader
+        // asking "is there a mortgage?" gets an answer either way.
+        stubAccount(bank(1L, "PEA", AccountType.PEA));
+
+        Workbook wb = export(List.of(1L));
+        Sheet summary = wb.getSheet("Summary");
+
+        assertThat(sheetNames(wb)).containsExactly("Summary", "Debts", "PEA");
+        assertThat(rowIndexOf(summary, "No debt recorded")).isGreaterThan(-1);
+        assertThat(numberBesideLabel(summary, "Outstanding")).isEqualTo(0);
+
+        Sheet debts = wb.getSheet("Debts");
+        assertThat(rowIndexOf(debts, "No debt recorded")).isGreaterThan(-1);
+        assertThat(numberBesideLabel(debts, "Outstanding")).isEqualTo(0);
+    }
+
+    @Test
+    void debtSummaryBlock_totalsEveryLoanAndListsThem() throws IOException {
+        when(debtRepository.findAllByMemberId(MEMBER)).thenReturn(List.of(
+            debt(10L, "Prêt maison", "BoursoBank", "200000", "180000", "980", "0.0325"),
+            debt(11L, "Prêt auto", "Cetelem", "20000", "12000", "300", "0.0450")));
+        stubAccount(bank(1L, "PEA", AccountType.PEA));
+
+        Sheet summary = export(List.of(1L)).getSheet("Summary");
+
+        assertThat(numberBesideLabel(summary, "Total borrowed")).isEqualTo(220000);
+        assertThat(numberBesideLabel(summary, "Outstanding")).isEqualTo(192000);
+        assertThat(numberBesideLabel(summary, "Monthly payments")).isEqualTo(1280);
+
+        int header = rowIndexOf(summary, "Loan account");
+        assertThat(summary.getRow(header + 1).getCell(0).getStringCellValue()).isEqualTo("Prêt maison");
+        assertThat(summary.getRow(header + 1).getCell(1).getStringCellValue()).isEqualTo("BoursoBank");
+    }
+
+    @Test
+    void debtSheet_writesTheRateOutOfOneHundred() throws IOException {
+        // Debt.interestRate is a ratio (0.0325) and the column says (%): multiplied on the way
+        // in, never left for Excel's percent format to rescale a second time.
+        when(debtRepository.findAllByMemberId(MEMBER)).thenReturn(List.of(
+            debt(10L, "Prêt maison", "BoursoBank", "200000", "180000", "980", "0.0325")));
+        stubAccount(bank(1L, "PEA", AccountType.PEA));
+
+        Sheet debts = export(List.of(1L)).getSheet("Debts");
+        int header = rowIndexOf(debts, "Loan account");
+
+        assertThat(debts.getRow(header + 1).getCell(5).getNumericCellValue()).isEqualTo(3.25);
+    }
+
+    @Test
+    void debtSheet_carriesTheFiguresDerivedFromTheSchedule() throws IOException {
+        when(debtRepository.findAllByMemberId(MEMBER)).thenReturn(List.of(
+            debt(10L, "Prêt maison", "BoursoBank", "200000", "180000", "980", "0.0325")));
+        when(loanAmortizationService.compute(any())).thenReturn(schedule(240));
+        stubAccount(bank(1L, "PEA", AccountType.PEA));
+
+        Sheet debts = export(List.of(1L)).getSheet("Debts");
+        int header = rowIndexOf(debts, "Loan account");
+        Row row = debts.getRow(header + 1);
+
+        assertThat(row.getCell(11).getNumericCellValue()).isEqualTo(1);    // paid instalments
+        assertThat(row.getCell(12).getNumericCellValue()).isEqualTo(240);  // total instalments
+        assertThat(row.getCell(13).getNumericCellValue()).isEqualTo(30000); // total interest
+    }
+
+    @Test
+    void anAccountNamedLikeAFixedSheet_doesNotCollide() throws IOException {
+        // POI throws on a duplicate sheet name rather than degrading, and the two fixed sheets
+        // were not in the dedup set before the debt sheet was added.
+        stubAccount(bank(1L, "Summary"));
+        stubAccount(bank(2L, "Debts"));
+
+        Workbook wb = export(List.of(1L, 2L));
+
+        assertThat(sheetNames(wb)).containsExactly("Summary", "Debts", "Summary (2)", "Debts (2)");
+    }
+
+    @Test
+    void propertySheet_statesTheDebtFinancingIt() throws IOException {
+        AccountResponse house = property(1L, "Maison");
+        stubAccount(house);
+        when(debtRepository.findByLinkedAccountId(1L)).thenReturn(List.of(
+            debt(10L, "Prêt maison", "BoursoBank", "200000", "180000", "980", "0.0325")));
+
+        Sheet sheet = export(List.of(1L)).getSheet("Maison");
+
+        assertThat(numberBesideLabel(sheet, "Debt on this property")).isEqualTo(180000);
+        int header = rowIndexOf(sheet, "Loan account");
+        assertThat(sheet.getRow(header + 1).getCell(0).getStringCellValue()).isEqualTo("Prêt maison");
+        assertThat(sheet.getRow(header + 1).getCell(3).getNumericCellValue()).isEqualTo(180000);
+    }
+
+    @Test
+    void propertySheet_statesZeroWhenNothingFinancesIt() throws IOException {
+        // A property owned outright is a statement worth making; an absent line only reads as
+        // "nobody recorded the financing".
+        stubAccount(property(1L, "Maison"));
+
+        Sheet sheet = export(List.of(1L)).getSheet("Maison");
+
+        assertThat(numberBesideLabel(sheet, "Debt on this property")).isEqualTo(0);
+        assertThat(rowIndexOf(sheet, "Loan account")).isEqualTo(-1);
+    }
+
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
     private Workbook export(List<Long> ids) throws IOException {
@@ -508,6 +620,32 @@ class AccountsWorkbookServiceTest {
             .build();
         return GoalProgressResponse.from(goal, List.of(), BigDecimal.ZERO, BigDecimal.ZERO,
             24, BigDecimal.ZERO, null, true, BigDecimal.ZERO);
+    }
+
+    private AccountResponse property(Long id, String name) {
+        RealEstateMetadata meta = RealEstateMetadata.builder()
+            .purchasePrice(new BigDecimal("240000"))
+            .propertyType("HOUSE")
+            .build();
+        return bank(id, name, AccountType.REAL_ESTATE)
+            .withRealEstate(RealEstateMetadataResponse.from(meta, null));
+    }
+
+    private Debt debt(Long id, String loanAccountName, String lender, String borrowed,
+                      String outstanding, String monthly, String rate) {
+        Account loanAccount = Account.builder()
+            .id(id).name(loanAccountName).type(AccountType.LOAN).currency("EUR")
+            .currentBalance(new BigDecimal(outstanding))
+            .build();
+        return Debt.builder()
+            .id(id).account(loanAccount)
+            .borrowedAmount(new BigDecimal(borrowed))
+            .interestRate(new BigDecimal(rate))
+            .monthlyPayment(new BigDecimal(monthly))
+            .lenderName(lender)
+            .startDate(LocalDate.parse("2021-07-01"))
+            .endDate(LocalDate.parse("2041-07-01"))
+            .build();
     }
 
     private List<String> sheetNames(Workbook wb) {

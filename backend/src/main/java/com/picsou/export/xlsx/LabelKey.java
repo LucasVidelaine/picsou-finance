@@ -45,6 +45,17 @@ public enum LabelKey {
     POSITION_BREAKDOWN("Monthly position breakdown"),
     UNALLOCATED("Unallocated"),
 
+    // ─── Debt (summary block + its own sheet) ────────────────────────────────
+    DEBT_SHEET("Debts"),
+    DEBTS("Debt"),
+    NO_DEBT("No debt recorded"),
+    DEBT_SCOPE_NOTE("Covers every loan recorded, including accounts left out of this export"),
+    TOTAL_BORROWED("Total borrowed"),
+    TOTAL_OUTSTANDING("Outstanding"),
+    TOTAL_MONTHLY_PAYMENT("Monthly payments"),
+    LOAN_ACCOUNT("Loan account"),
+    PROPERTY_DEBT("Debt on this property"),
+
     // ─── Account header ──────────────────────────────────────────────────────
     ACCOUNT_NAME("Name"),
     ACCOUNT_TYPE("Type"),

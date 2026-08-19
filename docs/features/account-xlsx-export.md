@@ -42,9 +42,14 @@ AccountsWorkbookService.export(ids, memberId, labels, out)
    ├─ per id: AccountService.findById(id, memberId)     ← member-scoped, raises on foreign id
    │          AccountService.getHoldings(id, memberId)
    │          PropertyValuationRepository (REAL_ESTATE only)
+   │          DebtRepository.findByLinkedAccountId    (REAL_ESTATE only — its financing)
    │          DebtRepository + LoanAmortizationService.compute (LOAN only)
+   ├─ once:   MemberProfileService.get(memberId)
+   │          GoalService.findAll(memberId) + SavingsRateCalculator
+   │          DebtRepository.findAllByMemberId        ← every loan, not just the selection
    ├─ SXSSFWorkbook(200-row window)
-   ├─ summary sheet: one row per exported account
+   ├─ summary sheet: profile, recurring plans, debt, then one row per exported account
+   ├─ debt sheet (always, even empty)
    ├─ one sheet per account via AccountSheetWriter
    └─ finally { dispose(); close(); }
 ```
@@ -59,6 +64,7 @@ Three blocks, in the order a reader needs them: **who**, **what goes out every m
 | Profile | any field is stated | age, target retirement age, household, shares, dependents, gross annual income, monthly net before tax, derived monthly net, savings capacity, risk profile, and the two rates |
 | Recurring investments | the member has at least one plan | monthly total, savings rate, then one row per plan (name, account, monthly amount, expected return, window) |
 | Monthly position breakdown | at least one plan is detailed | one row per allocated line, plus the plan's unallocated remainder |
+| Debt | **always** | total borrowed, outstanding, monthly payments, then one row per loan — or, with no debt, an explicit "none" and a zero |
 | Accounts | always | one row per exported account |
 
 A portfolio read without knowing the reader's age or bracket is a list of numbers; the profile is
@@ -74,6 +80,22 @@ a goal with a deadline has neither. They stay in the GDPR export's `goals.csv`.
 The savings rate is `SavingsRateCalculator`, which mirrors the frontend's `plan-math.ts` — see
 the gotcha below.
 
+### The debt sheet, and why it exists when there is none
+
+`Debts` is a fixed sheet, written whether or not the member has any. An absent sheet is
+indistinguishable from a sheet nobody thought to add, and "does this person carry debt?" is a
+question the workbook has to answer in both directions. With nothing to report it says so in
+words and prints a zero outstanding.
+
+It carries each loan's terms and the figures derived from them — instalments paid and total,
+total interest and insurance cost — but **not the instalment rows**. Those are on the loan's own
+account sheet; repeating a 25-year schedule would multiply the file for a table already in it.
+
+**It covers every loan the member has, not only the exported accounts**, and says so on the
+sheet. The alternative reports "no debt" for someone with a mortgage whose loan account they
+happened not to tick — the exact misreading the block exists to prevent. It is the one place the
+workbook deliberately steps outside the selection.
+
 ### What an account sheet contains
 
 Every sheet opens with the account's identity — type, provider, currency, balance, balance in EUR,
@@ -84,6 +106,7 @@ actually has; a passbook gets the header and stops there.
 |---|---|---|
 | Positions | the account has holdings | ticker, name, quantity, average cost, price, quote currency, value EUR, cost basis EUR, gain/loss EUR, gain/loss %, price as of, stale |
 | Property | `type == REAL_ESTATE` | purchase price, agency/notary fees, works, cost basis, kind, category, address, area, rooms, energy class, rental income, valuation mode, last valued |
+| Property financing | `type == REAL_ESTATE`, **always** | outstanding debt on the property — an explicit `0` when nothing finances it — then a row per loan |
 | Valuation history | the property has `property_valuation` rows | date, estimate, low, high, price per m², source, confidence, sample size, source year |
 | Loan | the account carries a `DebtResponse` | lender, borrowed amount, rate, monthly payment, insurance, file fees, dates, financed account, plus the summary figures |
 | Amortization | the loan has a `Debt` row behind it | instalment no., date, capital, interest, insurance, payment, remaining balance |
@@ -114,6 +137,7 @@ trade-offs that come with it.
 - `export/xlsx/WorkbookStyles.java` — the shared cell formats
 - `export/xlsx/SheetLabels.java` / `LabelKey.java` — heading resolution and the wire contract
 - `export/xlsx/AccountExportData.java` — one account's gathered data
+- `export/xlsx/DebtExportData.java` — one loan and its amortization
 - `dto/AccountsExportRequest.java` — `(List<Long> accountIds, Map<String,String> labels)`
 - `config/RateLimitConfig.java` — `accountExportBuckets` bean + `createAccountExportBucket()`
 
@@ -134,6 +158,9 @@ trade-offs that come with it.
 | A new `export/xlsx` package, not the existing `EntityExporter` | `EntityExporter` is package-private, CSV/JSON-shaped and scoped to the whole user. This is per-account and cell-typed — implementing it would have meant widening an interface built for a different question. | Extending `EntityExporter` with an `xlsx` method |
 | Rate limit but no re-auth | A subset the user picks from their own account list during ordinary use, not a full personal-data dump. A TOTP prompt on every export would make the feature unpleasant enough to go unused. | Reusing `ReAuthService` like `MeExportController` |
 | Client-supplied headings | The frontend already owns a four-language catalogue of this exact vocabulary. | A Spring `MessageSource` bundle — see the ADR |
+| A debt block and sheet even when empty | Silence reads as an omission; "owned outright" is a statement the workbook should be able to make | Rendering them only when a debt exists |
+| Debt looked up member-wide | A property financed by an unticked loan would otherwise report zero debt | Scoping debt to the exported accounts |
+| Derived loan figures on the debt sheet, not the schedule | The instalment rows are already on the loan's account sheet | Repeating 300 rows per loan |
 | Profile and plans on the summary sheet | The context that turns a list of figures into a situation, and it belongs where the reader starts | A separate sheet per block |
 | Unstated fields omitted entirely | A label with an empty cell reads as a gap in the data rather than a question never answered | Printing every field with blanks |
 | Age exported, birth date not | The age is what bears on a portfolio; the date is PII that adds nothing, and an export travels | Writing the stored date |
@@ -162,6 +189,16 @@ trade-offs that come with it.
 - **A mid-stream failure cannot become a JSON 500.** Spring has flushed the 200 and the content
   headers before the first byte of the workbook exists, so `IOException` is logged and swallowed
   and the user gets a truncated file. Same constraint as [`data-export.md`](./data-export.md).
+- **`Debt.interestRate` is a ratio, the column says (%).** `ratePercent` multiplies it on the way
+  in; leaving it to Excel's percent format would rescale it a second time. Same trap as
+  `pnlPercent`, which is already multiplied and must *not* be.
+- **The two fixed sheets are in the dedup set.** An account genuinely called "Summary" or
+  "Debts" used to reach `createSheet` with a name already taken, and POI throws on a duplicate
+  rather than degrading. `used` is seeded with both; adding a third fixed sheet means seeding it
+  too.
+- **`outstanding` comes from the loan account's balance, not the schedule.** The two can disagree
+  — one is derived from the terms, the other is what the bank last stated — and the balance is
+  what the accounts table in the same workbook prints. One document, one number.
 - **The savings rate is computed twice.** `SavingsRateCalculator` (backend, for this workbook) and
   `plan-math.ts` (frontend, for the Goals page) implement the same two rules: which plans are
   running on a date, and contributions over net monthly income. Both suites pin the same worked
@@ -197,6 +234,10 @@ Backend:
   disappears when nothing is stated, both rates are written out of 100, the plans block reports
   the total and the rate, the rate row is dropped with no stated income, the breakdown lists each
   line and states the remainder, and a savings target does not produce a plans block.
+  And on debt: both the block and the sheet exist with no debt and state a zero, the block totals
+  and lists every loan, the rate is written out of 100, the schedule-derived figures land on the
+  debt sheet, an account named after a fixed sheet no longer collides, and a property sheet
+  states its financing — or an explicit zero when nothing finances it.
 - `SavingsRateCalculatorTest` — the running-plan window (including the start and end days
   themselves), savings targets ignored, the rate rounded to one decimal, and null rather than
   zero without a denominator.

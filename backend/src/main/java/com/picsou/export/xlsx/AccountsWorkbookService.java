@@ -14,6 +14,7 @@ import com.picsou.repository.PropertyValuationRepository;
 import com.picsou.service.AccountService;
 import com.picsou.service.GoalService;
 import com.picsou.service.LoanAmortizationService;
+import com.picsou.service.LoanAmortizationService.LoanSummary;
 import com.picsou.service.MemberProfileService;
 import com.picsou.service.SavingsRateCalculator;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -103,11 +104,22 @@ public class AccountsWorkbookService {
         SXSSFWorkbook wb = new SXSSFWorkbook(ROW_ACCESS_WINDOW);
         try {
             WorkbookStyles styles = new WorkbookStyles(wb);
+            // Every loan the member has, not only those among the selected accounts. A property
+            // is financed by a loan the reader may not have ticked, and a "0" that means "you
+            // did not select it" is exactly the misreading a debt figure must not produce.
+            List<DebtExportData> debts = gatherDebts(memberId);
+
             writeSummarySheet(wb, styles, labels, data,
-                memberProfileService.get(memberId), goalService.findAll(memberId));
+                memberProfileService.get(memberId), goalService.findAll(memberId), debts);
+            writeDebtSheet(wb, styles, labels, debts);
 
             AccountSheetWriter writer = new AccountSheetWriter(labels, styles);
-            Set<String> used = new HashSet<>();
+            // Seeded with the two fixed sheets: an account genuinely called "Summary" would
+            // otherwise reach createSheet with a name already taken, and POI throws on a
+            // duplicate rather than degrading.
+            Set<String> used = new HashSet<>(Set.of(
+                safeName(labels.get(SUMMARY_SHEET), "Summary").toLowerCase(Locale.ROOT),
+                safeName(labels.get(DEBT_SHEET), "Debts").toLowerCase(Locale.ROOT)));
             for (AccountExportData d : data) {
                 Sheet sheet = wb.createSheet(uniqueSheetName(d.account(), labels, used));
                 writer.write(sheet, d);
@@ -141,12 +153,21 @@ public class AccountsWorkbookService {
             }
         }
 
-        return new AccountExportData(account, holdings, valuations, schedule);
+        return new AccountExportData(account, holdings, valuations, schedule,
+            debtRepository.findByLinkedAccountId(accountId).stream().map(this::gatherDebt).toList());
+    }
+
+    private List<DebtExportData> gatherDebts(Long memberId) {
+        return debtRepository.findAllByMemberId(memberId).stream().map(this::gatherDebt).toList();
+    }
+
+    private DebtExportData gatherDebt(Debt debt) {
+        return new DebtExportData(debt, loanAmortizationService.compute(debt));
     }
 
     private void writeSummarySheet(SXSSFWorkbook wb, WorkbookStyles styles, SheetLabels labels,
                                    List<AccountExportData> data, MemberProfileResponse profile,
-                                   List<GoalProgressResponse> goals) {
+                                   List<GoalProgressResponse> goals, List<DebtExportData> debts) {
         Sheet sheet = wb.createSheet(safeName(labels.get(SUMMARY_SHEET), "Summary"));
         sheet.setColumnWidth(0, 34 * 256);
         for (int i = 1; i <= 7; i++) {
@@ -161,6 +182,7 @@ public class AccountsWorkbookService {
         // list of numbers; this is the context that makes it a situation.
         writeProfileBlock(cursor, labels, profile);
         writeRecurringPlansBlock(cursor, labels, profile, goals);
+        writeDebtBlock(cursor, labels, debts);
 
         cursor.blank();
         cursor.headerRow(List.of(
@@ -306,6 +328,125 @@ public class AccountsWorkbookService {
                 row.money(remainder);
             }
         }
+    }
+
+    /**
+     * What is owed, in the summary — **always written, including when there is none**.
+     *
+     * <p>An absent block is indistinguishable from a block nobody thought to add, and a reader
+     * asking "does this person have a mortgage?" needs the answer either way. So the totals are
+     * printed at zero and the fact is stated in words.
+     */
+    private void writeDebtBlock(SheetCursor cursor, SheetLabels labels, List<DebtExportData> debts) {
+        cursor.blank();
+        cursor.title(labels.get(DEBTS));
+
+        if (debts.isEmpty()) {
+            cursor.field(labels.get(NO_DEBT), null);
+            cursor.field(labels.get(TOTAL_OUTSTANDING), BigDecimal.ZERO);
+            return;
+        }
+
+        cursor.field(labels.get(TOTAL_BORROWED), sum(debts, d -> d.debt().getBorrowedAmount()));
+        cursor.field(labels.get(TOTAL_OUTSTANDING), sum(debts, DebtExportData::outstanding));
+        cursor.field(labels.get(TOTAL_MONTHLY_PAYMENT),
+            sum(debts, d -> nz(d.debt().getMonthlyPayment()).add(nz(d.debt().getInsuranceMonthly()))));
+
+        cursor.blank();
+        cursor.headerRow(List.of(
+            labels.get(LOAN_ACCOUNT), labels.get(LENDER), labels.get(LINKED_ACCOUNT),
+            labels.get(BORROWED_AMOUNT), labels.get(REMAINING_BALANCE),
+            labels.get(MONTHLY_PAYMENT), labels.get(INTEREST_RATE), labels.get(END_DATE)
+        ));
+        for (DebtExportData d : debts) {
+            SheetCursor.RowCursor row = cursor.row();
+            row.text(d.loanAccountName());
+            row.text(d.debt().getLenderName());
+            row.text(d.financedAccountName());
+            row.money(d.debt().getBorrowedAmount());
+            row.money(d.outstanding());
+            row.money(d.debt().getMonthlyPayment());
+            row.percent(ratePercent(d.debt().getInterestRate()));
+            row.date(d.debt().getEndDate());
+        }
+    }
+
+    /**
+     * The dedicated debt sheet — created whether or not there is any debt, for the same reason
+     * the summary block is: a missing sheet answers nothing.
+     *
+     * <p>It carries the terms and the figures derived from them, but not the instalment rows;
+     * those are on the loan's own account sheet, and repeating a 25-year schedule here would
+     * multiply the file for a table already present.
+     */
+    private void writeDebtSheet(SXSSFWorkbook wb, WorkbookStyles styles, SheetLabels labels,
+                                List<DebtExportData> debts) {
+        Sheet sheet = wb.createSheet(safeName(labels.get(DEBT_SHEET), "Debts"));
+        sheet.setColumnWidth(0, 30 * 256);
+        for (int i = 1; i <= 14; i++) {
+            sheet.setColumnWidth(i, 18 * 256);
+        }
+
+        SheetCursor cursor = new SheetCursor(sheet, styles);
+        cursor.title(labels.get(DEBTS));
+        cursor.field(labels.get(DEBT_SCOPE_NOTE), null);
+
+        if (debts.isEmpty()) {
+            cursor.blank();
+            cursor.field(labels.get(NO_DEBT), null);
+            cursor.field(labels.get(TOTAL_OUTSTANDING), BigDecimal.ZERO);
+            return;
+        }
+
+        cursor.blank();
+        cursor.headerRow(List.of(
+            labels.get(LOAN_ACCOUNT), labels.get(LENDER), labels.get(LINKED_ACCOUNT),
+            labels.get(BORROWED_AMOUNT), labels.get(REMAINING_BALANCE),
+            labels.get(INTEREST_RATE), labels.get(MONTHLY_PAYMENT),
+            labels.get(INSURANCE_MONTHLY), labels.get(FILE_FEES),
+            labels.get(START_DATE), labels.get(END_DATE),
+            labels.get(PAID_INSTALLMENTS), labels.get(TOTAL_INSTALLMENTS),
+            labels.get(TOTAL_INTEREST_COST), labels.get(TOTAL_INSURANCE_COST)
+        ));
+        for (DebtExportData d : debts) {
+            LoanSummary summary = d.schedule() == null ? null : d.schedule().summary();
+            SheetCursor.RowCursor row = cursor.row();
+            row.text(d.loanAccountName());
+            row.text(d.debt().getLenderName());
+            row.text(d.financedAccountName());
+            row.money(d.debt().getBorrowedAmount());
+            row.money(d.outstanding());
+            row.percent(ratePercent(d.debt().getInterestRate()));
+            row.money(d.debt().getMonthlyPayment());
+            row.money(d.debt().getInsuranceMonthly());
+            row.money(d.debt().getFileFees());
+            row.date(d.debt().getStartDate());
+            row.date(d.debt().getEndDate());
+            row.integer(summary == null ? null : summary.paidInstallments());
+            row.integer(summary == null ? null : summary.totalInstallments());
+            row.money(summary == null ? null : summary.totalInterestCost());
+            row.money(summary == null ? null : summary.totalInsuranceCost());
+        }
+    }
+
+    /**
+     * {@code Debt.interestRate} is stored as a ratio (0.0325); the column says (%).
+     *
+     * <p>Multiplied here rather than formatted as a percentage by Excel, which would rescale it
+     * a second time — the same trap {@code pnlPercent} carries.
+     */
+    private static BigDecimal ratePercent(BigDecimal ratio) {
+        return ratio == null ? null : ratio.multiply(new BigDecimal("100"));
+    }
+
+    private static BigDecimal nz(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
+    }
+
+    private static BigDecimal sum(List<DebtExportData> debts,
+                                  java.util.function.Function<DebtExportData, BigDecimal> field) {
+        return debts.stream().map(field).map(AccountsWorkbookService::nz)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     /** A recurring plan funds exactly one account, but an empty list must not throw here. */

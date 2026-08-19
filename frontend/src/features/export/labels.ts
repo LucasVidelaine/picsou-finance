@@ -16,6 +16,8 @@ const LABEL_KEYS = [
   'withholdingTaxRate', 'monthlyNetIncome', 'monthlySavingsCapacity', 'riskProfile',
   'recurringInvestments', 'savingsRate', 'monthlyInvestedTotal', 'planName', 'planAccount',
   'monthlyAmount', 'expectedReturn', 'positionBreakdown', 'unallocated',
+  'debtSheet', 'debts', 'noDebt', 'debtScopeNote', 'totalBorrowed', 'totalOutstanding',
+  'totalMonthlyPayment', 'loanAccount', 'propertyDebt',
   'accountName', 'accountType', 'provider', 'currency', 'balance', 'balanceEur',
   'cashBalance', 'sharePercent', 'lastSyncedAt', 'createdAt',
   'positions', 'ticker', 'positionName', 'quantity', 'averageBuyIn', 'currentPrice',
