@@ -37,9 +37,12 @@ class GoalRequestTest {
         // The compatibility guarantee: every payload written before this field existed — the
         // frontend's and four MCP tools' — omits it and must keep meaning what it meant.
         GoalRequest req = new GoalRequest("Trip", null, new BigDecimal("5000"),
-            LocalDate.now().plusYears(1), null, null, null, null, List.of(1L));
+            LocalDate.now().plusYears(1), null, null, null, null, null, List.of(1L));
 
         assertThat(req.type()).isEqualTo(GoalType.SAVINGS_TARGET);
+        // Same guarantee for the split, added later still: an omitted list reads as an empty
+        // one, so nothing downstream has to null-check it.
+        assertThat(req.allocations()).isEmpty();
         assertThat(validator.validate(req)).isEmpty();
     }
 
@@ -57,7 +60,7 @@ class GoalRequestTest {
     @Test
     void aRecurringPlanNeedsAMonthlyAmount() {
         GoalRequest req = new GoalRequest("PEA", GoalType.RECURRING_INVESTMENT,
-            null, null, null, null, null, null, List.of(1L));
+            null, null, null, null, null, null, null, List.of(1L));
 
         assertThat(paths(req)).contains("recurringComplete");
     }
@@ -73,7 +76,7 @@ class GoalRequestTest {
     @Test
     void aRecurringPlanFundsExactlyOneAccount() {
         GoalRequest req = new GoalRequest("PEA", GoalType.RECURRING_INVESTMENT,
-            null, null, new BigDecimal("300"), null, null, null, List.of(1L, 2L));
+            null, null, new BigDecimal("300"), null, null, null, null, List.of(1L, 2L));
 
         assertThat(paths(req)).contains("recurringSingleAccount");
     }
@@ -110,5 +113,78 @@ class GoalRequestTest {
             "", new BigDecimal("5000"), LocalDate.now().plusYears(1), List.of(1L));
 
         assertThat(paths(req)).contains("name");
+    }
+
+    // ─── The monthly split ────────────────────────────────────────────────────
+
+    private static GoalRequest plan(BigDecimal monthlyAmount, GoalAllocationRequest... lines) {
+        return new GoalRequest("PEA", GoalType.RECURRING_INVESTMENT, null, null,
+            monthlyAmount, null, null, null, List.of(lines), List.of(1L));
+    }
+
+    private static GoalAllocationRequest line(String ticker, String amount) {
+        return new GoalAllocationRequest(ticker, new BigDecimal(amount));
+    }
+
+    @Test
+    void aSplitMayCoverOnlyPartOfTheMonthlyAmount() {
+        // The remainder is not an error: it reads as unallocated. Detailing half a plan has to
+        // be as valid as detailing all of it, or nobody details anything.
+        GoalRequest req = plan(new BigDecimal("400"), line("CW8", "150"));
+
+        assertThat(validator.validate(req)).isEmpty();
+    }
+
+    @Test
+    void aSplitCannotExceedTheMonthlyAmount() {
+        GoalRequest req = plan(new BigDecimal("400"), line("CW8", "300"), line("ESE", "200"));
+
+        assertThat(paths(req)).contains("allocationWithinMonthlyAmount");
+    }
+
+    @Test
+    void aSplitMayMatchTheMonthlyAmountExactly() {
+        GoalRequest req = plan(new BigDecimal("400"), line("CW8", "200"), line("ESE", "200"));
+
+        assertThat(validator.validate(req)).isEmpty();
+    }
+
+    @Test
+    void aPositionCanOnlyAppearOnceInTheSplit() {
+        // Otherwise the duplicate reaches uk_goal_allocation_goal_ticker and is a 500.
+        GoalRequest req = plan(new BigDecimal("400"), line("CW8", "100"), line("CW8", "100"));
+
+        assertThat(paths(req)).contains("allocationTickersUnique");
+    }
+
+    @Test
+    void aSavingsTargetCannotCarryASplit() {
+        GoalRequest req = new GoalRequest("Trip", GoalType.SAVINGS_TARGET, new BigDecimal("5000"),
+            LocalDate.now().plusYears(1), null, null, null, null,
+            List.of(line("CW8", "100")), List.of(1L));
+
+        assertThat(paths(req)).contains("allocationOnlyOnRecurring");
+    }
+
+    @Test
+    void aMissingMonthlyAmountReportsItselfRatherThanTheSplit() {
+        // On a half-filled form the useful message is "this plan needs a monthly amount", not a
+        // complaint about a total the user has not typed yet.
+        GoalRequest req = plan(null, line("CW8", "100"));
+
+        assertThat(paths(req))
+            .contains("recurringComplete")
+            .doesNotContain("allocationWithinMonthlyAmount");
+    }
+
+    @Test
+    void aSplitLineNeedsATickerAndAPositiveAmount() {
+        GoalRequest req = plan(new BigDecimal("400"), line("", "100"),
+            new GoalAllocationRequest("ESE", new BigDecimal("0")));
+
+        assertThat(paths(req))
+            .contains("allocations[0].ticker", "allocations[1].monthlyAmount")
+            // A blank ticker is its own problem; it must not also read as a duplicate.
+            .doesNotContain("allocationTickersUnique");
     }
 }

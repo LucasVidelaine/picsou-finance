@@ -328,6 +328,14 @@ export interface BalanceSnapshot {
 
 export type GoalType = 'SAVINGS_TARGET' | 'RECURRING_INVESTMENT'
 
+/** One line of a recurring plan's monthly split. */
+export interface GoalAllocation {
+  ticker: string
+  /** The holding's name in the funded account; the ticker is what identifies the line. */
+  name: string | null
+  monthlyAmount: number
+}
+
 export interface GoalProgress {
   id: number
   name: string
@@ -360,6 +368,13 @@ export interface GoalProgress {
   expectedReturn: number | null
   startDate: string | null
   endDate: string | null
+
+  /**
+   * Where the monthly amount goes. **Always an array** — empty for a savings target and for a
+   * plan nobody has detailed, never omitted. The backend sends `[]` on purpose here, against its
+   * own `non_null` rule, precisely so this can be mapped over without a guard.
+   */
+  allocations: GoalAllocation[]
 }
 
 export interface GoalRequest {
@@ -371,6 +386,8 @@ export interface GoalRequest {
   expectedReturn: number | null
   startDate: string | null
   endDate: string | null
+  /** Only tickers the funded account already holds; the backend answers 400 for any other. */
+  allocations: { ticker: string; monthlyAmount: number }[]
   accountIds: number[]
 }
 
@@ -1111,3 +1128,40 @@ export interface SecurityProfileRefresh {
   queuedTickers: number
   alreadyRunning: boolean
 }
+
+// --- Member profile (personal + fiscal context) ---
+
+export type HouseholdStatus = 'SINGLE' | 'COUPLE'
+export type RiskProfile = 'PRUDENT' | 'BALANCED' | 'DYNAMIC' | 'AGGRESSIVE'
+
+/**
+ * Every field is nullable and stays that way: null means "never stated", which is not the same
+ * as zero. The API omits nulls, so read these with `== null`, never `=== null`.
+ */
+export interface MemberProfile {
+  birthDate: string | null
+  /** Derived server-side from `birthDate`, so it cannot go stale in a cache. */
+  age: number | null
+  marginalTaxRate: number | null
+  householdStatus: HouseholdStatus | null
+  taxHouseholdParts: number | null
+  dependents: number | null
+  /** Gross: the figure a payslip states. Fiscal context; nothing is computed from it. */
+  annualGrossIncome: number | null
+  /** The payslip's "net à payer avant impôt" — after contributions, before withholding. */
+  monthlyNetBeforeTax: number | null
+  /** Taux de prélèvement à la source, in percent. */
+  withholdingTaxRate: number | null
+  /**
+   * What reaches the account: `monthlyNetBeforeTax × (1 − withholdingTaxRate)`, derived
+   * server-side. **Null unless both inputs are stated** — a blank rate means "not said", not
+   * zero, so the savings rate is withheld rather than built on a guess.
+   */
+  monthlyNetIncome: number | null
+  monthlySavingsCapacity: number | null
+  targetRetirementAge: number | null
+  riskProfile: RiskProfile | null
+}
+
+/** A full replacement: a null field clears what was stored. */
+export type MemberProfileRequest = Omit<MemberProfile, 'age' | 'monthlyNetIncome'>

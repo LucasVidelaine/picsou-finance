@@ -19,6 +19,11 @@ import java.util.List;
  * recurring plan reports {@code 0} and {@code true}. They are meaningless for it, and the client
  * must not render them — boxing them would have rippled a nullable through every savings-goal
  * call site to express something the {@code type} field already says.
+ *
+ * <p>{@code allocations} is <em>always a list</em> — empty for a savings target and for an
+ * undetailed plan, never null. That is deliberate against the {@code non_null} rule the rest of
+ * this record follows: an omitted key reaches TypeScript as {@code undefined}, and the client
+ * maps over this one. An empty array costs two bytes and removes the whole class of bug.
  */
 public record GoalProgressResponse(
     Long id,
@@ -39,7 +44,8 @@ public record GoalProgressResponse(
     BigDecimal monthlyAmount,
     BigDecimal expectedReturn,
     LocalDate startDate,
-    LocalDate endDate
+    LocalDate endDate,
+    List<GoalAllocationResponse> allocations
 ) {
     public static GoalProgressResponse from(
         Goal goal,
@@ -71,7 +77,9 @@ public record GoalProgressResponse(
             goal.getMonthlyAmount(),
             goal.getExpectedReturn(),
             goal.getStartDate(),
-            goal.getEndDate()
+            goal.getEndDate(),
+            // A savings target funds no positions; see the note above on why this is not null.
+            List.of()
         );
     }
 
@@ -80,12 +88,13 @@ public record GoalProgressResponse(
      * every month and what the account it funds is worth today.
      */
     public static GoalProgressResponse recurring(Goal goal, List<AccountResponse> accounts,
-                                                 BigDecimal currentTotal) {
+                                                 BigDecimal currentTotal,
+                                                 List<GoalAllocationResponse> allocations) {
         return new GoalProgressResponse(
             goal.getId(), goal.getName(), goal.getType(),
             null, null, goal.getCreatedAt(), goal.getHistoryStartMonth(), accounts,
             currentTotal, null, 0, null, null, true, null,
             goal.getMonthlyAmount(), goal.getExpectedReturn(),
-            goal.getStartDate(), goal.getEndDate());
+            goal.getStartDate(), goal.getEndDate(), allocations);
     }
 }

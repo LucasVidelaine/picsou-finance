@@ -1,6 +1,6 @@
 # Feature: Recurring investment plans and the wealth projection
 
-> Last updated: 2026-08-16
+> Last updated: 2026-08-19
 
 ## Context
 
@@ -160,6 +160,70 @@ This is the join the two panels never had. The pyramid knew today's gap, the cur
 total, and neither could say whether the plans close the gap or widen it. A tier no plan funds
 stays at zero however long the horizon — which is the observation worth acting on.
 
+### The monthly split
+
+A plan said *when* and *where* — 400 € a month into the PEA — and nothing about *into what*. The
+amount is a standing order; the split is a decision, and it is the half a member revisits.
+`goal_allocation` holds one row per line: `(goal_id, ticker, monthly_amount)`.
+
+**Keyed on the ticker, not on an `account_holding` id.** The sync paths delete and rebuild holding
+rows, so a foreign key there would evaporate on the first transient gap and take the split with
+it — the same reasoning as `holding_classification` in V81.
+
+**Only positions the account already holds.** `GoalService.replaceAllocations` reads the funded
+account's holdings and answers 400 for anything else, and the form offers that list rather than a
+text field. A plan describes money going into a position that exists; a wish list would need a
+price, a currency and a name from nowhere.
+
+**A partial split is legal.** The remainder reads as *unallocated*, on the card and in the form.
+Requiring the lines to sum exactly would mean nobody details a plan they have not finished
+thinking about. Over-allocating is not legal, and the form disables Save before the 422 has to
+say it.
+
+The sum rule is **not** a CHECK: it spans several rows and the parent table, which a row-level
+constraint cannot see. It is `GoalRequest.isAllocationWithinMonthlyAmount`, beside the existing
+cross-field rules — and it returns `true` on a null `monthlyAmount` so a half-filled form reports
+*"a recurring investment needs a monthly amount"* rather than complaining about a total nobody
+has typed yet.
+
+`Goal.allocations` is mapped with `orphanRemoval`, which makes the list's **identity**
+load-bearing: `setAllocations(new ArrayList<>(…))` makes Hibernate throw *"a collection with
+cascade=all-delete-orphan was no longer referenced"* instead of deleting the rows that went away.
+`replaceAllocations` mutates in place — `clear()` then `add()` — and is the only place that does.
+
+The split is **descriptive**: `ProjectionService` still reasons about `monthlyAmount` alone. Giving
+each line its own expected return is the obvious next step and a much larger one; nothing here
+depends on it.
+
+### The savings rate
+
+The Goals page divides what the running plans pay in every month by the **net** monthly income
+from [the member profile](./member-profile.md), and compares the result to the **17.5 %** French
+household average (`FRENCH_HOUSEHOLD_SAVINGS_RATE` in `lib/constants.ts`).
+
+Net, not gross, and this is the part worth reading twice: the "brut" in INSEE's *revenu
+disponible brut* means gross of capital consumption, **not** gross of tax — RDB is measured after
+compulsory levies. Dividing by a gross salary would understate the rate by roughly a quarter
+against a benchmark computed on net. The profile therefore asks for two payslip lines rather than
+one salary; see [member-profile.md](./member-profile.md).
+
+Three things the figure is careful about:
+
+- **Only the plans running this month count.** A plan starting next year or ended last one stays
+  on the page — it is a record the member keeps — but it is not money going out today.
+- **The sum is not ownership-weighted**, unlike `ProjectionService.monthlyInflowEur`. It sits
+  directly above the plan cards, which each print their raw `monthlyAmount`; two numbers
+  disagreeing on one screen is worse than being approximate about a joint account.
+- **No income, no rate.** `monthlyNetIncome` is null until *both* the net-before-tax figure and
+  the withholding rate are stated; the card then asks for them and links to Settings rather than
+  inventing a denominator — the same principle as the allocation-targets form, which never guesses
+  an expense on the member's behalf.
+
+The two rates are still not the same quantity — disposable income is household-wide and includes
+benefits and property income, and standing orders are not all of saving — so the tooltip quotes
+the definition rather than presenting the comparison as arithmetic. It answers "more or less than
+people around me", which is the question being asked.
+
 ### Reading the chart
 
 Every legend entry is a toggle for its curve, contributions included: five series is more than a
@@ -176,8 +240,13 @@ to a 1 / 2 / 2.5 / 5 × 10ⁿ figure so the ticks stay readable.
 - `backend/src/main/java/com/picsou/dto/GoalRequest.java` — the compact constructor and the `@AssertTrue` rules
 - `backend/src/main/java/com/picsou/service/GoalService.java` — `toRecurringResponse`, `requireSavingsTarget`
 - `backend/src/main/java/com/picsou/service/ProjectionService.java`
-- `backend/src/main/resources/db/migration/V83__goal_recurring_investment.sql`
+- `backend/src/main/java/com/picsou/model/GoalAllocation.java`
+- `backend/src/main/resources/db/migration/V83__goal_recurring_investment.sql`,
+  `V87__goal_allocation.sql`
 - `frontend/src/pages/goals/GoalsPage.tsx` — two sections, two form shapes, `RecurringPlanCard`
+- `frontend/src/pages/goals/AllocationPicker.tsx` — the split editor
+- `frontend/src/pages/goals/SavingsRateCard.tsx`, `plan-math.ts` — the savings rate and its
+  pure helpers
 - `frontend/src/pages/analysis/ProjectionSection.tsx`
 
 ## The bug this fixes
@@ -215,6 +284,12 @@ after.
 | Investable base only | A house does not compound at an equity rate | Projecting total net worth |
 | Yearly points from monthly maths | 480 × 4 points a chart cannot draw distinctly | Monthly points |
 | `monthsLeft`/`isOnTrack` stay primitives | Boxing them would ripple a nullable through every savings-goal call site to say what `type` already says | Making them nullable |
+| The split is keyed on the ticker | A FK to `account_holding` evaporates on the first sync gap | `account_holding_id` on the row |
+| Only positions already held | A wish list has no price, currency or name to show | Free-text tickers |
+| A partial split is legal | Nobody details a plan they have not finished thinking about | Requiring the lines to sum exactly |
+| `allocations` is always a list | An omitted key is `undefined` on the client, and it gets mapped over | Following `non_null` like the rest of the record |
+| The split is descriptive | Per-line returns are a much larger change, and nothing here needs it | Feeding it into `ProjectionService` |
+| The savings rate is computed client-side | Both operands are already on the page; a server figure would be a third source of the same number | An endpoint returning the rate |
 
 ## Gotchas / Pitfalls
 
@@ -239,6 +314,16 @@ after.
   friends arrive as `undefined`, so `=== null` is false and `.toFixed()` throws. Compare with
   `== null`, and write fixtures without the key rather than with an explicit `null` — see
   [`docs/conventions/api-rest.md`](../conventions/api-rest.md).
+- **`allocations` is always an array, deliberately against `non_null`.** Empty for a savings
+  target and for an undetailed plan, never omitted — the client maps over it, and an omitted key
+  arrives as `undefined`. This is the one field in `GoalProgressResponse` that does not follow the
+  rule in [`api-rest.md`](../conventions/api-rest.md), and it is on purpose.
+- **Never `setAllocations(new ArrayList<>(…))`.** `orphanRemoval` makes the collection's identity
+  load-bearing; replacing it throws instead of deleting. `clear()` + `add()`.
+- **Changing the funded account clears the split.** `toggleAccount` does it in the form, because
+  the tickers name positions of the old account and the backend would answer 400 for every one.
+- **The three new 422 keys are derived property names too**: `allocationOnlyOnRecurring`,
+  `allocationWithinMonthlyAmount`, `allocationTickersUnique`.
 - **`ALTER TABLE ... ADD CONSTRAINT` revalidates existing rows.** The migration test has to add
   the old constraint back as `NOT VALID` to reproduce production, where the row aged past its
   deadline while the constraint sat there unvalidated.
@@ -259,6 +344,17 @@ after.
 - `V83GoalTypeMigrationTest` — the UPDATE fails before the migration and succeeds after; a
   recurring row needs no target; a savings target still cannot be created without one
 - `McpToolCatalogTest`, `GoalToolsTest` — the fifth tool registered, the four unchanged
+- `GoalRequestTest` also covers the split: a partial one is valid, an exact one is valid, an
+  over-allocation and a duplicate ticker are not, a savings target cannot carry one, a blank
+  ticker does not also read as a duplicate, and a missing monthly amount reports itself first
+- `GoalServiceTest` — the split persists and is named from the account's holdings, an unheld
+  ticker is a 400 with nothing saved, an edit replaces the lines **without swapping the list**,
+  clearing the split leaves the holdings table untouched
+- `AllocationPicker.test.tsx` — the account's own holdings are what is offered, ticking adds and
+  removes a line, the remainder and the over-allocation messages, the two empty states
+- `SavingsRateCard.test.tsx` — the percentage, both sides of the benchmark, only the plans running
+  this month counted, the ask-for-income state instead of a computed-from-nothing rate, and
+  nothing rendered when no plan is paying in
 - `ProjectionSection.test.tsx` — rates from the payload, legend in payload order, base stated,
   empty state, the legend toggles hide and restore a series, and **the mix renders when the API
   omits a null `targetPercent`** rather than sending it; `e2e/goals.spec.ts` — the two sections
@@ -270,3 +366,4 @@ after.
 
 - Related: [Savings goals](./goals.md) — the shape that already existed
 - Related: [Wealth pyramid](./wealth-pyramid.md) — where `WealthTier` comes from
+- Related: [Member profile](./member-profile.md) — where the savings rate's income comes from

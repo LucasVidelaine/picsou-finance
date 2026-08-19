@@ -570,7 +570,7 @@
     "startDate": "Début",
     "endDate": "Fin",
     "until": "jusqu'au {{date}}",
-    "recurringHint": "Sans date de fin, le versement est considéré comme indéfini. Le rendement attendu est enregistré mais n'entre pas dans la projection, qui compare quatre hypothèses.",
+    "recurringHint": "Sans date de fin, le versement est considéré comme indéfini. Le rendement attendu, s'il est renseigné, est celui appliqué à ce plan dans la projection ; sinon c'est celui du type de compte.",
     "types": {
       "SAVINGS_TARGET": "Épargne à échéance",
       "RECURRING_INVESTMENT": "Investissement mensuel"
@@ -579,6 +579,28 @@
       "savings": "Objectifs d'épargne",
       "recurring": "Investissements récurrents",
       "recurringHint": "Ce que vous investissez chaque mois — c'est ce qui alimente la projection dans Analyse."
+    },
+    "allocation": {
+      "title": "Détail des positions",
+      "hint": "Répartissez le montant mensuel sur les lignes que ce compte détient déjà. Le reste apparaîtra comme non alloué.",
+      "pickAccountFirst": "Choisissez d'abord le compte alimenté.",
+      "noHoldings": "Ce compte ne détient encore aucune position.",
+      "amountFor": "Montant mensuel sur {{ticker}}",
+      "allocated": "Alloué",
+      "remaining": "reste",
+      "over": "dépassement de",
+      "unallocated": "Non alloué",
+      "toggle": "Afficher le détail des positions"
+    },
+    "savingsRate": {
+      "title": "Taux d'épargne",
+      "perMonth": "par mois",
+      "benchmarkLabel": "À propos de la moyenne française",
+      "benchmark": "Le taux d'épargne moyen des ménages en France s'établit autour de {{rate}} % de leur revenu disponible brut",
+      "above": "Au-dessus de la moyenne française ({{rate}} %)",
+      "below": "En dessous de la moyenne française ({{rate}} %)",
+      "needsIncome": "Renseignez votre net mensuel avant impôt et votre taux de prélèvement à la source pour voir votre taux d'épargne.",
+      "goToSettings": "Aller aux paramètres"
     }
   },
   "addAccount": {
@@ -972,7 +994,39 @@
     "sessionsRevoking": "Révocation...",
     "amounts": "Montants",
     "amountsVisible": "Visibles",
-    "amountsHidden": "Masqués"
+    "amountsHidden": "Masqués",
+    "profile": {
+      "title": "Profil",
+      "description": "Votre contexte personnel et fiscal",
+      "hint": "Ces informations restent chez vous. Elles servent à replacer votre portefeuille dans son contexte, notamment dans les données exportées.",
+      "birthDate": "Date de naissance",
+      "currentAge": "{{age}} ans",
+      "retirementAge": "Âge de retraite visé",
+      "marginalTaxRate": "Tranche marginale d'imposition (TMI)",
+      "householdStatus": "Situation du foyer",
+      "household": {
+        "SINGLE": "Célibataire",
+        "COUPLE": "En couple"
+      },
+      "taxHouseholdParts": "Parts fiscales",
+      "dependents": "Personnes à charge",
+      "annualGrossIncome": "Revenu brut annuel",
+      "incomeHint": "Le brut de votre fiche de paie. Sert de contexte fiscal ; le taux d'épargne, lui, se calcule sur le net ci-dessous.",
+      "netPay": "Ce qui tombe réellement sur le compte",
+      "netPayHint": "Les deux chiffres figurent sur votre fiche de paie. Le brut ne suffit pas : les cotisations sociales s'en déduisent d'abord, à un taux qui dépend de votre statut.",
+      "monthlyNetBeforeTax": "Net mensuel avant impôt",
+      "withholdingTaxRate": "Taux de prélèvement à la source (%)",
+      "netIncomeDerived": "Net mensuel perçu :",
+      "savingsCapacity": "Capacité d'épargne mensuelle",
+      "riskProfile": "Profil de risque",
+      "risk": {
+        "PRUDENT": "Prudent",
+        "BALANCED": "Équilibré",
+        "DYNAMIC": "Dynamique",
+        "AGGRESSIVE": "Offensif"
+      },
+      "saved": "Profil enregistré"
+    }
   },
   "accessKeys": {
     "sectionTitle": "Clés d'accès & MCP",

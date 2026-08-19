@@ -84,7 +84,8 @@
 | Crypto tracking | 2026-08-11 | [crypto-tracking.md](./features/crypto-tracking.md) |
 | Wealth pyramid (Analysis) | 2026-08-16 | [wealth-pyramid.md](./features/wealth-pyramid.md) |
 | Portfolio diversification (sector + geography) | 2026-08-15 | [portfolio-diversification.md](./features/portfolio-diversification.md) |
-| Recurring investment plans + wealth projection | 2026-08-16 | [goal-recurring-investment.md](./features/goal-recurring-investment.md) |
+| Recurring investment plans + wealth projection | 2026-08-19 | [goal-recurring-investment.md](./features/goal-recurring-investment.md) |
+| Member profile (age, TMI, income) | 2026-08-19 | [member-profile.md](./features/member-profile.md) |
 | Savings goals | 2026-06-02 | [goals.md](./features/goals.md) |
 | Goals — Grid view (donuts) | 2026-06-02 | [goal-calendar-donut.md](./features/goal-calendar-donut.md) |
 | Price service | 2026-08-07 | [price-service.md](./features/price-service.md) |
@@ -95,7 +96,7 @@
 | Realized P&L on closed positions | 2026-07-11 | [realized-pnl.md](./features/realized-pnl.md) |
 | Manual transactions + holdings derivation | 2026-04-21 | [manual-transactions.md](./features/manual-transactions.md) |
 | BoursoBank sync | 2026-08-13 | [bourso-bank.md](./features/bourso-bank.md) |
-| Accounts overview (PnL chart + summary card + filters + card anatomy) | 2026-08-13 | [accounts-overview.md](./features/accounts-overview.md) |
+| Accounts overview (PnL chart + summary card + filters + card anatomy + sortable positions) | 2026-08-19 | [accounts-overview.md](./features/accounts-overview.md) |
 | Logos on account cards (catalog-resolved, bundled, wallet picker, property kind) | 2026-08-13 | [bank-logos.md](./features/bank-logos.md) |
 | Add Account modal (unified sync + manual) | 2026-08-13 | [add-account-modal.md](./features/add-account-modal.md) |
 | Docker deployment | 2026-07-19 | [docker-deployment.md](./features/docker-deployment.md) |

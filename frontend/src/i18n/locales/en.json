@@ -570,7 +570,7 @@
     "startDate": "Start",
     "endDate": "End",
     "until": "until {{date}}",
-    "recurringHint": "With no end date the plan runs indefinitely. The expected return is recorded but does not feed the projection, which compares four assumptions.",
+    "recurringHint": "With no end date the plan runs indefinitely. The expected return, when given, is the rate this plan compounds at in the projection; otherwise the account type’s own rate applies.",
     "types": {
       "SAVINGS_TARGET": "Savings target",
       "RECURRING_INVESTMENT": "Monthly investment"
@@ -579,6 +579,28 @@
       "savings": "Savings goals",
       "recurring": "Recurring investments",
       "recurringHint": "What you invest every month — this is what feeds the projection in Analysis."
+    },
+    "allocation": {
+      "title": "Position breakdown",
+      "hint": "Split the monthly amount across positions this account already holds. Anything left over shows as unallocated.",
+      "pickAccountFirst": "Pick the funded account first.",
+      "noHoldings": "This account holds no positions yet.",
+      "amountFor": "Monthly amount on {{ticker}}",
+      "allocated": "Allocated",
+      "remaining": "remaining",
+      "over": "over by",
+      "unallocated": "Unallocated",
+      "toggle": "Show the position breakdown"
+    },
+    "savingsRate": {
+      "title": "Savings rate",
+      "perMonth": "per month",
+      "benchmarkLabel": "About the French average",
+      "benchmark": "The average savings rate of French households sits at around {{rate}}% of their gross disposable income",
+      "above": "Above the French average ({{rate}}%)",
+      "below": "Below the French average ({{rate}}%)",
+      "needsIncome": "Add your monthly net before tax and your withholding rate to see your savings rate.",
+      "goToSettings": "Go to settings"
     }
   },
   "addAccount": {
@@ -972,7 +994,39 @@
     "sessionsRevoking": "Revoking...",
     "amounts": "Amounts",
     "amountsVisible": "Visible",
-    "amountsHidden": "Hidden"
+    "amountsHidden": "Hidden",
+    "profile": {
+      "title": "Profile",
+      "description": "Your personal and tax context",
+      "hint": "This stays on your instance. It puts your portfolio in context, notably in exported data.",
+      "birthDate": "Date of birth",
+      "currentAge": "{{age}} years old",
+      "retirementAge": "Target retirement age",
+      "marginalTaxRate": "Marginal tax rate",
+      "householdStatus": "Household",
+      "household": {
+        "SINGLE": "Single",
+        "COUPLE": "Couple"
+      },
+      "taxHouseholdParts": "Tax household shares",
+      "dependents": "Dependents",
+      "annualGrossIncome": "Annual gross income",
+      "incomeHint": "The gross figure from your payslip. Fiscal context — the savings rate is computed on the net below.",
+      "netPay": "What actually reaches the account",
+      "netPayHint": "Both figures are on your payslip. Gross is not enough: social contributions come off first, at a rate that depends on your status.",
+      "monthlyNetBeforeTax": "Monthly net before tax",
+      "withholdingTaxRate": "Withholding tax rate (%)",
+      "netIncomeDerived": "Monthly net received:",
+      "savingsCapacity": "Monthly savings capacity",
+      "riskProfile": "Risk profile",
+      "risk": {
+        "PRUDENT": "Cautious",
+        "BALANCED": "Balanced",
+        "DYNAMIC": "Dynamic",
+        "AGGRESSIVE": "Aggressive"
+      },
+      "saved": "Profile saved"
+    }
   },
   "accessKeys": {
     "sectionTitle": "Access keys & MCP",

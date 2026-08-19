@@ -30,6 +30,7 @@ import {
   Pencil,
   Shield,
   KeyRound,
+  IdCard,
   ExternalLink,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -37,6 +38,7 @@ import { api } from '@/lib/api-client'
 import { APP_VERSION } from '@/lib/app-version'
 import { SecuritySection } from './security/SecuritySection'
 import { AccessKeysSection } from './sections/AccessKeysSection'
+import { ProfileSection } from './sections/ProfileSection'
 
 // ---------------------------------------------------------------------------
 // Toggle group button (theme / language)
@@ -317,6 +319,15 @@ export function SettingsPage() {
             </Button>
           </div>
         </div>
+      </SectionCard>
+
+      {/* Profile (personal + fiscal context) ------------------------------ */}
+      <SectionCard
+        icon={IdCard}
+        title={t('settings.profile.title')}
+        description={t('settings.profile.description')}
+      >
+        <ProfileSection />
       </SectionCard>
 
       {/* Security --------------------------------------------------------- */}

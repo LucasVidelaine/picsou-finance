@@ -22,6 +22,7 @@ export const mockGoals: GoalProgress[] = [
     avgMonthlyContribution: 320.0,
     isOnTrack: true,
     surplus: -34.78,
+    allocations: [],
   },
   {
     id: 2,
@@ -43,6 +44,7 @@ export const mockGoals: GoalProgress[] = [
     avgMonthlyContribution: 1450.0,
     isOnTrack: true,
     surplus: 76.67,
+    allocations: [],
   },
   {
     id: 3,
@@ -64,6 +66,7 @@ export const mockGoals: GoalProgress[] = [
     avgMonthlyContribution: 750.0,
     isOnTrack: false,
     surplus: -86.36,
+    allocations: [],
   },
   // A recurring plan, so the Goals page's second section and the projection both have content.
   {
@@ -86,5 +89,11 @@ export const mockGoals: GoalProgress[] = [
     avgMonthlyContribution: null,
     isOnTrack: true,
     surplus: null,
+    // Detailed on purpose, and only partly: 250 of the 300 is split, so the card's
+    // "unallocated" row has something to show.
+    allocations: [
+      { ticker: 'AAPL', name: 'Apple Inc.', monthlyAmount: 150 },
+      { ticker: 'MSFT', name: 'Microsoft Corp.', monthlyAmount: 100 },
+    ],
   },
 ]

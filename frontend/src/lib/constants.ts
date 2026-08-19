@@ -71,6 +71,23 @@ export const QUERY_STALE_TIMES = {
 } as const
 
 /**
+ * Households' savings rate in France, as a share of gross disposable income (INSEE).
+ *
+ * The benchmark the goals page compares a member's own rate against.
+ *
+ * **"Gross disposable income" is gross of capital consumption, not of tax.** RDB is measured
+ * after compulsory levies, so its base is a net-of-tax concept -- which is why the member's side
+ * divides by their net income and not by a gross salary. Reading the "brut" the other way once
+ * cost this feature a denominator about a quarter too large.
+ *
+ * The two are still not the same quantity: this one is household-wide national-accounts saving,
+ * the member's is their recurring plans over the net they stated. Close enough to answer "am I
+ * saving more or less than people around me", not close enough to be a statistic -- which is why
+ * the tooltip quotes the definition rather than just the number.
+ */
+export const FRENCH_HOUSEHOLD_SAVINGS_RATE = 17.5
+
+/**
  * Length of the SMS verification code (TAN) Trade Republic sends during device
  * pairing. Shared by every TR entry point (AddAccountModal, SyncAllModal,
  * TradeRepublicTab) so client-side validation stays consistent.

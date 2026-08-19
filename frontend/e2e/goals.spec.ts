@@ -45,4 +45,40 @@ test.describe('Goals page', () => {
     await expect(page.getByLabel('Montant mensuel')).toBeVisible()
     await expect(page.getByLabel('Montant cible')).toHaveCount(0)
   })
+
+  test('should reveal a plan position breakdown from its card', async ({ page }) => {
+    const card = page.locator('div').filter({ hasText: 'DCA mensuel PEA' }).last()
+    // Collapsed by default: the split is detail, the monthly amount is the headline.
+    await expect(page.getByText('Non alloué')).toHaveCount(0)
+
+    await card.getByRole('button', { name: 'Afficher le détail des positions' }).click()
+
+    await expect(page.getByText('AAPL')).toBeVisible()
+    // The demo plan splits 250 of its 300, so the remainder has to be stated.
+    await expect(page.getByText('Non alloué')).toBeVisible()
+  })
+
+  test('should split a monthly amount across positions the account already holds', async ({ page }) => {
+    await page.getByRole('button', { name: 'Nouvel objectif' }).click()
+    await page.getByRole('button', { name: 'Investissement mensuel' }).click()
+    await page.getByLabel('Montant mensuel').fill('400')
+
+    // No account picked yet, so there is nothing legitimate to split across.
+    await expect(page.getByText("Choisissez d'abord le compte alimenté.")).toBeVisible()
+
+    await page.getByText('PEA BoursoBank').click()
+    await page.getByText('AAPL').click()
+    await page.getByLabel('Montant mensuel sur AAPL').fill('500')
+
+    // Over the plan's own amount: refused here, before the 422 has to say it.
+    await expect(page.getByRole('button', { name: 'Enregistrer' })).toBeDisabled()
+
+    await page.getByLabel('Montant mensuel sur AAPL').fill('250')
+    await expect(page.getByRole('button', { name: 'Enregistrer' })).toBeEnabled()
+  })
+
+  test('should compare the savings rate against the French average', async ({ page }) => {
+    await expect(page.getByText("Taux d'épargne")).toBeVisible()
+    await expect(page.getByText(/moyenne française/)).toBeVisible()
+  })
 })

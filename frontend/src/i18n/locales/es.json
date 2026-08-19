@@ -570,7 +570,7 @@
     "startDate": "Inicio",
     "endDate": "Fin",
     "until": "hasta el {{date}}",
-    "recurringHint": "Sin fecha de fin el plan es indefinido. La rentabilidad esperada se guarda pero no alimenta la proyección, que compara cuatro hipótesis.",
+    "recurringHint": "Sin fecha de fin el plan es indefinido. La rentabilidad esperada, si se indica, es la que se aplica a este plan en la proyección; si no, se usa la del tipo de cuenta.",
     "types": {
       "SAVINGS_TARGET": "Objetivo de ahorro",
       "RECURRING_INVESTMENT": "Inversión mensual"
@@ -579,6 +579,28 @@
       "savings": "Objetivos de ahorro",
       "recurring": "Inversiones recurrentes",
       "recurringHint": "Lo que inviertes cada mes — es lo que alimenta la proyección en Análisis."
+    },
+    "allocation": {
+      "title": "Desglose de posiciones",
+      "hint": "Reparte el importe mensual entre las posiciones que esta cuenta ya tiene. Lo que sobre aparecerá como no asignado.",
+      "pickAccountFirst": "Elige primero la cuenta que se alimenta.",
+      "noHoldings": "Esta cuenta aún no tiene ninguna posición.",
+      "amountFor": "Importe mensual en {{ticker}}",
+      "allocated": "Asignado",
+      "remaining": "resto",
+      "over": "exceso de",
+      "unallocated": "Sin asignar",
+      "toggle": "Mostrar el desglose de posiciones"
+    },
+    "savingsRate": {
+      "title": "Tasa de ahorro",
+      "perMonth": "al mes",
+      "benchmarkLabel": "Sobre la media francesa",
+      "benchmark": "La tasa de ahorro media de los hogares en Francia se sitúa en torno al {{rate}} % de su renta bruta disponible",
+      "above": "Por encima de la media francesa ({{rate}} %)",
+      "below": "Por debajo de la media francesa ({{rate}} %)",
+      "needsIncome": "Indica tu neto mensual antes de impuestos y tu tipo de retención para ver tu tasa de ahorro.",
+      "goToSettings": "Ir a ajustes"
     }
   },
   "addAccount": {
@@ -972,7 +994,39 @@
     "sessionsRevoking": "Revocando...",
     "amounts": "Importes",
     "amountsVisible": "Visibles",
-    "amountsHidden": "Ocultos"
+    "amountsHidden": "Ocultos",
+    "profile": {
+      "title": "Perfil",
+      "description": "Tu contexto personal y fiscal",
+      "hint": "Esta información se queda en tu instancia. Sirve para situar tu cartera en contexto, sobre todo en los datos exportados.",
+      "birthDate": "Fecha de nacimiento",
+      "currentAge": "{{age}} años",
+      "retirementAge": "Edad de jubilación objetivo",
+      "marginalTaxRate": "Tipo marginal de IRPF",
+      "householdStatus": "Situación del hogar",
+      "household": {
+        "SINGLE": "Soltero/a",
+        "COUPLE": "En pareja"
+      },
+      "taxHouseholdParts": "Partes fiscales",
+      "dependents": "Personas a cargo",
+      "annualGrossIncome": "Ingresos brutos anuales",
+      "incomeHint": "El importe bruto de tu nómina. Contexto fiscal — la tasa de ahorro se calcula sobre el neto de abajo.",
+      "netPay": "Lo que llega realmente a la cuenta",
+      "netPayHint": "Ambas cifras están en tu nómina. El bruto no basta: primero se descuentan las cotizaciones sociales, a un tipo que depende de tu situación.",
+      "monthlyNetBeforeTax": "Neto mensual antes de impuestos",
+      "withholdingTaxRate": "Tipo de retención (%)",
+      "netIncomeDerived": "Neto mensual percibido:",
+      "savingsCapacity": "Capacidad de ahorro mensual",
+      "riskProfile": "Perfil de riesgo",
+      "risk": {
+        "PRUDENT": "Prudente",
+        "BALANCED": "Equilibrado",
+        "DYNAMIC": "Dinámico",
+        "AGGRESSIVE": "Agresivo"
+      },
+      "saved": "Perfil guardado"
+    }
   },
   "accessKeys": {
     "sectionTitle": "Claves de acceso y MCP",

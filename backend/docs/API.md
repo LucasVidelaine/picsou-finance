@@ -857,7 +857,17 @@ written before the field existed keep working unchanged.
 | `targetAmount`, `deadline` | required | must be absent |
 | `monthlyAmount` | — | required |
 | `expectedReturn`, `startDate`, `endDate` | — | optional |
+| `allocations` | must be empty | optional |
 | `accountIds` | one or more | exactly one |
+
+`allocations` splits `monthlyAmount` across positions the funded account **already holds**:
+`[{ "ticker": "CW8", "monthlyAmount": 250.00 }, …]`. It may be omitted (read as an empty list),
+it may cover only part of the monthly amount — the remainder is simply unallocated — but it may
+never exceed it, repeat a ticker, or name a ticker the account does not hold (`400`).
+
+In the response each line carries the holding's `name` as well. **`allocations` is always present
+as an array**, empty for a savings target and for an undetailed plan — deliberately unlike every
+other nullable field here, because clients map over it.
 
 In the response, the target machinery (`targetAmount`, `deadline`, `percentComplete`,
 `monthlyNeeded`, `surplus`) is null for a recurring plan and dropped from the JSON. `monthsLeft`
@@ -866,7 +876,10 @@ type; discriminate on `type`, not on absence.**
 
 **Errors:** `422` for a type/field mismatch. Those rules are cross-field, so the `errors` map keys
 them under derived property names — `savingsTargetComplete`, `recurringComplete`,
-`recurringSingleAccount`, `dateRangeOrdered` — not under a field name.
+`recurringSingleAccount`, `dateRangeOrdered`, `allocationOnlyOnRecurring`,
+`allocationWithinMonthlyAmount`, `allocationTickersUnique` — not under a field name.
+`400` (not `422`) for an allocation ticker the funded account does not hold: the client picks from
+that account's own holdings, so an unknown one is a malformed request rather than a typo.
 
 The monthly calendar and the history backfill (`/months`, `/history/extend`,
 `/months/{yearMonth}` and their manual-contribution variants) apply to `SAVINGS_TARGET` only and
@@ -891,7 +904,8 @@ answer `400` for a recurring plan: they count towards a deadline it does not hav
     "monthlyNeeded": 200.00,
     "avgMonthlyContribution": 150.00,
     "isOnTrack": true,
-    "surplus": -50.00
+    "surplus": -50.00,
+    "allocations": []
   }
 ]
 ```
@@ -916,8 +930,13 @@ answer `400` for a recurring plan: they count towards a deadline it does not hav
 | Field | Type | Constraints |
 |-------|------|-------------|
 | `name` | `string` | @NotBlank, max 200 |
-| `targetAmount` | `number` | @NotNull, @DecimalMin("0.01") |
-| `deadline` | `string` | @NotNull, @Future, ISO-8601 date |
+| `type` | `string` | Optional; `SAVINGS_TARGET` (default) or `RECURRING_INVESTMENT` |
+| `targetAmount` | `number` | @DecimalMin("0.01"); required for a savings target |
+| `deadline` | `string` | @Future, ISO-8601 date; required for a savings target |
+| `monthlyAmount` | `number` | @DecimalMin("0.01"); required for a recurring plan |
+| `expectedReturn` | `number` | −100 … 100, percent per year |
+| `startDate`, `endDate` | `string` | ISO-8601 dates; `endDate` must follow `startDate` |
+| `allocations` | `object[]` | `{ ticker (max 30), monthlyAmount (≥ 0.01) }`; recurring only |
 | `accountIds` | `number[]` | @NotEmpty, list of account IDs |
 
 **Response `201` — `GoalProgressResponse`.**
@@ -1761,3 +1780,75 @@ Domain failures use `422` RFC 7807 responses. Unlike Bourse Direct and Amundi,
 DEGIRO does not yet set a stable `code` property — clients should treat the
 absence of a code as a generic sync failure rather than parsing `detail`.
 Authentication rate limiting returns `429`.
+
+---
+
+### 17. Member profile — `/api/me/profile`
+
+The authenticated member's personal and fiscal context: age, marginal tax rate, household,
+income, savings capacity, retirement horizon, risk profile. Read by the Goals page's savings
+rate, and intended as context for exported data.
+
+**Every field is optional and nullable.** A member who has never stated anything has no row at
+all, and reading returns an all-null profile without creating one. `PUT` is a **full
+replacement**: an omitted field clears what was stored, which is how a figure is withdrawn.
+
+Two fields are derived and read-only:
+
+- `age`, from `birthDate` — the date is what is stored, since an age is wrong the morning after a
+  birthday.
+- `monthlyNetIncome` = `monthlyNetBeforeTax × (1 − withholdingTaxRate / 100)`, rounded to cents.
+  **Null unless both inputs are stated**: a blank withholding rate means "not said", not zero.
+
+`annualGrossIncome` is fiscal context and feeds nothing — gross cannot reach net without a social
+contribution rate, which this API deliberately does not ask for or assume.
+
+#### `GET /api/me/profile`
+
+- **Auth:** Required
+
+**Response `200` — `MemberProfileResponse`:**
+```json
+{
+  "birthDate": "1990-06-14",
+  "age": 36,
+  "marginalTaxRate": 30.00,
+  "householdStatus": "COUPLE",
+  "taxHouseholdParts": 2.50,
+  "dependents": 1,
+  "annualGrossIncome": 48000.00,
+  "monthlyNetBeforeTax": 2750.00,
+  "withholdingTaxRate": 7.30,
+  "monthlyNetIncome": 2549.25,
+  "monthlySavingsCapacity": 900.00,
+  "targetRetirementAge": 62,
+  "riskProfile": "DYNAMIC"
+}
+```
+
+Null fields are omitted from the JSON, as everywhere else in this API.
+
+---
+
+#### `PUT /api/me/profile`
+
+- **Auth:** Required
+
+**Request body — `MemberProfileRequest`:**
+| Field | Type | Constraints |
+|-------|------|-------------|
+| `birthDate` | `string` | @Past, ISO-8601 date |
+| `marginalTaxRate` | `number` | 0 … 100, **percent** (30 means 30 %, not 0.30) |
+| `householdStatus` | `string` | `SINGLE` or `COUPLE` |
+| `taxHouseholdParts` | `number` | 1 … 20 |
+| `dependents` | `number` | 0 … 20 |
+| `annualGrossIncome` | `number` | ≥ 0; fiscal context, feeds nothing |
+| `monthlyNetBeforeTax` | `number` | ≥ 0; the payslip's "net à payer avant impôt" |
+| `withholdingTaxRate` | `number` | 0 … 100, percent (taux de prélèvement à la source) |
+| `monthlySavingsCapacity` | `number` | ≥ 0 |
+| `targetRetirementAge` | `number` | 40 … 90 |
+| `riskProfile` | `string` | `PRUDENT`, `BALANCED`, `DYNAMIC` or `AGGRESSIVE` |
+
+**Response `200` — `MemberProfileResponse`** (same shape as above).
+
+**Errors:** 422

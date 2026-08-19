@@ -1,11 +1,13 @@
 package com.picsou.dto;
 
 import com.picsou.model.GoalType;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * One request shape for both kinds of goal.
@@ -32,6 +34,9 @@ public record GoalRequest(
     LocalDate startDate,
     LocalDate endDate,
 
+    /** How the monthly amount is split across positions the funded account already holds. */
+    @Valid List<GoalAllocationRequest> allocations,
+
     @NotEmpty List<Long> accountIds
 ) {
 
@@ -42,13 +47,16 @@ public record GoalRequest(
      */
     public GoalRequest {
         if (type == null) type = GoalType.SAVINGS_TARGET;
+        // Normalised for the same reason: a caller that has never heard of the split sends no
+        // key at all, and every reader downstream should see an empty list rather than a null.
+        if (allocations == null) allocations = List.of();
     }
 
     /** The classic shape, so call sites that only ever build one do not thread five nulls. */
     public static GoalRequest savingsTarget(String name, BigDecimal targetAmount,
                                             LocalDate deadline, List<Long> accountIds) {
         return new GoalRequest(name, GoalType.SAVINGS_TARGET, targetAmount, deadline,
-            null, null, null, null, accountIds);
+            null, null, null, null, List.of(), accountIds);
     }
 
     /** A monthly plan funding one account. */
@@ -56,7 +64,7 @@ public record GoalRequest(
                                                   BigDecimal expectedReturn, LocalDate startDate,
                                                   LocalDate endDate, Long accountId) {
         return new GoalRequest(name, GoalType.RECURRING_INVESTMENT, null, null,
-            monthlyAmount, expectedReturn, startDate, endDate, List.of(accountId));
+            monthlyAmount, expectedReturn, startDate, endDate, List.of(), List.of(accountId));
     }
 
     @AssertTrue(message = "a savings target needs both a target amount and a deadline")
@@ -82,5 +90,45 @@ public record GoalRequest(
     @AssertTrue(message = "the end date must come after the start date")
     public boolean isDateRangeOrdered() {
         return startDate == null || endDate == null || endDate.isAfter(startDate);
+    }
+
+    /** A savings target funds no positions: there is no monthly amount for them to split. */
+    @AssertTrue(message = "only a recurring investment can split its monthly amount")
+    public boolean isAllocationOnlyOnRecurring() {
+        return type == GoalType.RECURRING_INVESTMENT || allocations.isEmpty();
+    }
+
+    /**
+     * The split may cover part of the monthly amount — the remainder simply reads as unallocated —
+     * but never more than it.
+     *
+     * <p>True when {@code monthlyAmount} is null so "a recurring investment needs a monthly
+     * amount" is the message the user sees on a half-filled form, rather than a confusing
+     * complaint about a total they have not typed yet. Same shape as
+     * {@code AllocationTargetsRequest.isSummingToOneHundred}.
+     */
+    @AssertTrue(message = "the split cannot exceed the monthly amount")
+    public boolean isAllocationWithinMonthlyAmount() {
+        if (monthlyAmount == null || allocations.isEmpty()) return true;
+        BigDecimal total = allocations.stream()
+            .map(GoalAllocationRequest::monthlyAmount)
+            .filter(Objects::nonNull)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return total.compareTo(monthlyAmount) <= 0;
+    }
+
+    /**
+     * One line per ticker. Without this the duplicate would reach
+     * {@code uk_goal_allocation_goal_ticker} and surface as a 500 instead of a 422.
+     */
+    @AssertTrue(message = "a position can only appear once in the split")
+    public boolean isAllocationTickersUnique() {
+        // Compared against the non-null tickers rather than against allocations.size(), so a
+        // blank ticker fails only its own @NotBlank instead of also reporting a phantom duplicate.
+        List<String> tickers = allocations.stream()
+            .map(GoalAllocationRequest::ticker)
+            .filter(Objects::nonNull)
+            .toList();
+        return tickers.stream().distinct().count() == tickers.size();
     }
 }

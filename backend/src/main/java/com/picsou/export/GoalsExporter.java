@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.picsou.model.Account;
 import com.picsou.model.AppUser;
 import com.picsou.model.Goal;
+import com.picsou.model.GoalAllocation;
 import com.picsou.model.GoalContributor;
 import com.picsou.model.GoalManualContribution;
 import com.picsou.model.GoalMonthOverride;
@@ -115,6 +116,20 @@ class GoalsExporter implements EntityExporter {
                 writeBigDecimal(json, "amount", m.getAmount());
                 if (m.getMember() != null) json.writeNumberField("member_id", m.getMember().getId());
                 json.writeEndObject();
+            }
+            json.writeEndArray();
+
+            // The recurring plan's monthly split. Nested in the JSON view only: the CSV header
+            // above is positional, and a consumer's file misaligns silently if it changes.
+            json.writeArrayFieldStart("allocations");
+            if (g.getAllocations() != null) {
+                for (GoalAllocation a : g.getAllocations()) {
+                    json.writeStartObject();
+                    json.writeNumberField("id", a.getId());
+                    json.writeStringField("ticker", a.getTicker());
+                    writeBigDecimal(json, "monthly_amount", a.getMonthlyAmount());
+                    json.writeEndObject();
+                }
             }
             json.writeEndArray();
 

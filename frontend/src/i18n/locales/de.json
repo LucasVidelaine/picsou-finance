@@ -570,7 +570,7 @@
     "startDate": "Beginn",
     "endDate": "Ende",
     "until": "bis {{date}}",
-    "recurringHint": "Ohne Enddatum läuft der Plan unbefristet. Die erwartete Rendite wird gespeichert, fließt aber nicht in die Projektion ein, die vier Annahmen vergleicht.",
+    "recurringHint": "Ohne Enddatum läuft der Plan unbefristet. Die erwartete Rendite ist, sofern angegeben, der Satz, mit dem dieser Plan in der Projektion verzinst wird; sonst gilt der Satz der Kontoart.",
     "types": {
       "SAVINGS_TARGET": "Sparziel",
       "RECURRING_INVESTMENT": "Monatliche Anlage"
@@ -579,6 +579,28 @@
       "savings": "Sparziele",
       "recurring": "Wiederkehrende Anlagen",
       "recurringHint": "Was du jeden Monat anlegst — das speist die Projektion in der Analyse."
+    },
+    "allocation": {
+      "title": "Aufteilung der Positionen",
+      "hint": "Teile den Monatsbetrag auf Positionen auf, die dieses Konto bereits hält. Was übrig bleibt, erscheint als nicht zugeteilt.",
+      "pickAccountFirst": "Wähle zuerst das Konto aus, das bespart wird.",
+      "noHoldings": "Dieses Konto hält noch keine Positionen.",
+      "amountFor": "Monatsbetrag für {{ticker}}",
+      "allocated": "Zugeteilt",
+      "remaining": "Rest",
+      "over": "überschritten um",
+      "unallocated": "Nicht zugeteilt",
+      "toggle": "Aufteilung der Positionen anzeigen"
+    },
+    "savingsRate": {
+      "title": "Sparquote",
+      "perMonth": "pro Monat",
+      "benchmarkLabel": "Zum französischen Durchschnitt",
+      "benchmark": "Die durchschnittliche Sparquote der Haushalte in Frankreich liegt bei rund {{rate}} % ihres verfügbaren Bruttoeinkommens",
+      "above": "Über dem französischen Durchschnitt ({{rate}} %)",
+      "below": "Unter dem französischen Durchschnitt ({{rate}} %)",
+      "needsIncome": "Trage dein monatliches Netto vor Steuern und deinen Quellensteuersatz ein, um deine Sparquote zu sehen.",
+      "goToSettings": "Zu den Einstellungen"
     }
   },
   "addAccount": {
@@ -972,7 +994,39 @@
     "sessionsRevoking": "Wird widerrufen...",
     "amounts": "Beträge",
     "amountsVisible": "Sichtbar",
-    "amountsHidden": "Ausgeblendet"
+    "amountsHidden": "Ausgeblendet",
+    "profile": {
+      "title": "Profil",
+      "description": "Dein persönlicher und steuerlicher Kontext",
+      "hint": "Diese Angaben bleiben bei dir. Sie ordnen dein Portfolio ein, insbesondere in exportierten Daten.",
+      "birthDate": "Geburtsdatum",
+      "currentAge": "{{age}} Jahre",
+      "retirementAge": "Angestrebtes Rentenalter",
+      "marginalTaxRate": "Grenzsteuersatz",
+      "householdStatus": "Haushalt",
+      "household": {
+        "SINGLE": "Alleinstehend",
+        "COUPLE": "In Partnerschaft"
+      },
+      "taxHouseholdParts": "Steuerliche Anteile",
+      "dependents": "Unterhaltsberechtigte",
+      "annualGrossIncome": "Jährliches Bruttoeinkommen",
+      "incomeHint": "Der Bruttobetrag deiner Gehaltsabrechnung. Steuerlicher Kontext — die Sparquote wird auf den Nettobetrag unten berechnet.",
+      "netPay": "Was tatsächlich auf dem Konto ankommt",
+      "netPayHint": "Beide Angaben stehen auf deiner Gehaltsabrechnung. Brutto allein genügt nicht: zuerst gehen die Sozialabgaben ab, zu einem Satz, der von deinem Status abhängt.",
+      "monthlyNetBeforeTax": "Monatliches Netto vor Steuern",
+      "withholdingTaxRate": "Quellensteuersatz (%)",
+      "netIncomeDerived": "Monatliches Netto:",
+      "savingsCapacity": "Monatliche Sparfähigkeit",
+      "riskProfile": "Risikoprofil",
+      "risk": {
+        "PRUDENT": "Vorsichtig",
+        "BALANCED": "Ausgewogen",
+        "DYNAMIC": "Dynamisch",
+        "AGGRESSIVE": "Offensiv"
+      },
+      "saved": "Profil gespeichert"
+    }
   },
   "accessKeys": {
     "sectionTitle": "Zugriffsschlüssel & MCP",
