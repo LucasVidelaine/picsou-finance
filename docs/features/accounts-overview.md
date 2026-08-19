@@ -1,6 +1,6 @@
 # Feature: Accounts Overview (PnL chart + summary card + asset type filters)
 
-> Last updated: 2026-08-18
+> Last updated: 2026-08-19
 
 ## Context
 
@@ -69,6 +69,33 @@ The glyphs come from `frontend/src/lib/property-icons.ts` (`PROPERTY_KIND_ICONS`
 `AddPropertyModal`'s kind picker shares so a property looks the same wherever it is shown.
 They are keyed on `RealEstateMetadata.propertyKind` — the backend's `PropertyKind.parse` of
 the free-text `property_type` column — never on the raw string.
+
+### Sorting the position tables
+
+Every column of the three tables on the account detail page — `HoldingsTable`,
+`PositionsByProduct` and `RealizedPnlSection` — is a sort key. `useTableSort`
+(`frontend/src/hooks/use-table-sort.ts`) holds the state locally, per the
+[UI-filter ADR](../decisions/2026-04-05-component-local-state-for-ui-filters.md), and
+`SortableTableHead` wraps the shadcn `TableHead` rather than editing it.
+
+Three rules the comparator carries, each of which was a way to get this wrong:
+
+- **Nulls sink to the bottom in both directions.** A dash means "we could not price this line",
+  not zero — the same distinction `PositionsByProduct` already makes when it refuses to publish a
+  subtotal over an unpriced row. Ordering null as the smallest value would float the lines we know
+  least about to the top of an ascending sort.
+- **The sort is stable and never in place.** Rows that tie keep the order the API sent them in, so
+  sorting on a column that is empty for every visible row is a no-op rather than a shuffle.
+- **Text compares through an `Intl.Collator`.** "Élan" starts at U+00C9, above `Z` in code-point
+  order; a raw `<` would file every accented fund name after "Zeta".
+
+The default is **value, descending** — the biggest line first is what the reader is nearly always
+after. `PositionsByProduct` keeps **one** sort for its three product sections and applies it inside
+each: the SPOT/STAKING/LENDING sequence is editorial, not data, and survives any column picked.
+
+`AccountDetailPage` passes `key={accountId}` to all three, which is what resets the sort when the
+reader moves to another account — React Router keeps the same component across a change of `:id`,
+so without the key a sort chosen on one portfolio would silently carry over to the next.
 
 ### Summary card
 
@@ -224,6 +251,13 @@ AccountsPage
   may be missing), the valuation date replaces the sync date, and the unrealized gain is
   gone. Glyph assertions match lucide's own `lucide-<icon>` class. A second block covers the
   stale badge: flagged past 48h, the plain last-sync line below it, never on a manual account.
+- `frontend/src/hooks/use-table-sort.test.ts` — direction flips, a new column starting at its
+  natural direction, nulls last both ways, collator ordering, stability, and that the caller's
+  array is never mutated.
+- `HoldingsTable.test.tsx` — opens on the largest position, a column flips, ticker sorts
+  alphabetically while P&L sorts numerically, an unpriced line stays at the bottom either way, and
+  `aria-sort` follows the active column. `PositionsByProduct.test.tsx` adds the one-sort-three-
+  sections case.
 - Nothing covers the PnL chart, the summary card or the filters yet.
 
 ## Links

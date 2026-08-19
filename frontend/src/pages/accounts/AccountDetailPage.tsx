@@ -189,13 +189,18 @@ export function AccountDetailPage() {
       ) : null}
 
       {/* Holdings — grouped by product when the connector reports one (crypto exchanges),
-          otherwise the flat table. */}
+          otherwise the flat table.
+
+          Both are keyed on the account id so their column sort resets when the reader moves to
+          another account. This route keeps the same component across a change of :id, so without
+          the key a sort chosen on one portfolio would silently carry over to the next. */}
       {showHoldings && (
         holdings ? (
           positions && positions.length > 0 ? (
-            <PositionsByProduct positions={positions} />
+            <PositionsByProduct key={accountId} positions={positions} />
           ) : (
             <HoldingsTable
+              key={accountId}
               holdings={holdings}
               onEdit={setEditingHolding}
               onDelete={(h) => deleteHoldingMutation.mutate(h.ticker)}
@@ -211,7 +216,7 @@ export function AccountDetailPage() {
       )}
 
       {/* Realized P&L on closed positions (investment accounts only) */}
-      {showHoldings && <RealizedPnlSection accountId={accountId} enabled={showHoldings} />}
+      {showHoldings && <RealizedPnlSection key={accountId} accountId={accountId} enabled={showHoldings} />}
 
       {/* Transactions */}
       {!isLoan && (transactions ? (
