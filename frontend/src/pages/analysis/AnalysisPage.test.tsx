@@ -12,6 +12,8 @@ vi.mock('@/features/analysis/hooks', () => ({
   useAllocationTargets: () => useAllocationTargets(),
   useDiversification: () => ({ data: undefined }),
   useProjection: () => ({ data: undefined }),
+  // Stubbed identity: the chart is mocked out below, so only the hook's presence matters here.
+  useProjectionDateLabel: () => (date: string) => date,
   useEssentialExpenseEstimate: () => ({ data: undefined }),
   useSaveAllocationTargets: () => ({ mutate: vi.fn(), isPending: false }),
 }))

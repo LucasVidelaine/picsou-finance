@@ -224,6 +224,26 @@ benefits and property income, and standing orders are not all of saving — so t
 the definition rather than presenting the comparison as arithmetic. It answers "more or less than
 people around me", which is the question being asked.
 
+### Reading a point on the curve
+
+Both projection tabs label a hovered point with `useProjectionDateLabel`
+(`features/analysis/hooks.ts`), which answers two separate complaints about a date forty years
+out:
+
+- **It follows the app's date-format setting.** The tooltips printed the payload's raw
+  `yyyy-MM-dd`, so a member who had chosen `DD-MM-YYYY` in Settings read `2042-08-31` here and
+  `31-08-2042` everywhere else in Picsou.
+- **It carries the age the member will be**, when a birth date is stated. A year is an
+  abstraction; "at 58" is the thing actually being decided about.
+  `MemberProfileResponse.age` is today's age and no use here — this is the age *on that point's
+  date*, so it is computed per point on the client with `ageAt` (`lib/utils.ts`). A point falling
+  before that year's birthday reports the lower age, which is why it is not a subtraction of
+  years.
+
+The label lives in the feature's hooks rather than beside either chart so the two tabs of one
+card cannot drift apart on how a date is written — they had already drifted once, since only one
+of them went through a formatter at all.
+
 ### Reading the chart
 
 Every legend entry is a toggle for its curve, contributions included: five series is more than a
@@ -247,7 +267,8 @@ to a 1 / 2 / 2.5 / 5 × 10ⁿ figure so the ticks stay readable.
 - `frontend/src/pages/goals/AllocationPicker.tsx` — the split editor
 - `frontend/src/pages/goals/SavingsRateCard.tsx`, `plan-math.ts` — the savings rate and its
   pure helpers
-- `frontend/src/pages/analysis/ProjectionSection.tsx`
+- `frontend/src/pages/analysis/ProjectionSection.tsx`,
+  `AllocationTrajectory.tsx` — the two tabs, both labelled by `useProjectionDateLabel`
 
 ## The bug this fixes
 
@@ -355,6 +376,10 @@ after.
 - `SavingsRateCard.test.tsx` — the percentage, both sides of the benchmark, only the plans running
   this month counted, the ask-for-income state instead of a computed-from-nothing rate, and
   nothing rendered when no plan is paying in
+- `features/analysis/hooks.test.tsx` — the projected date follows the format setting, carries the
+  age on that date, and falls back to the date alone with no birth date or before the profile
+  loads; `lib/utils.test.ts` covers `ageAt` itself (completed years, the birthday turning over,
+  timezone independence, malformed input, a negative age)
 - `ProjectionSection.test.tsx` — rates from the payload, legend in payload order, base stated,
   empty state, the legend toggles hide and restore a series, and **the mix renders when the API
   omits a null `targetPercent`** rather than sending it; `e2e/goals.spec.ts` — the two sections

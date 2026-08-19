@@ -7,6 +7,8 @@ import type { Projection } from '@/types/api'
 const useProjection = vi.fn()
 vi.mock('@/features/analysis/hooks', () => ({
   useProjection: (years: number) => useProjection(years),
+  // Stubbed identity: the chart is mocked out below, so only the hook's presence matters here.
+  useProjectionDateLabel: () => (date: string) => date,
 }))
 
 vi.mock('react-i18next', () => ({

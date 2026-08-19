@@ -309,7 +309,8 @@
       "blendNote": "Tasa efectiva de su mezcla: cada aportación capitaliza al tipo de su soporte.",
       "tier": "Bolsa",
       "today": "Hoy",
-      "atHorizon": "En {{count}} años"
+      "atHorizon": "En {{count}} años",
+      "atAge": "{{age}} años"
     },
     "classification": {
       "title": "Clasificar este valor",

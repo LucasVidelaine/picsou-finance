@@ -309,7 +309,8 @@
       "blendNote": "Effective blended rate: each contribution compounds at its own vehicle's rate.",
       "tier": "Tier",
       "today": "Today",
-      "atHorizon": "In {{count}} years"
+      "atHorizon": "In {{count}} years",
+      "atAge": "age {{age}}"
     },
     "classification": {
       "title": "Classify this security",

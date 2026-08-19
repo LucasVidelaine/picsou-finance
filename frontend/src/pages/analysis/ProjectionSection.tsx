@@ -10,7 +10,7 @@ import {
   ChartTooltip,
   type ChartConfig,
 } from '@/components/ui/chart'
-import { useProjection } from '@/features/analysis/hooks'
+import { useProjection, useProjectionDateLabel } from '@/features/analysis/hooks'
 import { useMoney } from '@/hooks/use-money'
 import { MoneyChartTooltip } from '@/components/shared/MoneyChartTooltip'
 import { cn } from '@/lib/utils'
@@ -52,6 +52,7 @@ function niceCeiling(value: number): number {
 
 export function ProjectionSection() {
   const { t } = useTranslation()
+  const dateLabel = useProjectionDateLabel()
   const [years, setYears] = useState<number>(20)
   // Two questions, one card: how much, and in what. Tabs rather than two cards because they
   // share a horizon — switching view must not lose it.
@@ -222,7 +223,15 @@ export function ProjectionSection() {
                   // Ticks over decades run to seven figures; the full currency format would not fit.
                   tickFormatter={(value: number) => money.compact(value, { maximumFractionDigits: 1 })}
                 />
-                <ChartTooltip content={<MoneyChartTooltip config={config} indicator="line" />} />
+                <ChartTooltip
+                  content={
+                    <MoneyChartTooltip
+                      config={config}
+                      indicator="line"
+                      labelFormatter={(value) => dateLabel(String(value))}
+                    />
+                  }
+                />
                 {!hidden.has(CONTRIBUTED_KEY) && (
                   <Area
                     type="monotone"

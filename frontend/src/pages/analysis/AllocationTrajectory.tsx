@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
 import { CurrencyDisplay } from '@/components/shared/CurrencyDisplay'
+import { useProjectionDateLabel } from '@/features/analysis/hooks'
 import { SLICE_PALETTE } from '@/lib/chart-palette'
 import type { AllocationPoint, WealthTier } from '@/types/api'
 
@@ -34,6 +35,8 @@ const TIER_COLOR: Record<WealthTier, string> = {
  */
 export function AllocationTrajectory({ allocation }: { allocation: AllocationPoint[] }) {
   const { t } = useTranslation()
+  // Above the early return: hooks must run unconditionally.
+  const dateLabel = useProjectionDateLabel()
   if (allocation.length === 0) return null
 
   const config = Object.fromEntries(
@@ -71,7 +74,14 @@ export function AllocationTrajectory({ allocation }: { allocation: AllocationPoi
             domain={[0, 100]}
             tickFormatter={(value: number) => `${value}%`}
           />
-          <ChartTooltip content={<ChartTooltipContent indicator="line" />} />
+          <ChartTooltip
+            content={
+              <ChartTooltipContent
+                indicator="line"
+                labelFormatter={(value) => dateLabel(String(value))}
+              />
+            }
+          />
           {TIER_ORDER.map((tier) => (
             <Area
               key={tier}

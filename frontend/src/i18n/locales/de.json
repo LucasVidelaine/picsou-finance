@@ -309,7 +309,8 @@
       "blendNote": "Effektiver Mischsatz: jede Einzahlung verzinst sich zum Satz ihres Trägers.",
       "tier": "Stufe",
       "today": "Heute",
-      "atHorizon": "In {{count}} Jahren"
+      "atHorizon": "In {{count}} Jahren",
+      "atAge": "{{age}} Jahre"
     },
     "classification": {
       "title": "Wertpapier einordnen",

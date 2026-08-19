@@ -150,6 +150,28 @@ export function formatLocalDate(dateStr: string | null | undefined, locale = get
   return new Intl.DateTimeFormat(locale, { day: '2-digit', month: 'long', year: 'numeric' }).format(toDate(dateStr))
 }
 
+/**
+ * Completed years between two `yyyy-MM-dd` dates — someone's age on a given day.
+ *
+ * Computed on the string parts rather than through `Date`: the projection asks this about dates
+ * twenty years out, and building two `Date` objects to subtract them would reintroduce exactly
+ * the local-midnight problem `toDate` exists to avoid, for no gain.
+ *
+ * Returns null if either date is malformed, and a negative number is possible (a date before the
+ * birth) — callers decide whether that is meaningful.
+ */
+export function ageAt(birthDate: string, at: string): number | null {
+  const born = birthDate.split('-').map(Number)
+  const on = at.split('-').map(Number)
+  if (born.length !== 3 || on.length !== 3) return null
+  if ([...born, ...on].some((part) => !Number.isFinite(part))) return null
+
+  const [bornYear, bornMonth, bornDay] = born
+  const [year, month, day] = on
+  const hadBirthday = month > bornMonth || (month === bornMonth && day >= bornDay)
+  return year - bornYear - (hadBirthday ? 0 : 1)
+}
+
 export function formatTimeAgo(dateStr: string | null | undefined, locale = getLocale()): string {
   if (!dateStr) return '—'
   const diff = Date.now() - new Date(dateStr).getTime()
