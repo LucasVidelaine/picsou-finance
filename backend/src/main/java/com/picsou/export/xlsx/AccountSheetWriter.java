@@ -55,6 +55,13 @@ final class AccountSheetWriter {
     private void writeHeader(SheetCursor cursor, AccountResponse a) {
         cursor.title(a.name());
         cursor.field(label(ACCOUNT_TYPE), a.type());
+        // Right under the type, where a reader looks for what kind of wrapper this is: for a PEA
+        // or an assurance-vie the opening date is half of that answer, since the tax treatment
+        // is a function of the plan's age. Written only when stated -- and never derived from
+        // createdAt, which dates the row rather than the plan.
+        if (a.openedAt() != null) {
+            cursor.field(label(OPENED_AT), a.openedAt());
+        }
         cursor.field(label(PROVIDER), a.provider());
         cursor.field(label(CURRENCY), a.currency());
         cursor.field(label(BALANCE), a.currentBalance());

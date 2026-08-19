@@ -98,8 +98,12 @@ workbook deliberately steps outside the selection.
 
 ### What an account sheet contains
 
-Every sheet opens with the account's identity — type, provider, currency, balance, balance in EUR,
-cash balance, ownership share, last sync, creation date. Then whichever of these the account
+Every sheet opens with the account's identity — type, **opening date** where one is stated,
+provider, currency, balance, balance in EUR, cash balance, ownership share, last sync, creation
+date. The opening date sits directly under the type because for a PEA or an assurance-vie it is
+half of what "what kind of wrapper is this" means: the taxation is a function of the plan's age.
+It is written only when the member has stated it, and never derived from `createdAt`, which dates
+the row rather than the plan. Then whichever of these the account
 actually has; a passbook gets the header and stops there.
 
 | Block | Shown when | Columns |

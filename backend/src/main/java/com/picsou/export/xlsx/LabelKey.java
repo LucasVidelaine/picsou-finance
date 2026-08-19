@@ -67,6 +67,7 @@ public enum LabelKey {
     SHARE_PERCENT("Ownership share"),
     LAST_SYNCED_AT("Last synced"),
     CREATED_AT("Created"),
+    OPENED_AT("Opened"),
 
     // ─── Positions ───────────────────────────────────────────────────────────
     POSITIONS("Positions"),

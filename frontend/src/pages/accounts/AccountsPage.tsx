@@ -88,6 +88,7 @@ type AccountFormData = {
   startDate?: string
   endDate?: string
   linkedAccountId?: number
+  openedAt?: string
 }
 
 export function AccountsPage() {
@@ -266,6 +267,9 @@ export function AccountsPage() {
       logoKey: data.logoKey || undefined,
       // Set only when a bank was picked from the catalog; the backend resolves its logo from it.
       institutionId: data.institutionId,
+      // Undefined leaves the stored date alone, which is what an account type that never offers
+      // the field should do -- see AccountRequest.
+      openedAt: data.openedAt || undefined,
     }
     await updateAccount.mutateAsync({ id: editingAccount.id, data: request })
     if (data.type === 'LOAN' && data.borrowedAmount && data.borrowedAmount > 0) {
@@ -309,6 +313,7 @@ export function AccountsPage() {
       color: editingAccount.color,
       ticker: editingAccount.ticker ?? '',
       logoKey: editingAccount.logoKey ?? '',
+      openedAt: editingAccount.openedAt ?? '',
       ...(debt
         ? {
             borrowedAmount: debt.borrowedAmount,

@@ -97,6 +97,26 @@ each: the SPOT/STAKING/LENDING sequence is editorial, not data, and survives any
 reader moves to another account — React Router keeps the same component across a change of `:id`,
 so without the key a sort chosen on one portfolio would silently carry over to the next.
 
+### Opening date
+
+`account.opened_at` (V89) records when a wrapper was opened, as the member states it. The account
+form offers it for the types whose taxation turns on the plan's age — `PEA` and `ASSURANCE_VIE`,
+listed in `OPENING_DATE_TYPES` — and the xlsx export prints it under the account's type.
+
+**It is not `created_at`.** That column dates the Picsou row; a PEA opened in 2014 and typed in
+last month has ten years between the two, and the ten years are the point. Nothing backfills it
+for the same reason: no existing row can know its own opening date, and deriving one from
+`created_at` would put a fabricated fiscal anniversary in an export.
+
+**A null in `AccountRequest.openedAt` means "leave it alone", not "clear it"** — the same rule
+`logoKey` carries, and for the same reason: the MCP `update_account` tool has no such parameter
+and sends null on every call, so treating it as a clear would wipe the date the first time an
+agent renamed the account. The cost is that the form can change the date but not blank it.
+
+The column is deliberately general rather than `pea_opened_at`: a PER, a PEA-PME and an
+assurance-vie all have the same shape of rule at different thresholds. Extending the field to
+another type is one entry in `OPENING_DATE_TYPES`.
+
 ### Summary card
 
 A `Card` at the top of the page shows the total balance for the filtered accounts. When the filter
@@ -180,6 +200,8 @@ It also injects each account's current balance at today's date if no snapshot ex
 
 ### Key files
 
+- `frontend/src/components/shared/AccountForm.tsx` — `OPENING_DATE_TYPES` and the date field
+- `backend/src/main/resources/db/migration/V89__account_opened_at.sql`
 - `frontend/src/pages/accounts/AccountsPage.tsx` — page with summary card, PnL chart, and grid
 - `frontend/src/components/shared/AccountCard.tsx` — one card; `AccountAvatar` / `PropertyAvatar`
 - `frontend/src/lib/property-icons.ts` — `PROPERTY_KIND_ICONS`, shared with `AddPropertyModal`
@@ -258,6 +280,8 @@ AccountsPage
   alphabetically while P&L sorts numerically, an unpriced line stays at the bottom either way, and
   `aria-sort` follows the active column. `PositionsByProduct.test.tsx` adds the one-sort-three-
   sections case.
+- `AccountsWorkbookServiceTest` — the opening date is written on the account sheet, and the line
+  is absent rather than blank when none is stated.
 - Nothing covers the PnL chart, the summary card or the filters yet.
 
 ## Links

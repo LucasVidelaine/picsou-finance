@@ -423,6 +423,31 @@ class AccountsWorkbookServiceTest {
         assertThat(rowIndexOf(summary, "Recurring investments")).isEqualTo(-1);
     }
 
+    // ─── Opening date ────────────────────────────────────────────────────────
+
+    @Test
+    void anOpeningDate_isWrittenOnTheAccountSheet() throws IOException {
+        // A PEA's whole tax treatment is a function of this date, and createdAt cannot stand in:
+        // a plan opened in 2014 and typed in last month has a decade between the two.
+        stubAccount(bank(1L, "PEA", AccountType.PEA)
+            .withOpenedAt(LocalDate.parse("2014-03-12")));
+
+        Sheet sheet = export(List.of(1L)).getSheet("PEA");
+
+        assertThat(sheet.getRow(rowIndexOf(sheet, "Opened")).getCell(1).getLocalDateTimeCellValue()
+            .toLocalDate()).isEqualTo(LocalDate.parse("2014-03-12"));
+    }
+
+    @Test
+    void noOpeningDate_leavesTheLineOut() throws IOException {
+        // Absent rather than blank: nothing here should suggest a date was recorded.
+        stubAccount(bank(1L, "PEA", AccountType.PEA));
+
+        Sheet sheet = export(List.of(1L)).getSheet("PEA");
+
+        assertThat(rowIndexOf(sheet, "Opened")).isEqualTo(-1);
+    }
+
     // ─── Debt ────────────────────────────────────────────────────────────────
 
     @Test
@@ -555,7 +580,7 @@ class AccountsWorkbookServiceTest {
         return new AccountResponse(id, name, type, "BoursoBank", "EUR",
             new BigDecimal("1234.56"), new BigDecimal("1234.56"), null,
             Instant.parse("2026-08-18T06:00:00Z"), false, "#6366f1", null, null, null,
-            Instant.parse("2026-01-01T00:00:00Z"), null, null, null, true);
+            Instant.parse("2026-01-01T00:00:00Z"), null, null, null, null, true);
     }
 
     private PropertyValuation valuation(LocalDate valuedAt, String estimate) {

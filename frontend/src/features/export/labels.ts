@@ -19,7 +19,7 @@ const LABEL_KEYS = [
   'debtSheet', 'debts', 'noDebt', 'debtScopeNote', 'totalBorrowed', 'totalOutstanding',
   'totalMonthlyPayment', 'loanAccount', 'propertyDebt',
   'accountName', 'accountType', 'provider', 'currency', 'balance', 'balanceEur',
-  'cashBalance', 'sharePercent', 'lastSyncedAt', 'createdAt',
+  'cashBalance', 'sharePercent', 'lastSyncedAt', 'createdAt', 'openedAt',
   'positions', 'ticker', 'positionName', 'quantity', 'averageBuyIn', 'currentPrice',
   'quoteCurrency', 'currentValueEur', 'costBasisEur', 'pnlEur', 'pnlPercent',
   'priceAsOf', 'priceStale',

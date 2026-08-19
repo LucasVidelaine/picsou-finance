@@ -217,7 +217,8 @@ Rotates `access_token`/`refresh_token` (old refresh token is invalidated) whenev
     "ticker": null,
     "logoUrl": null,
     "logoKey": null,
-    "createdAt": "2024-06-01T08:00:00Z"
+    "createdAt": "2024-06-01T08:00:00Z",
+    "openedAt": "2014-03-12"
   }
 ]
 ```
@@ -226,6 +227,10 @@ Rotates `access_token`/`refresh_token` (old refresh token is invalidated) whenev
 Banking only). `logoKey` names a logo bundled with the frontend — set on on-chain wallet
 accounts, whose `provider` is a bare ticker, and settable by a client only on an account
 that already carries one; see [the feature notes](../../docs/features/bank-logos.md).
+
+`openedAt` is when the member says the wrapper was opened — omitted when they never have. It is
+**not** `createdAt`, which dates the Picsou row: a PEA opened in 2014 and typed in last month has
+a decade between the two, and the five-year tax clock runs from the former.
 
 ---
 
@@ -255,6 +260,7 @@ that already carries one; see [the feature notes](../../docs/features/bank-logos
 | `color` | `string` | Hex pattern | Display color, e.g. `"#6366f1"` |
 | `ticker` | `string` | max 20 | Ticker for price lookup (optional) |
 | `logoKey` | `string` | `^[a-z0-9-]{1,32}$` | Bundled frontend logo to show, e.g. `"ledger"` (optional). Honoured only on a `CRYPTO` account that already stores a key, i.e. an on-chain wallet — ignored on `POST` and on any other account, so a key can be swapped but never attached. Omitting it on `PUT` keeps the stored value: it is never cleared by a client that doesn't know about it |
+| `openedAt` | `string` | @PastOrPresent, ISO-8601 date | When the wrapper was opened (optional). Relevant to the types whose taxation turns on the plan's age — a PEA at five years, an assurance-vie at eight. **Omitting it on `PUT` keeps the stored value**, for the same reason as `logoKey`: the MCP `update_account` tool has no such parameter, and treating null as "clear" would erase the date on any unrelated update. It can therefore be changed but not blanked |
 
 **Response `201` — `AccountResponse`.**
 

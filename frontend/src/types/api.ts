@@ -211,6 +211,12 @@ export interface Account {
   /** Key of a bundled frontend asset (`lib/provider-logos.ts`); null for accounts with no choice made. */
   logoKey: string | null
   createdAt: string
+  /**
+   * When the member says the wrapper was opened — a PEA's fifth anniversary and an
+   * assurance-vie's eighth turn on it. Distinct from `createdAt`, which dates the Picsou row.
+   * Omitted by the API when never stated.
+   */
+  openedAt?: string | null
   realEstate?: RealEstateMetadata
   debt?: DebtInfo
   /** Set only when the member owns less than all of it — the co-ownership badge signal. */
@@ -235,6 +241,12 @@ export interface AccountRequest {
    * resolve the logo (never sent as a URL — see `docs/features/bank-logos.md`) and not stored.
    */
   institutionId?: string
+  /**
+   * ISO date. **Omitting it leaves the stored value alone** — the backend cannot tell an absent
+   * field from a cleared one, and treating null as "clear" would let any client that predates
+   * the field wipe it. The form can change the date but not blank it.
+   */
+  openedAt?: string | null
 }
 
 export interface RealEstateMetadataRequest {
