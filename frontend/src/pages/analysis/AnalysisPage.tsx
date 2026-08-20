@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChartPie, SlidersHorizontal } from 'lucide-react'
+import { Pyramid, SlidersHorizontal } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ErrorState } from '@/components/shared/ErrorState'
@@ -50,7 +50,7 @@ export function AnalysisPage() {
       {pyramid.data && !hasWealth && (
         <EmptyState
           className="flex-1"
-          icon={<ChartPie className="size-12" />}
+          icon={<Pyramid className="size-12" />}
           title={t('analysis.empty.title')}
           description={t('analysis.empty.description')}
         />
