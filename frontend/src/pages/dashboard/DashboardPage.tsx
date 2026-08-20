@@ -170,9 +170,10 @@ export function DashboardPage() {
           <div className="flex items-center gap-3">
             <AlertTriangle className="size-4 shrink-0 text-destructive" />
             <p className="text-sm font-medium text-destructive">
-              {failedBanks.length === 1
-                ? `${failedBanks[0].institutionName} could not sync.`
-                : `${failedBanks.length} bank connections could not sync.`}
+              {t('dashboard.bankSyncFailed', {
+                count: failedBanks.length,
+                institution: failedBanks[0].institutionName,
+              })}
             </p>
           </div>
           <Button
@@ -181,7 +182,7 @@ export function DashboardPage() {
             className="shrink-0 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
             onClick={() => setShowSyncModal(true)}
           >
-            Fix connections
+            {t('dashboard.fixConnections')}
           </Button>
         </div>
       )}
