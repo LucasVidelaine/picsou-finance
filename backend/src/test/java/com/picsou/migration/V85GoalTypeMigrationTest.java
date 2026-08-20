@@ -73,7 +73,7 @@ class V85GoalTypeMigrationTest {
 
     @BeforeAll
     static void migrateAndSeed() throws SQLException {
-        migrateTo("82");
+        migrateTo("84");
 
         try (Connection c = connection(); Statement st = c.createStatement()) {
             // goal only references family_member; app_user is not needed to exercise the
@@ -119,7 +119,7 @@ class V85GoalTypeMigrationTest {
     @Test
     @Order(2)
     void anExpiredGoalCanBeUpdatedAgainAfterTheMigration() throws SQLException {
-        migrateTo("83");
+        migrateTo("85");
 
         try (Connection c = connection(); Statement st = c.createStatement()) {
             assertThatCode(() -> st.execute("UPDATE goal SET name = 'renamed' WHERE id = 1"))
@@ -137,7 +137,7 @@ class V85GoalTypeMigrationTest {
     @Test
     @Order(3)
     void aRecurringPlanNeedsNoTargetAndNoDeadline() throws SQLException {
-        migrateTo("83");
+        migrateTo("85");
 
         try (Connection c = connection(); Statement st = c.createStatement()) {
             assertThatCode(() -> st.execute(
@@ -150,7 +150,7 @@ class V85GoalTypeMigrationTest {
     @Test
     @Order(4)
     void aSavingsTargetStillCannotBeCreatedWithoutATarget() throws SQLException {
-        migrateTo("83");
+        migrateTo("85");
 
         try (Connection c = connection(); Statement st = c.createStatement()) {
             // Dropping the NOT NULLs without the per-type CHECK would have allowed exactly this.

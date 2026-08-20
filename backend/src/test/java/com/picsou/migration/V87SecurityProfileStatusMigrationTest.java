@@ -65,7 +65,7 @@ class V87SecurityProfileStatusMigrationTest {
 
     @BeforeAll
     static void migrateAndSeed() throws SQLException {
-        migrateTo("84");
+        migrateTo("86");
         try (Connection c = connection(); Statement st = c.createStatement()) {
             // A share that resolved.
             st.execute("INSERT INTO security_profile (id, ticker, asset_type, sector_key, refreshed_at) "
@@ -85,7 +85,7 @@ class V87SecurityProfileStatusMigrationTest {
     @Test
     @Order(1)
     void aResolvedProfileIsMarkedOkAndKeepsItsTimestamp() throws SQLException {
-        migrateTo("85");
+        migrateTo("87");
 
         try (Connection c = connection(); Statement st = c.createStatement();
              ResultSet rs = st.executeQuery(

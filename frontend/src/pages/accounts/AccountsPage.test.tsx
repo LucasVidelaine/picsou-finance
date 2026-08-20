@@ -7,12 +7,21 @@ import type { NetWorthPoint } from '@/features/history/api'
 const useAccounts = vi.fn()
 const useHistory = vi.fn()
 
-vi.mock('@/features/accounts/hooks', () => ({
+vi.mock('@/features/accounts/hooks', async (importActual) => ({
+  // useAccountTree is a pure useMemo over the accounts handed in -- it groups Revolut pockets
+  // under their wallet. Stubbing it would stub out the grouping these cases render through, so
+  // the real one stays and only the query hooks are replaced.
+  ...(await importActual<typeof import('@/features/accounts/hooks')>()),
   useAccounts: () => useAccounts(),
   useAccountDeletionImpact: () => ({ data: undefined }),
   useUpdateAccount: () => ({ mutate: vi.fn(), isPending: false }),
   useDeleteAccount: () => ({ mutate: vi.fn(), isPending: false }),
   useUpdateDebtMetadata: () => ({ mutate: vi.fn(), isPending: false }),
+}))
+
+// The savings-suggestion banner is a query of its own and has nothing to say about gain/loss.
+vi.mock('@/features/savings/hooks', () => ({
+  useSavingsSuggestions: () => ({ data: undefined }),
 }))
 
 vi.mock('@/features/history/hooks', () => ({
@@ -89,7 +98,7 @@ describe('AccountsPage — Immobilier gain / loss', () => {
     selectRealEstate()
 
     // 300 000 - 250 000 = +50 000, i.e. +20.0 %
-    expect(screen.getByText('dashboard.netWorthChange')).toBeInTheDocument()
+    expect(screen.getByText('dashboard.portfolioPerformance')).toBeInTheDocument()
     expect(screen.getByText('(+20.0%)')).toBeInTheDocument()
   })
 
@@ -113,7 +122,7 @@ describe('AccountsPage — Immobilier gain / loss', () => {
     render(<AccountsPage />)
     selectRealEstate()
 
-    expect(screen.queryByText('dashboard.netWorthChange')).not.toBeInTheDocument()
+    expect(screen.queryByText('dashboard.portfolioPerformance')).not.toBeInTheDocument()
     expect(screen.queryByTestId('pnl-chart')).not.toBeInTheDocument()
   })
 

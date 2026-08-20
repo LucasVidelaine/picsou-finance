@@ -73,7 +73,7 @@ class V86SecurityProfileIsinMigrationTest {
 
     @BeforeAll
     static void migrateAndSeed() throws SQLException {
-        migrateTo("83");
+        migrateTo("85");
         try (Connection c = connection(); Statement st = c.createStatement()) {
             st.execute("INSERT INTO security_profile (ticker, asset_type, sector_key, refreshed_at) "
                 + "VALUES ('AI.PA', 'STOCK', 'basic_materials', NOW())");
@@ -94,7 +94,7 @@ class V86SecurityProfileIsinMigrationTest {
     @Test
     @Order(2)
     void afterTheMigrationAnIsinOnlyRowIsSeedableAndReadsAsNeverResolved() throws SQLException {
-        migrateTo("84");
+        migrateTo("86");
 
         try (Connection c = connection(); Statement st = c.createStatement()) {
             assertThatCode(() -> st.execute(
