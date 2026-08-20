@@ -119,7 +119,7 @@ only exists if the two are recorded apart.
 - `dto/MemberProfileRequest.java` / `MemberProfileResponse.java`
 - `service/MemberProfileService.java` — modelled on `AllocationTargetService`
 - `controller/MeProfileController.java` — `GET` / `PUT /api/me/profile`
-- `db/migration/V88__member_profile.sql`
+- `db/migration/V90__member_profile.sql`
 
 **Frontend**
 - `features/profile/{api,hooks}.ts` — `useMemberProfile`, `useSaveMemberProfile`, key `['me','profile']`
@@ -139,7 +139,7 @@ only exists if the two are recorded apart.
 | Net from two payslip lines | Exact, and assumes no contribution rate | Deriving net from gross with a stored ~23 % assumption |
 | Gross kept but computed from nothing | Genuine fiscal context for the export; it just cannot reach net | Dropping it, or dividing it by 12 for the savings rate |
 | `monthlyNetIncome` null unless both inputs are given | A blank rate is "not said"; treating it as 0 fabricates the denominator | Defaulting the withholding rate to 0 |
-| `VARCHAR` + named `CHECK` for the two enums | Same reasoning as V81: no native enum has been added since V21, and it sidesteps `ALTER TYPE … ADD VALUE` | `CREATE TYPE` |
+| `VARCHAR` + named `CHECK` for the two enums | Same reasoning as V83: no native enum has been added since V21, and it sidesteps `ALTER TYPE … ADD VALUE` | `CREATE TYPE` |
 | Bracket buttons, numeric column | Fits nearly everyone without making the schema French-only | A `NUMERIC` free field, or an enum of brackets |
 | Under `/api/me` | Data about the person, not an app preference — the namespace `MeExportController` already uses | `/api/settings/profile` |
 
@@ -177,7 +177,7 @@ only exists if the two are recorded apart.
   **0 %** leaves it untouched, it stays **null while either input is missing**, and the gross is
   carried through without ever feeding it
 - `MeProfileControllerTest` — both verbs take the member id from `UserContext`
-- `SchemaMappingValidationTest` — the entity matches what V88 creates, against real PostgreSQL
+- `SchemaMappingValidationTest` — the entity matches what V90 creates, against real PostgreSQL
 - `locales-parity.test.ts` — `settings.profile.*` present in all four locales
 
 ## Links

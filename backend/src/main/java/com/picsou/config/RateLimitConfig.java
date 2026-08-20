@@ -76,6 +76,17 @@ public class RateLimitConfig {
     }
 
     /**
+     * Per-IP Revolut enrolment rate limiter: 5 attempts per 15 minutes.
+     * The sidecar's own login is already rate-limited by Revolut itself (spec §3.5: repeated
+     * WEB logins trigger captchas/throttling within hours), but this endpoint just receives a
+     * storageState blob -- still worth bounding against abuse of the encryption/DB write path.
+     */
+    @Bean("revolutAuthBuckets")
+    public Map<String, Bucket> revolutAuthBuckets() {
+        return boundedBucketStore();
+    }
+
+    /**
      * Per-IP Bourse Direct auth rate limiter: 5 attempts per 15 minutes.
      */
     @Bean("bourseDirectAuthBuckets")
@@ -182,6 +193,18 @@ public class RateLimitConfig {
     }
 
     /**
+     * Per-IP merchant-logo proxy rate limiter: 60 requests per minute.
+     * Generous because a single page can render many avatars, but bounded so the
+     * opt-in proxy can't be turned into an open relay against the upstream icon
+     * service. Cache hits still count — the bucket protects the network egress, not
+     * just the cache.
+     */
+    @Bean("logoBuckets")
+    public Map<String, Bucket> logoBuckets() {
+        return boundedBucketStore();
+    }
+
+    /**
      * Per-key MCP rate limiter: keyed by access-key id (not IP), since one key may serve many
      * tool calls from a single AI client. Lives in the {@code AccessKeyAuthFilter}, which creates
      * a bucket lazily on first use — only after the key has resolved to a valid one, so the key
@@ -202,6 +225,17 @@ public class RateLimitConfig {
      */
     @Bean("accessKeyCreateBuckets")
     public Map<Long, Bucket> accessKeyCreateBuckets() {
+        return boundedBucketStore();
+    }
+
+    /**
+     * Per-IP OAuth2 Dynamic Client Registration limiter: 10 registrations per 15 minutes.
+     * {@code POST /oauth2/register} is unauthenticated by design (RFC 7591) so a remote-MCP client
+     * can self-register before login — that openness makes IP throttling the only guard against a
+     * flood of throwaway {@code oauth2_registered_client} rows.
+     */
+    @Bean("oauthRegisterBuckets")
+    public Map<String, Bucket> oauthRegisterBuckets() {
         return boundedBucketStore();
     }
 
@@ -233,6 +267,15 @@ public class RateLimitConfig {
     }
 
     public static Bucket createBoursoAuthBucket() {
+        return Bucket.builder()
+            .addLimit(Bandwidth.builder()
+                .capacity(5)
+                .refillIntervally(5, Duration.ofMinutes(15))
+                .build())
+            .build();
+    }
+
+    public static Bucket createRevolutAuthBucket() {
         return Bucket.builder()
             .addLimit(Bandwidth.builder()
                 .capacity(5)
@@ -335,6 +378,15 @@ public class RateLimitConfig {
             .build();
     }
 
+    public static Bucket createLogoBucket() {
+        return Bucket.builder()
+            .addLimit(Bandwidth.builder()
+                .capacity(60)
+                .refillIntervally(60, Duration.ofMinutes(1))
+                .build())
+            .build();
+    }
+
     /**
      * Per-key MCP throttle: 120 requests per minute. Generous enough for an interactive AI client
      * (each user turn can fan out into several tool calls) while capping a runaway or hostile key.
@@ -358,6 +410,21 @@ public class RateLimitConfig {
             .addLimit(Bandwidth.builder()
                 .capacity(10)
                 .refillIntervally(10, Duration.ofMinutes(60))
+                .build())
+            .build();
+    }
+
+    /**
+     * Per-IP DCR throttle: 10 client registrations per 15 minutes. Generous enough that a legitimate
+     * operator re-registering a few MCP clients (or retrying after a fixed request) never gets
+     * blocked, while bounding an anonymous flood against the open {@code POST /oauth2/register}
+     * endpoint.
+     */
+    public static Bucket createOauthRegisterBucket() {
+        return Bucket.builder()
+            .addLimit(Bandwidth.builder()
+                .capacity(10)
+                .refillIntervally(10, Duration.ofMinutes(15))
                 .build())
             .build();
     }

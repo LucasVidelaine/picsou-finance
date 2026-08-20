@@ -32,6 +32,7 @@ vi.mock('@/features/family/api', () => ({
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => key,
+    i18n: { language: 'fr', changeLanguage: () => {} },
   }),
 }))
 

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { CLASSIC_SETTINGS_NAV_ITEM, NAV_ITEMS } from './sidebar-nav-items'
+import { LanguageToggle } from './LanguageToggle'
 
 /**
  * The bar carries the same routes as the sidebar, plus Settings — which on mobile has no other
@@ -11,7 +12,8 @@ import { CLASSIC_SETTINGS_NAV_ITEM, NAV_ITEMS } from './sidebar-nav-items'
  * It used to keep its own hardcoded copy of the route list with the brand logo centred between
  * two pairs of items. Adding a fifth route left no honest way to keep that symmetry, and a
  * private copy of the list was one more place to forget a route, so both went: one registry,
- * evenly spaced items, and the logo stays on the desktop sidebar where it has room.
+ * evenly spaced items, and the logo stays on the desktop sidebar where it has room. The language
+ * toggle keeps the trailing position it held beside the logo, next to Settings it belongs with.
  */
 const MOBILE_NAV_ITEMS = [...NAV_ITEMS, CLASSIC_SETTINGS_NAV_ITEM] as const
 
@@ -61,6 +63,7 @@ export function MobileBottomNav() {
             label={t(item.labelKey)}
           />
         ))}
+        <LanguageToggle />
       </div>
       {/* iOS safe area */}
       <div className="h-[env(safe-area-inset-bottom)]" />

@@ -27,6 +27,10 @@ public record AccountResponse(
     LocalDate openedAt,
     RealEstateMetadataResponse realEstate,
     DebtResponse debt,
+    SavingsConfigDto savingsConfig,
+    /** Non-null only for Revolut pocket sub-accounts; the parent wallet's account id. */
+    Long parentAccountId,
+    boolean hidden,
     /**
      * The viewing member's percentage of this account, or null when it is wholly theirs.
      *
@@ -64,6 +68,9 @@ public record AccountResponse(
             null,
             null,
             null,
+            a.getParentAccountId(),
+            a.isHidden(),
+            null,
             null
         );
     }
@@ -71,25 +78,31 @@ public record AccountResponse(
     public AccountResponse withRealEstate(RealEstateMetadataResponse realEstate) {
         return new AccountResponse(id, name, type, provider, currency, currentBalance,
             currentBalanceEur, cashBalance, lastSyncedAt, isManual, color, ticker, logoUrl, logoKey,
-            createdAt, openedAt, realEstate, debt, sharePercent, isOwner);
+            createdAt, openedAt, realEstate, debt, savingsConfig, parentAccountId, hidden, sharePercent, isOwner);
     }
 
     public AccountResponse withDebt(DebtResponse debt) {
         return new AccountResponse(id, name, type, provider, currency, currentBalance,
             currentBalanceEur, cashBalance, lastSyncedAt, isManual, color, ticker, logoUrl, logoKey,
-            createdAt, openedAt, realEstate, debt, sharePercent, isOwner);
+            createdAt, openedAt, realEstate, debt, savingsConfig, parentAccountId, hidden, sharePercent, isOwner);
     }
 
     /** Test and adapter seam; the mapping from the entity already carries it. */
     public AccountResponse withOpenedAt(LocalDate openedAt) {
         return new AccountResponse(id, name, type, provider, currency, currentBalance,
             currentBalanceEur, cashBalance, lastSyncedAt, isManual, color, ticker, logoUrl, logoKey,
-            createdAt, openedAt, realEstate, debt, sharePercent, isOwner);
+            createdAt, openedAt, realEstate, debt, savingsConfig, parentAccountId, hidden, sharePercent, isOwner);
+    }
+
+    public AccountResponse withSavingsConfig(SavingsConfigDto savingsConfig) {
+        return new AccountResponse(id, name, type, provider, currency, currentBalance,
+            currentBalanceEur, cashBalance, lastSyncedAt, isManual, color, ticker, logoUrl, logoKey,
+            createdAt, openedAt, realEstate, debt, savingsConfig, parentAccountId, hidden, sharePercent, isOwner);
     }
 
     public AccountResponse withViewer(BigDecimal sharePercent, Boolean isOwner) {
         return new AccountResponse(id, name, type, provider, currency, currentBalance,
             currentBalanceEur, cashBalance, lastSyncedAt, isManual, color, ticker, logoUrl, logoKey,
-            createdAt, openedAt, realEstate, debt, sharePercent, isOwner);
+            createdAt, openedAt, realEstate, debt, savingsConfig, parentAccountId, hidden, sharePercent, isOwner);
     }
 }

@@ -37,7 +37,6 @@ class MockImage {
   removeEventListener(type: string, listener: (event: { currentTarget: MockImage }) => void) {
     this.listeners.get(type)?.delete(listener)
   }
-
   set src(value: string) {
     this._src = value
     this.complete = false
@@ -83,6 +82,7 @@ const baseAccount: Account = {
   logoUrl: null,
   logoKey: null,
   createdAt: '2024-01-01T00:00:00Z',
+  hidden: false,
 }
 
 /** A described, valued property -- the shape every real-estate assertion below varies from. */

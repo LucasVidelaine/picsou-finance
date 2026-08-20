@@ -14,6 +14,8 @@ import type {
   FinaryAutoSyncResponse,
   BoursoSessionStatus,
   BoursoAuthInitResponse,
+  RevolutSessionStatus,
+  SyncProgress,
   BourseDirectSessionStatus,
   BourseDirectAuthInitResponse,
   DegiroSessionStatus,
@@ -83,6 +85,11 @@ export const trApi = {
 
   sync: () =>
     api.post<Account[]>('/tr/sync').then(r => r.data),
+
+  // Not wired up on the backend yet (Increment 2 of the sync-progress work) — harmless
+  // to add the client fn now, `useSyncProgress('tr', …)` simply won't be enabled until then.
+  getSyncProgress: () =>
+    api.get<SyncProgress>('/tr/sync/progress').then(r => r.data),
 
   getSessionStatus: () =>
     api
@@ -166,6 +173,25 @@ export const boursoApi = {
 
   clearSession: () =>
     api.delete('/bourso/session'),
+}
+
+// --- Revolut ---
+
+export const revolutApi = {
+  getSessionStatus: () =>
+    api.get<RevolutSessionStatus>('/revolut/status').then(r => r.data),
+
+  startSync: (body: { phoneNumber?: string; passcode?: string }) =>
+    api.post<SyncProgress>('/revolut/sync', body).then(r => r.data),
+
+  getSyncProgress: () =>
+    api.get<SyncProgress>('/revolut/sync/progress').then(r => r.data),
+
+  confirmSync: (selectedExternalIds: string[], remember: boolean, voluntary: boolean) =>
+    api.post<void>('/revolut/sync/confirm', { selectedExternalIds, remember, voluntary }).then(r => r.data),
+
+  clearSession: () =>
+    api.delete('/revolut/session'),
 }
 
 // --- DEGIRO ---

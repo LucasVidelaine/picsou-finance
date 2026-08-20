@@ -20,6 +20,7 @@ import com.picsou.repository.BalanceSnapshotRepository;
 import com.picsou.repository.DebtRepository;
 import com.picsou.repository.PropertyValuationRepository;
 import com.picsou.repository.RealEstateMetadataRepository;
+import com.picsou.repository.SavingsInterestConfigRepository;
 import com.picsou.repository.TransactionRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -53,8 +54,10 @@ class AccountServiceTest {
     @Mock RealEstateMetadataRepository realEstateMetadataRepository;
     @Mock PropertyValuationRepository propertyValuationRepository;
     @Mock DebtRepository debtRepository;
+    @Mock SavingsInterestConfigRepository savingsInterestConfigRepository;
     @Mock PriceService priceService;
     @Mock LoanAmortizationService loanAmortizationService;
+    @Mock AccountAccessResolver accessResolver;
     @Mock BankLogoResolver bankLogoResolver;
     @InjectMocks AccountService accountService;
 
@@ -291,6 +294,69 @@ class AccountServiceTest {
     private static AccountRequest logoRequest(String logoKey) {
         return new AccountRequest("BITCOIN Wallet", AccountType.CRYPTO, "BTC", "EUR",
             null, false, "#f59e0b", null, logoKey, null, null);
+    }
+
+    @Test
+    void findAll_excludesHiddenAccounts_byDefault() {
+        Account visible = ownedAccount();
+        Account hidden = Account.builder()
+            .id(2L).name("Hidden One").type(AccountType.CHECKING).currency("EUR").hidden(true)
+            .build();
+        when(accessResolver.readableAccounts(1L)).thenReturn(List.of(visible, hidden));
+        when(accessResolver.sharesFor(any(), eq(1L))).thenAnswer(inv -> {
+            java.util.Collection<Account> accs = inv.getArgument(0);
+            java.util.Map<Long, BigDecimal> shares = new java.util.HashMap<>();
+            for (Account a : accs) shares.put(a.getId(), new BigDecimal("100"));
+            return shares;
+        });
+
+        List<com.picsou.dto.AccountResponse> result = accountService.findAll(1L);
+
+        assertThat(result).hasSize(1);
+        assertThat(result).noneMatch(com.picsou.dto.AccountResponse::hidden);
+        verify(accessResolver).readableAccounts(1L);
+    }
+
+    @Test
+    void findAll_includesHiddenAccounts_whenRequested() {
+        Account visible = ownedAccount();
+        Account hidden = Account.builder()
+            .id(2L).name("Hidden One").type(AccountType.CHECKING).currency("EUR").hidden(true)
+            .build();
+        when(accessResolver.readableAccounts(1L)).thenReturn(List.of(visible, hidden));
+        when(accessResolver.sharesFor(any(), eq(1L))).thenAnswer(inv -> {
+            java.util.Collection<Account> accs = inv.getArgument(0);
+            java.util.Map<Long, BigDecimal> shares = new java.util.HashMap<>();
+            for (Account a : accs) shares.put(a.getId(), new BigDecimal("100"));
+            return shares;
+        });
+
+        List<com.picsou.dto.AccountResponse> result = accountService.findAll(1L, true);
+
+        assertThat(result).hasSize(2);
+        assertThat(result).anyMatch(com.picsou.dto.AccountResponse::hidden);
+        verify(accessResolver).readableAccounts(1L);
+    }
+
+    @Test
+    void setHidden_persistsFlag_forOwnedAccount() {
+        Account account = ownedAccount();
+        when(accountRepository.findByIdAndMemberId(1L, 1L)).thenReturn(Optional.of(account));
+        when(accountRepository.save(account)).thenReturn(account);
+
+        AccountResponse response = accountService.setHidden(1L, 1L, true);
+
+        assertThat(account.isHidden()).isTrue();
+        assertThat(response.hidden()).isTrue();
+        verify(accountRepository).save(account);
+    }
+
+    @Test
+    void setHidden_throws_whenAccountNotOwnedByMember() {
+        when(accountRepository.findByIdAndMemberId(1L, 1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> accountService.setHidden(1L, 1L, true))
+            .isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test

@@ -7,6 +7,7 @@ import com.picsou.dto.DebtResponse;
 import com.picsou.dto.HoldingResponse;
 import com.picsou.dto.RealEstateMetadataRequest;
 import com.picsou.dto.RealEstateMetadataResponse;
+import com.picsou.dto.SavingsConfigDto;
 import com.picsou.dto.SnapshotRequest;
 import com.picsou.dto.TransactionResponse;
 import com.picsou.exception.ResourceNotFoundException;
@@ -28,6 +29,7 @@ import com.picsou.repository.BalanceSnapshotRepository;
 import com.picsou.repository.DebtRepository;
 import com.picsou.repository.PropertyValuationRepository;
 import com.picsou.repository.RealEstateMetadataRepository;
+import com.picsou.repository.SavingsInterestConfigRepository;
 import com.picsou.repository.TransactionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -71,6 +73,7 @@ public class AccountService {
     private final RealEstateMetadataRepository realEstateMetadataRepository;
     private final PropertyValuationRepository propertyValuationRepository;
     private final DebtRepository debtRepository;
+    private final SavingsInterestConfigRepository savingsInterestConfigRepository;
     private final PriceService priceService;
     private final LoanAmortizationService loanAmortizationService;
     private final AccountAccessResolver accessResolver;
@@ -84,6 +87,7 @@ public class AccountService {
         RealEstateMetadataRepository realEstateMetadataRepository,
         PropertyValuationRepository propertyValuationRepository,
         DebtRepository debtRepository,
+        SavingsInterestConfigRepository savingsInterestConfigRepository,
         PriceService priceService,
         LoanAmortizationService loanAmortizationService,
         AccountAccessResolver accessResolver,
@@ -96,6 +100,7 @@ public class AccountService {
         this.realEstateMetadataRepository = realEstateMetadataRepository;
         this.propertyValuationRepository = propertyValuationRepository;
         this.debtRepository = debtRepository;
+        this.savingsInterestConfigRepository = savingsInterestConfigRepository;
         this.priceService = priceService;
         this.loanAmortizationService = loanAmortizationService;
         this.accessResolver = accessResolver;
@@ -111,7 +116,19 @@ public class AccountService {
      * real-estate summary), not to the listing.
      */
     public List<AccountResponse> findAll(Long memberId) {
+        return findAll(memberId, false);
+    }
+
+    /**
+     * @param includeHidden false (default) excludes hidden accounts, matching every other
+     *                       user-facing account list. true is used only by the /sync visibility
+     *                       tab, which must be able to see (and re-show) hidden accounts.
+     */
+    public List<AccountResponse> findAll(Long memberId, boolean includeHidden) {
         List<Account> accounts = accessResolver.readableAccounts(memberId);
+        if (!includeHidden) {
+            accounts = accounts.stream().filter(a -> !a.isHidden()).toList();
+        }
         Map<Long, BigDecimal> shares = accessResolver.sharesFor(accounts, memberId);
         return accounts.stream()
             .map(a -> toResponse(a, shares.get(a.getId()), memberId))
@@ -159,6 +176,7 @@ public class AccountService {
     public AccountResponse update(Long id, AccountRequest req, Long memberId) {
         Account account = getOrThrow(id, memberId);
 
+        boolean nameChanged = !req.name().equals(account.getName());
         String previousProvider = account.getProvider();
 
         account.setName(req.name());
@@ -191,6 +209,24 @@ public class AccountService {
             }
         }
 
+        AccountResponse response = toResponse(accountRepository.save(account));
+
+        // When a Revolut pocket is renamed, propagate the new name as merchantLabel on its
+        // transactions (mirror legs in the pocket) and on the corresponding wallet-side debits.
+        if (nameChanged && account.getParentAccountId() != null
+                && account.getExternalAccountId() != null) {
+            transactionRepository.updateMerchantLabelByAccountId(account.getId(), req.name());
+            transactionRepository.updateMerchantLabelForPocketWalletSide(
+                account.getParentAccountId(), account.getExternalAccountId(), req.name());
+        }
+
+        return response;
+    }
+
+    @Transactional
+    public AccountResponse setHidden(Long id, Long memberId, boolean hidden) {
+        Account account = getOrThrow(id, memberId);
+        account.setHidden(hidden);
         return toResponse(accountRepository.save(account));
     }
 
@@ -639,6 +675,12 @@ public class AccountService {
             if (debt.isPresent()) {
                 response = response.withDebt(debt.get());
             }
+        }
+
+        Optional<SavingsConfigDto> savings = savingsInterestConfigRepository.findByAccountId(account.getId())
+            .map(SavingsConfigDto::from);
+        if (savings.isPresent()) {
+            response = response.withSavingsConfig(savings.get());
         }
 
         return response;

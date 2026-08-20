@@ -149,6 +149,7 @@ function NetWorthTooltip({ active, payload, labels, is24H, showGainLoss }: {
 }
 
 function filterByRange(data: NetWorthChartProps['data'], range: TimeRange) {
+  if (!Array.isArray(data)) return []
   if (range === 'ALL') return data
   const now = new Date()
   let from: Date

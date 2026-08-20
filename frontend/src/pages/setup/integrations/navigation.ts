@@ -13,6 +13,7 @@ export const INTEGRATION_SUBSTEP_ORDER: Array<{
   { key: 'boursobank', route: '/setup/integrations/boursobank' },
   { key: 'boursedirect', route: '/setup/integrations/boursedirect' },
   { key: 'traderepublic', route: '/setup/integrations/traderepublic' },
+  { key: 'revolut', route: '/setup/integrations/revolut' },
   { key: 'finary', route: '/setup/integrations/finary' },
   { key: 'crypto', route: '/setup/integrations/crypto' },
 ]

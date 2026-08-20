@@ -8,6 +8,7 @@ import {
   cryptoWalletApi,
   finaryApi,
   boursoApi,
+  revolutApi,
   bourseDirectApi,
   degiroApi,
   amundiApi,
@@ -31,6 +32,7 @@ export const syncKeys = {
   countries: () => [...syncKeys.all, 'countries'] as const,
   tr: () => [...syncKeys.all, 'tr'] as const,
   bourso: () => [...syncKeys.all, 'bourso'] as const,
+  revolut: () => [...syncKeys.all, 'revolut'] as const,
   bourseDirect: () => [...syncKeys.all, 'bourse-direct'] as const,
   degiro: () => [...syncKeys.all, 'degiro'] as const,
   amundi: () => [...syncKeys.all, 'amundi'] as const,
@@ -283,6 +285,70 @@ export function useClearBoursoSession() {
 }
 
 // ---------------------------------------------------------------------------
+// Revolut (on-demand phone+passcode sync)
+// ---------------------------------------------------------------------------
+
+export function useRevolutStatus() {
+  return useQuery({
+    queryKey: syncKeys.revolut(),
+    queryFn: revolutApi.getSessionStatus,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  })
+}
+
+export function useSyncProgress(provider: 'revolut' | 'tr', enabled: boolean) {
+  return useQuery({
+    queryKey: ['sync', provider, 'progress'],
+    queryFn: provider === 'revolut' ? revolutApi.getSyncProgress : trApi.getSyncProgress,
+    enabled,
+    refetchInterval: (q) => (q.state.data?.running ? 1500 : false),
+  })
+}
+
+export function useStartRevolutSync() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { phoneNumber?: string; passcode?: string }) => revolutApi.startSync(body),
+    onSuccess: (progress) => {
+      queryClient.setQueryData(['sync', 'revolut', 'progress'], progress)
+    },
+  })
+}
+
+export function useConfirmRevolutSync() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      selectedExternalIds,
+      remember,
+      voluntary,
+    }: {
+      selectedExternalIds: string[]
+      remember: boolean
+      voluntary: boolean
+    }) => revolutApi.confirmSync(selectedExternalIds, remember, voluntary),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: syncKeys.revolut() })
+      queryClient.invalidateQueries({ queryKey: ['accounts'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    },
+  })
+}
+
+export function useForgetRevolut() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => revolutApi.clearSession(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: syncKeys.revolut() })
+      queryClient.invalidateQueries({ queryKey: ['accounts'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
 // DEGIRO
 // ---------------------------------------------------------------------------
 
@@ -323,10 +389,6 @@ export function useSyncDegiro() {
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
-    // A sync that meets an expired session flips the stored status to
-    // REAUTH_REQUIRED server-side. Without invalidating on failure too, the
-    // cached status stays "active" until it goes stale and the UI keeps
-    // offering a Sync button that can only fail again.
     onError: () => {
       queryClient.invalidateQueries({ queryKey: syncKeys.degiro() })
     },
@@ -415,6 +477,7 @@ export function useClearBourseDirectSession() {
     },
   })
 }
+
 
 // ---------------------------------------------------------------------------
 // Amundi Épargne Salariale

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { useDashboard, useNetWorthIntraday, usePnl } from '@/features/dashboard/hooks'
 import { useHistory } from '@/features/history/hooks'
+import { useBankSyncStatus } from '@/features/sync/hooks'
 import { CurrencyDisplay } from '@/components/shared/CurrencyDisplay'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { NetWorthChart } from '@/components/shared/NetWorthChart'
@@ -37,7 +38,7 @@ import {
 } from '@/components/ui/item'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { TrendingUp, TrendingDown, Plus, RefreshCw, ChevronDown } from 'lucide-react'
+import { TrendingUp, TrendingDown, Plus, RefreshCw, ChevronDown, AlertTriangle } from 'lucide-react'
 import { GoalDetailModal } from '@/pages/goals/GoalDetailModal'
 
 type WealthMode = 'net' | 'gross' | 'financial'
@@ -52,6 +53,8 @@ export function DashboardPage() {
   const [detailGoalId, setDetailGoalId] = useState<number | null>(null)
 
   const { data, isLoading } = useDashboard(range)
+  const { data: bankConnections } = useBankSyncStatus()
+  const failedBanks = bankConnections?.filter(b => b.status === 'FAILED') ?? []
 
   // Account IDs filtered by the selected wealth mode — drives both the headline value
   // and the history chart so the curve never includes categories the mode excludes.
@@ -161,6 +164,28 @@ export function DashboardPage() {
         }
       />
 
+      {/* Failed bank sync banner */}
+      {failedBanks.length > 0 && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="size-4 shrink-0 text-destructive" />
+            <p className="text-sm font-medium text-destructive">
+              {failedBanks.length === 1
+                ? `${failedBanks[0].institutionName} could not sync.`
+                : `${failedBanks.length} bank connections could not sync.`}
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+            onClick={() => setShowSyncModal(true)}
+          >
+            Fix connections
+          </Button>
+        </div>
+      )}
+
       {/* Wealth hero */}
       <Card>
         <CardContent>
@@ -218,7 +243,7 @@ export function DashboardPage() {
                 </span>
               )}
             </span>
-            <span className="text-sm text-muted-foreground">{t('dashboard.netWorthChange')}</span>
+            <span className="text-sm text-muted-foreground">{t('dashboard.portfolioPerformance')}</span>
           </div>
         </CardContent>
       </Card>
@@ -238,11 +263,6 @@ export function DashboardPage() {
 
         <DistributionPie data={data.distribution} />
       </div>
-
-      {/* Liabilities — rendered separately from assets (issue #18) */}
-      {(data.totalLiabilities ?? 0) > 0 && (
-        <LiabilitiesCard liabilities={data.liabilities} totalLiabilities={data.totalLiabilities} />
-      )}
 
       {/* Property wealth: gross, mortgage debt and the equity between them. Renders nothing
           when the member owns no property. */}
@@ -321,6 +341,14 @@ export function DashboardPage() {
           </CardFooter>
         )}
       </Card>
+
+      {/* Liabilities overview */}
+      {data.liabilities.length > 0 && (
+        <LiabilitiesCard
+          liabilities={data.liabilities}
+          totalMonthlyPayment={data.totalMonthlyPayment ?? null}
+        />
+      )}
 
       {/* Holdings overview */}
       <HoldingsCard />

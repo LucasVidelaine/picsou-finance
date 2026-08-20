@@ -8,6 +8,7 @@ import {
   BriefcaseBusiness,
   PiggyBank,
   Bitcoin,
+  CreditCard,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { IntegrationCard } from './components/IntegrationCard'
@@ -28,6 +29,7 @@ const CATALOG: Array<{
   { key: 'boursobank', icon: Boxes, route: '/setup/integrations/boursobank' },
   { key: 'boursedirect', icon: BriefcaseBusiness, route: '/setup/integrations/boursedirect' },
   { key: 'traderepublic', icon: LineChart, route: '/setup/integrations/traderepublic' },
+  { key: 'revolut', icon: CreditCard, route: '/setup/integrations/revolut' },
   { key: 'finary', icon: PiggyBank, route: '/setup/integrations/finary' },
   { key: 'crypto', icon: Bitcoin, route: '/setup/integrations/crypto' },
 ]

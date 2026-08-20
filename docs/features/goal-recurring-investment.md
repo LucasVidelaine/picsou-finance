@@ -168,7 +168,7 @@ amount is a standing order; the split is a decision, and it is the half a member
 
 **Keyed on the ticker, not on an `account_holding` id.** The sync paths delete and rebuild holding
 rows, so a foreign key there would evaporate on the first transient gap and take the split with
-it — the same reasoning as `holding_classification` in V81.
+it — the same reasoning as `holding_classification` in V83.
 
 **Only positions the account already holds.** `GoalService.replaceAllocations` reads the funded
 account's holdings and answers 400 for anything else, and the form offers that list rather than a
@@ -265,8 +265,8 @@ to a 1 / 2 / 2.5 / 5 × 10ⁿ figure so the ticks stay readable.
 - `backend/src/main/java/com/picsou/service/GoalService.java` — `toRecurringResponse`, `requireSavingsTarget`
 - `backend/src/main/java/com/picsou/service/ProjectionService.java`
 - `backend/src/main/java/com/picsou/model/GoalAllocation.java`
-- `backend/src/main/resources/db/migration/V83__goal_recurring_investment.sql`,
-  `V87__goal_allocation.sql`
+- `backend/src/main/resources/db/migration/V85__goal_recurring_investment.sql`,
+  `V89__goal_allocation.sql`
 - `frontend/src/pages/goals/GoalsPage.tsx` — two sections, two form shapes, `RecurringPlanCard`
 - `frontend/src/pages/goals/AllocationPicker.tsx` — the split editor
 - `frontend/src/pages/goals/SavingsRateCard.tsx`, `plan-math.ts` — the savings rate and its
@@ -284,11 +284,11 @@ breaking `update`, `extendHistory`, `extendHistoryByMonth`, `setMonthOverride` a
 `setManualContribution` for exactly the goals a user is most likely to revisit: the ones that have
 come due.
 
-It was broken on `main` long before this feature. V83 drops it; `@Future` on
+It was broken on `main` long before this feature. V85 drops it; `@Future` on
 `GoalRequest.deadline` keeps the rule where it means what the user meant — at creation — instead
 of forbidding every later edit.
 
-`V83GoalTypeMigrationTest` proves both halves: the UPDATE fails before the migration and succeeds
+`V85GoalTypeMigrationTest` proves both halves: the UPDATE fails before the migration and succeeds
 after.
 
 ## Technical choices
@@ -366,7 +366,7 @@ after.
   not compounded at an equity rate, which stayed true while the member's figure was ignored), a
   stated cash rate is identical across all four scenarios, a stated equity rate is not, and the
   stated rate survives into the allocation trajectory as well
-- `V83GoalTypeMigrationTest` — the UPDATE fails before the migration and succeeds after; a
+- `V85GoalTypeMigrationTest` — the UPDATE fails before the migration and succeeds after; a
   recurring row needs no target; a savings target still cannot be created without one
 - `McpToolCatalogTest`, `GoalToolsTest` — the fifth tool registered, the four unchanged
 - `GoalRequestTest` also covers the split: a partial one is valid, an exact one is valid, an

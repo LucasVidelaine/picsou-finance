@@ -41,8 +41,17 @@
 | 2026-05-19 | [FX conversion inside the Yahoo price provider](./decisions/2026-05-19-yahoo-fx-conversion.md) | Active |
 | 2026-05-31 | [ETF composition from issuer holdings files (no auth)](./decisions/2026-05-31-etf-composition-issuer-holdings.md) | ⚠️ Superseded |
 | 2026-06-01 | [ETF composition via Boursorama (single source)](./decisions/2026-06-01-etf-composition-via-boursorama.md) | Active |
+| 2026-06-02 | [Budget cycle, categorization engine, and transfer kind](./decisions/2026-06-02-budget-cycle-and-categorization.md) | Active |
 | 2026-06-05 | [Access-key auth + embedded MCP server](./decisions/2026-06-05-access-key-auth-and-embedded-mcp.md) | Active |
+| 2026-06-09 | [Offline merchant knowledge base and nested-route Budget IA](./decisions/2026-06-09-merchant-kb-and-budget-ia.md) | Active |
+| 2026-06-26 | [Optional AI transaction categorization via TransactionCategorizerPort](./decisions/2026-06-26-ai-transaction-categorization.md) | Active |
+| 2026-06-26 | [AI provider runtime admin config (DB-only, no restart)](./decisions/2026-06-26-ai-provider-runtime-admin-config.md) | Active |
+| 2026-06-28 | [Reconstruct Revolut pockets from PSD2 internal-transfer rows](./decisions/2026-06-28-revolut-pockets-reconstruction.md) | ⚠️ Superseded |
+| 2026-06-28 | [Savings livrets: classify accounts and project interest (not written to balance)](./decisions/2026-06-28-savings-livrets-interest-projection.md) | Active |
+| 2026-07-03 | [OAuth2 Authorization Server for the native iOS app](./decisions/2026-07-03-oauth2-authorization-server-for-native-app.md) | Active |
+| 2026-07-06 | [Drop oauth2:token scope from MCP allowlist](./decisions/2026-07-06-drop-oauth2-token-scope.md) | Active |
 | 2026-07-11 | [Realized P&L: average-cost, computed on the fly](./decisions/2026-07-11-realized-pnl-average-cost-on-the-fly.md) | Active |
+| 2026-07-12 | [Remote-MCP OAuth authorization for third-party clients (claude.ai)](./decisions/2026-07-12-remote-mcp-oauth-authorization.md) | Active |
 | 2026-07-12 | [UI controls follow the shadcn theme radius, not a pill shape](./decisions/2026-07-12-ui-controls-follow-shadcn-theme-radius.md) | Active |
 | 2026-07-17 | [EVM multichain wallets — one address, many chains](./decisions/2026-07-17-evm-multichain-wallets.md) | Active |
 | 2026-07-19 | [Caddy as an opt-in TLS terminator for the Docker stack](./decisions/2026-07-19-caddy-opt-in-tls-profile.md) | Active |
@@ -65,14 +74,20 @@
 
 | Feature | Last updated | Note |
 |---------|-------------|------|
+| MCP server + scoped access-keys | 2026-06-26 | [mcp-server.md](./features/mcp-server.md) |
+| Budget + OAuth2 tools in MCP | 2026-07-06 | [mcp-budget-oauth2.md](./features/mcp-budget-oauth2.md) |
+| Remote-MCP OAuth (claude.ai connector) | 2026-07-12 | [mcp-oauth-remote.md](./features/mcp-oauth-remote.md) |
 | Internationalization (FR/EN/DE/ES) | 2026-07-07 | [i18n.md](./features/i18n.md) |
-| MCP server + scoped access-keys | 2026-06-05 | [mcp-server.md](./features/mcp-server.md) |
 | Frontend utilities (lib/utils.ts) | 2026-08-07 | [frontend-utils.md](./features/frontend-utils.md) |
 | Demo mode | 2026-08-13 | [demo-mode.md](./features/demo-mode.md) |
 | Theme (dark / light / system) + theme-adaptive rendering | 2026-06-02 | [theme-persistence.md](./features/theme-persistence.md) |
 | Dashboard — Time range isolation | 2026-04-13 | [dashboard-time-range-isolation.md](./features/dashboard-time-range-isolation.md) |
-| Dashboard — Liabilities separated from performance | 2026-07-08 | [dashboard-liabilities-separation.md](./features/dashboard-liabilities-separation.md) |
 | Bank sync | 2026-08-11 | [bank-sync.md](./features/bank-sync.md) |
+| Budget & Cashflow | 2026-06-28 | [budget.md](./features/budget.md) |
+| Budget categorization rules (word-picker authoring UX) | 2026-06-28 | [budget-rules.md](./features/budget-rules.md) |
+| Optional AI transaction categorization | 2026-06-26 | [ai-categorization.md](./features/ai-categorization.md) |
+| Dashboard — Liabilities separated from performance | 2026-07-12 | [dashboard-liabilities-separation.md](./features/dashboard-liabilities-separation.md) |
+| Dashboard — Liabilities card (repayment progress) | 2026-06-28 | [dashboard-liabilities-card.md](./features/dashboard-liabilities-card.md) |
 | Trade Republic | 2026-07-07 | [trade-republic.md](./features/trade-republic.md) |
 | Bourse Direct | 2026-07-21 | [bourse-direct.md](./features/bourse-direct.md) |
 | Interactive Brokers (IBKR) sync | 2026-07-19 | [ibkr-sync.md](./features/ibkr-sync.md) |
@@ -92,13 +107,16 @@
 | Live prices (holdings) | 2026-05-19 | [live-prices-holdings.md](./features/live-prices-holdings.md) |
 | Security Insight (asset type + ETF composition) | 2026-06-02 | [security-insight.md](./features/security-insight.md) |
 | Finary import + auto-sync | 2026-04-21 | [finary-import.md](./features/finary-import.md) |
+| Manual transactions + holdings derivation | 2026-06-28 | [manual-transactions.md](./features/manual-transactions.md) |
+| Transactions — global view (all accounts) | 2026-06-28 | [transactions-global-view.md](./features/transactions-global-view.md) |
 | CSV transaction import (investment accounts) | 2026-07-11 | [csv-transaction-import.md](./features/csv-transaction-import.md) |
 | Realized P&L on closed positions | 2026-07-11 | [realized-pnl.md](./features/realized-pnl.md) |
-| Manual transactions + holdings derivation | 2026-04-21 | [manual-transactions.md](./features/manual-transactions.md) |
 | BoursoBank sync | 2026-08-13 | [bourso-bank.md](./features/bourso-bank.md) |
 | Accounts overview (PnL chart + summary card + filters + card anatomy + sortable positions) | 2026-08-19 | [accounts-overview.md](./features/accounts-overview.md) |
+| Savings livrets (classification + projected interest) | 2026-06-28 | [savings-livrets.md](./features/savings-livrets.md) |
 | Logos on account cards (catalog-resolved, bundled, wallet picker, property kind) | 2026-08-13 | [bank-logos.md](./features/bank-logos.md) |
 | Add Account modal (unified sync + manual) | 2026-08-13 | [add-account-modal.md](./features/add-account-modal.md) |
+| Account visibility (hidden accounts, `/sync` Comptes tab) | 2026-07-15 | [account-visibility.md](./features/account-visibility.md) |
 | Docker deployment | 2026-07-19 | [docker-deployment.md](./features/docker-deployment.md) |
 | Navigation (sidebar + mobile bottom nav) | 2026-07-12 | [sidebar-navigation.md](./features/sidebar-navigation.md) |
 | UI control shape (shadcn theme radius) | 2026-08-10 | [ui-control-shape-system.md](./features/ui-control-shape-system.md) |
@@ -117,6 +135,8 @@
 | Login timing equalization (username-enumeration defense, GHSA-ww5m-pxgq-8qq6) | 2026-06-27 | [login-timing-attack.md](./features/login-timing-attack.md) |
 | GDPR data export (JSON + CSV) | 2026-04-26 | [data-export.md](./features/data-export.md) |
 | Account spreadsheet export (xlsx) | 2026-08-18 | [account-xlsx-export.md](./features/account-xlsx-export.md) |
+| Revolut pockets (reconstruction from PSD2 internal-transfer rows) (removed, 2026-07-14) | 2026-06-28 | [revolut-pockets.md](./features/revolut-pockets.md) |
+| Revolut sidecar (assisted-enrolment login connector) | 2026-07-08 | [revolut-sidecar.md](./features/revolut-sidecar.md) |
 
 ## Lessons
 
@@ -124,6 +144,12 @@
 |--------|----------|------|
 | Thread-bound context lost across an async thread hop (Spring Security × Spring AI MCP) | 2026-06-26 | [thread-local-context-across-async-hop.md](./lessons/thread-local-context-across-async-hop.md) |
 | Test a constant-time fix by counting crypto ops, not wall-clock time | 2026-06-27 | [timing-attack-test-by-op-count.md](./lessons/timing-attack-test-by-op-count.md) |
+| Demo-mode data resilience — truthy `{}` objects and stale TanStack Query references | 2026-06-28 | [demo-mode-data-resilience.md](./lessons/demo-mode-data-resilience.md) |
+| The savings-livrets integration seam — defects survive where two green streams meet | 2026-06-28 | [savings-livrets-integration-seam.md](./lessons/savings-livrets-integration-seam.md) |
+| Stop protocol surfaces false brief hypotheses before cargo-cult code | 2026-07-06 | [stop-protocol-discovers-false-hypotheses.md](./lessons/stop-protocol-discovers-false-hypotheses.md) |
+| Demo data must include all required interface properties | 2026-07-06 | [demo-data-interface-completeness.md](./lessons/demo-data-interface-completeness.md) |
+| A child row whose parent is filtered out of a list needs an explicit rendering fallback | 2026-07-14 | [orphaned-child-needs-a-rendering-fallback.md](./lessons/orphaned-child-needs-a-rendering-fallback.md) |
+| A final whole-branch review catches call sites no single task-scoped review can | 2026-07-14 | [final-whole-branch-review-catches-what-task-scoped-review-cannot.md](./lessons/final-whole-branch-review-catches-what-task-scoped-review-cannot.md) |
 
 ## Conventions
 

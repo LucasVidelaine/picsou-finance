@@ -74,7 +74,7 @@ is measured in years.
 
 ## Consequences
 
-- Migration `V82__security_profile.sql` adds both tables and the sector/country columns on
+- Migration `V84__security_profile.sql` adds both tables and the sector/country columns on
   `holding_classification`.
 - `SecurityProfileService` splits `load` (read-only, batched by ticker) from `refresh` (network,
   transactional, one ticker).

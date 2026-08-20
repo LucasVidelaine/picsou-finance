@@ -6,6 +6,7 @@ import com.picsou.model.AccountHolding;
 import com.picsou.model.AccountType;
 import com.picsou.repository.AccountHoldingRepository;
 import com.picsou.repository.AccountRepository;
+import com.picsou.repository.DebtRepository;
 import com.picsou.repository.GoalRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,6 +33,8 @@ class DashboardServiceTest {
     @Mock PriceService priceService;
     @Mock AccountHoldingRepository holdingRepository;
     @Mock HistoryService historyService;
+    @Mock DebtRepository debtRepository;
+    @Mock LoanAmortizationService loanAmortizationService;
     @Mock AccountService accountService;
 
     @Mock AccountAccessResolver accessResolver;
@@ -124,7 +127,7 @@ class DashboardServiceTest {
         assertThat(response.totalNetWorth()).isEqualByComparingTo("-8000");
         // The loan appears only in the liabilities list, the cash account only in distribution.
         assertThat(response.liabilities())
-            .extracting(DashboardResponse.DistributionItem::accountId)
+            .extracting(DashboardResponse.LiabilityEntry::accountId)
             .containsExactly(10L);
         assertThat(response.distribution())
             .extracting(DashboardResponse.DistributionItem::accountId)

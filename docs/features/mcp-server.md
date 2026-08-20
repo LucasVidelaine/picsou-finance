@@ -1,6 +1,6 @@
 # Feature: Embedded MCP server + scoped access-keys
 
-> Last updated: 2026-06-05
+> Last updated: 2026-06-26
 
 ## Context
 
@@ -42,6 +42,7 @@ Three security properties are guaranteed structurally (not by per-call checks):
 - `backend/src/main/java/com/picsou/config/AccessKeyAuthentication.java` — the `Authentication` a key runs as (principal = owner `AppUser`; authorities = scopes).
 - `backend/src/main/java/com/picsou/config/AccessKeyAuthFilter.java` — validates the Bearer key for `/mcp/**` only; per-key Bucket4j throttle (429).
 - `backend/src/main/java/com/picsou/config/SecurityConfig.java` — registers the filter (4th, anchored to `UsernamePasswordAuthenticationFilter`) and `requestMatchers("/mcp/**").authenticated()`.
+- `backend/src/main/java/com/picsou/config/McpSecurityContextPropagationConfig.java` + `backend/src/main/java/com/picsou/config/SecurityContextThreadLocalAccessor.java` — carry the authenticated `SecurityContext` from the servlet thread to Spring AI's reactive tool-execution thread (see Gotchas: scope enforcement across the thread hop).
 - `backend/src/main/java/com/picsou/service/UserContext.java` — Property B guard at the top of `getMemberIdOverride()`.
 - `backend/src/main/java/com/picsou/model/AccessKey.java` + `backend/src/main/java/com/picsou/repository/AccessKeyRepository.java` + `backend/src/main/resources/db/migration/V37__access_keys.sql`.
 
@@ -57,6 +58,10 @@ Three security properties are guaranteed structurally (not by per-call checks):
 - `frontend/src/features/accessKeys/{api,hooks,scopes,status}.ts` — TanStack Query layer + scope/status helpers.
 - `frontend/src/pages/settings/sections/AccessKeysSection.tsx` — the Settings UI (list, create dialog, one-time secret reveal, connect-your-client block, revoke).
 - `i18n/locales/{en,fr}.json` — the `accessKeys.*` namespace.
+
+**Deployment — reverse proxy** (the public `https://<host>/mcp` path; see Gotchas)
+- `frontend/nginx.conf` + `docker/nginx.conf` — `location /mcp` → backend, SSE-tuned (`proxy_buffering off`, `proxy_read_timeout 3600s`, HTTP/1.1).
+- `frontend/vite.config.ts` — dev proxy `/mcp` → `VITE_API_TARGET`.
 
 The create access-key dialog is intentionally wider than the default dialog
 primitive (`42rem` on desktop) because scope cards render in two columns. The
@@ -80,8 +85,8 @@ AI app / MCP client ──HTTP  GET /mcp (SSE)  +  POST /mcp/message──▶ Sp
    │      • per-key Bucket4j throttle (429 on overflow)
    │      • set AccessKeyAuthentication(owner AppUser, scope authorities)            (Properties B/C)
    ▼
- Spring AI MCP endpoint  /mcp   (SYNC)
-   ▼
+ Spring AI MCP endpoint  /mcp   (SYNC)   ← tool runs on a Reactor thread; the SecurityContext is
+   ▼                                       propagated there (McpSecurityContextPropagationConfig)
  @Tool method  ──@RequiresScope──▶ ScopeEnforcementAspect (throws MissingScopeException if absent)
    ▼
  userContext.currentMemberId()  ← AccessKeyAuthentication ⇒ override refused (Property B)
@@ -129,12 +134,29 @@ and GDPR data export.
 | **Access-key** principal, separate from the JWT cookie | A distinct `Authentication` type is the seam for Properties B/C; keys are revocable and scope-limited without touching the login | Reuse cookie/JWT for MCP (no scoping, full surface, no per-app revoke) |
 | **SHA-256 + constant-time compare** for key hashes | The secret is high-entropy (~190 bits), so a fast hash is safe; enables O(1) prefix lookup then `MessageDigest.isEqual` | bcrypt (needed for low-entropy passwords; here it only adds latency to the hot auth path) |
 | **HTTP+SSE** transport (`/mcp` stream + `/mcp/message`) | The only transport Spring AI 1.0.3 / MCP SDK 0.10.0 ship; clients reach it via `mcp-remote` | Streamable HTTP (not available on the pinned version — see the ADR) |
+| **Reactor automatic context propagation** to carry the security context to the tool thread | Spring AI runs tools off the servlet thread; this restores the `SecurityContext` there so the existing thread-local check works unchanged | `MODE_INHERITABLETHREADLOCAL` (misses pooled scheduler threads) · making the aspect read auth some other way (leaks the thread concern into every tool) |
 | **Curated** write surface (manual records + resync only) | An AI app should never initiate credential/auth flows or touch admin/MFA/export | Expose the full REST surface as tools (uncontrolled blast radius) |
 | Scopes as one **space-delimited column** via `@Convert` | Read in full on every auth, never queried individually; no join table | Join table (a query per auth for data that's always read whole) |
 | Per-key + per-member **in-memory Bucket4j** throttles | Single-instance self-host; matches the existing `RateLimitConfig` pattern | Distributed rate store (unwarranted for a self-hosted single instance) |
 
 ## Gotchas / Pitfalls
 
+- **Scope enforcement needs the security context across a thread hop.** `AccessKeyAuthFilter`
+  authenticates on the Tomcat servlet thread, but Spring AI (WebMvc+SSE) executes `@Tool` methods on a
+  Reactor scheduler thread. Because `SecurityContextHolder` is a plain `ThreadLocal`, that tool thread
+  saw no `Authentication`, so `ScopeEnforcementAspect` (and `UserContext`) found **no scopes** — every
+  scoped `tools/call` failed with `Missing required scope`, even for a key that holds the scope. Fixed by
+  `McpSecurityContextPropagationConfig`: it registers `SecurityContextThreadLocalAccessor` with the
+  Micrometer `ContextRegistry` and calls `Hooks.enableAutomaticContextPropagation()`, so Reactor captures
+  the `SecurityContext` at subscription and restores it around tool execution. The accessor is null-safe on
+  `restore()` because `SecurityContextHolder.setContext(null)` throws. Unit tests can't catch this — they
+  set the context on the test thread — so it only shows up driving the real SSE transport.
+- **The reverse proxy must forward `/mcp` with SSE settings.** An MCP client connects to the public origin
+  (`https://<host>/mcp`), not the backend port, so nginx/Vite must route `/mcp` to the backend with
+  `proxy_buffering off` + a long `proxy_read_timeout` (the GET `/mcp` stream is long-lived) — otherwise the
+  SSE events are withheld and the stream stalls. Configured in `frontend/nginx.conf`, `docker/nginx.conf`,
+  and the Vite dev proxy (`frontend/vite.config.ts`). Forgetting it yields a `404` (or, if `/` is a SPA
+  fallback, an HTML page) on `/mcp` while the backend is perfectly healthy on `:8080/mcp`.
 - **`SyncTools` must be named `@Component("picsouSyncTools")`.** Spring AI's
   `McpServerAutoConfiguration` already defines a bean named `syncTools` (the SYNC server's tool-spec
   list). A `@Component` defaulting to `syncTools` collides with it and aborts the context
@@ -176,6 +198,12 @@ Backend (H2, `mvn test`):
 Frontend (`bunx vitest run`):
 - `frontend/src/features/accessKeys/scopes.test.ts` — scope grouping, i18n-key mapping, and a **vocabulary guard** asserting the frontend list equals backend `Scopes.ALL`.
 - `frontend/src/features/accessKeys/status.test.ts` — `keyStatus` (revoked > expired > active, boundary at "now").
+
+**Not covered by unit tests** (they run on a single thread, so they can't reproduce it): the
+cross-thread `SecurityContext` propagation and the `/mcp` reverse-proxy route. Both are verified by
+driving the **real SSE transport** end to end — open `GET /mcp`, read the `endpoint` event, then
+`POST /mcp/message` an `initialize` + `tools/call` and assert a scoped tool returns data. Run that
+against `:8080` (backend) and the public origin to cover both the propagation fix and the proxy chain.
 
 ## Links
 

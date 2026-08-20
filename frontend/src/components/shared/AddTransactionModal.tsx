@@ -13,7 +13,11 @@ import { extractErrorMessage } from '@/lib/errors'
 import { Loader2 } from 'lucide-react'
 import type { AccountType, TransactionRequest } from '@/types/api'
 import { accountsApi } from '@/features/accounts/api'
+import { budgetApi } from '@/features/budget/api'
 import { QUERY_STALE_TIMES } from '@/lib/constants'
+
+const SELECT_CLS =
+  'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus:border-ring'
 
 const INVESTMENT_TYPES: AccountType[] = ['PEA', 'COMPTE_TITRES', 'CRYPTO']
 
@@ -78,9 +82,16 @@ function TransactionForm({ onOpenChange, accountId, accountType, onSubmit, isLoa
     enabled: isInvestment && !!accountId,
   })
 
+  const { data: categories } = useQuery({
+    queryKey: ['categories'],
+    queryFn: budgetApi.listCategories,
+    staleTime: QUERY_STALE_TIMES.accountDetail,
+  })
+
   // Shared state — initialized from initialValues (edit) or sensible defaults (add)
   const [date, setDate] = useState(() => (initialValues?.date ? String(initialValues.date) : today()))
   const [description, setDescription] = useState(() => (!isInvestmentTx ? (initialValues?.description ?? '') : ''))
+  const [categoryId, setCategoryId] = useState<number | ''>(() => initialValues?.categoryId ?? '')
   const [error, setError] = useState<string | null>(null)
 
   // Cash fields
@@ -144,6 +155,7 @@ function TransactionForm({ onOpenChange, accountId, accountType, onSubmit, isLoa
         description,
         amount,
         txType: txDirection === 'deposit' ? 'DEPOSIT' : 'WITHDRAWAL',
+        categoryId: categoryId !== '' ? categoryId : undefined,
       }
     }
 
@@ -234,6 +246,19 @@ function TransactionForm({ onOpenChange, accountId, accountType, onSubmit, isLoa
           <div className="space-y-1">
             <Label>{t('accounts.amount')}</Label>
             <NumericInput value={cashAmount} onChange={e => setCashAmount(e.target.value)} required />
+          </div>
+          <div className="space-y-1">
+            <Label>Catégorie <span className="text-muted-foreground text-xs">(optionnelle)</span></Label>
+            <select
+              value={categoryId}
+              onChange={e => setCategoryId(e.target.value === '' ? '' : Number(e.target.value))}
+              className={SELECT_CLS}
+            >
+              <option value="">— Sans catégorie —</option>
+              {(categories ?? []).filter(c => !c.archived).map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
           </div>
         </>
       )}

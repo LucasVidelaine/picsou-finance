@@ -62,6 +62,7 @@ export const QUERY_STALE_TIMES = {
   accountDetail: 2 * 60 * 1000,
   sync: 30 * 1000,
   goals: 2 * 60 * 1000,
+  budget: 2 * 60 * 1000,
   // Property valuations refresh monthly at most -- the underlying open data is published
   // twice a year -- so anything shorter would just re-fetch an identical answer.
   realEstate: 10 * 60 * 1000,

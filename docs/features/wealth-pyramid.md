@@ -166,8 +166,8 @@ Backend:
 - `backend/src/main/java/com/picsou/service/AllocationTargetService.java` — read/replace, owns the defaults
 - `backend/src/main/java/com/picsou/service/EssentialExpenseEstimator.java` — the transaction-derived estimate
 - `backend/src/main/java/com/picsou/controller/AnalysisController.java` — `/api/analysis`
-- `backend/src/main/resources/db/migration/V80__account_type_life_insurance_and_scpi.sql`
-- `backend/src/main/resources/db/migration/V81__wealth_allocation.sql`
+- `backend/src/main/resources/db/migration/V82__account_type_life_insurance_and_scpi.sql`
+- `backend/src/main/resources/db/migration/V83__wealth_allocation.sql`
 
 Frontend:
 - `frontend/src/pages/analysis/AnalysisPage.tsx`, `PyramidSection.tsx`, `AllocationTargetsModal.tsx`
@@ -219,7 +219,7 @@ GET /api/analysis/pyramid
   separate, deliberate commit — moving a convention inside the diff that deviates from it is what
   `CODING_RULES.md` §0 forbids.
 - **`ALTER TYPE … ADD VALUE` must stand alone in its migration.** PostgreSQL refuses to *use* a
-  new enum value in the transaction that added it, so V80 references neither `ASSURANCE_VIE` nor
+  new enum value in the transaction that added it, so V82 references neither `ASSURANCE_VIE` nor
   `SCPI`. Same reason V69 and V79 are one-liners.
 - **`AccountAccessResolver.weigh(amount, null)` returns zero, not the amount.** The real
   `sharesFor` returns an explicit `100` for a wholly-owned account. A test fixture that puts

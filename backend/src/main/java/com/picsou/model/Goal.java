@@ -31,7 +31,7 @@ public class Goal extends AuditableEntity {
     private String name;
 
     /**
-     * Which shape this goal has. Defaulted rather than required so every row written before V83 —
+     * Which shape this goal has. Defaulted rather than required so every row written before V85 —
      * and every client that has not learned about the field — keeps meaning what it meant.
      */
     @Enumerated(EnumType.STRING)

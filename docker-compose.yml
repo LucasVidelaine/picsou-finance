@@ -57,6 +57,16 @@ services:
     networks:
       - picsou-net
 
+  revolut-auth:
+    build:
+      context: ./services/revolut-auth
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks:
+      - picsou-net
+    volumes:
+      - revolut_profiles:/data/revolut-profiles
+
   bourse-direct-auth:
     build:
       context: ./services/bourse-direct-auth
@@ -107,8 +117,19 @@ services:
     networks:
       - picsou-net
 
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    profiles: ["ollama"]
+    volumes:
+      - ollama_models:/root/.ollama
+    networks:
+      - picsou-net
+
 volumes:
   pgdata:
+  ollama_models:
+  revolut_profiles:
 
 networks:
   picsou-net:

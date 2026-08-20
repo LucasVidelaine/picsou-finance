@@ -1,74 +1,91 @@
 import { useTranslation } from 'react-i18next'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Progress } from '@/components/ui/progress'
 import { CurrencyDisplay } from '@/components/shared/CurrencyDisplay'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-import {
-  Item,
-  ItemContent,
-  ItemGroup,
-  ItemMedia,
-  ItemTitle,
-} from '@/components/ui/item'
 import type { DashboardData } from '@/types/api'
 
-interface LiabilitiesCardProps {
+interface Props {
   liabilities: DashboardData['liabilities']
-  totalLiabilities: number
+  totalMonthlyPayment: number | null
 }
 
 /**
  * Renders the dashboard's liabilities (loans) as their own reading, separate
  * from assets and portfolio performance (issue #18). Each row shows the
- * outstanding amount in red and its share of total liabilities.
+ * outstanding amount in red, its repayment progress, and the monthly payment.
  */
-export function LiabilitiesCard({ liabilities, totalLiabilities }: LiabilitiesCardProps) {
+export function LiabilitiesCard({ liabilities, totalMonthlyPayment }: Props) {
   const { t } = useTranslation()
-
-  if (liabilities.length === 0 || totalLiabilities <= 0) return null
+  const totalDebt = liabilities.reduce((sum, l) => sum + l.balanceEur, 0)
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{t('dashboard.liabilitiesTitle')}</CardTitle>
-        <CardDescription>{t('dashboard.liabilitiesDescription')}</CardDescription>
+        <CardTitle>{t('dashboard.liabilities')}</CardTitle>
+        <CardDescription className="flex flex-wrap gap-x-4 gap-y-1">
+          <span>
+            {t('dashboard.totalLiabilities')}:{' '}
+            <span className="font-medium text-destructive">
+              <CurrencyDisplay value={totalDebt} />
+            </span>
+          </span>
+          {totalMonthlyPayment !== null && (
+            <span>
+              {t('dashboard.monthlyPayment')}:{' '}
+              <span className="font-medium text-foreground">
+                <CurrencyDisplay value={totalMonthlyPayment} />/mo
+              </span>
+            </span>
+          )}
+        </CardDescription>
       </CardHeader>
-      <CardContent>
-        <ItemGroup className="gap-2">
-          {liabilities.map(item => {
-            const share = (item.balanceEur / totalLiabilities) * 100
-            return (
-              <Item key={item.accountId} variant="muted">
-                <ItemMedia>
-                  <div
-                    className="size-3 shrink-0 rounded-full"
-                    style={{ backgroundColor: item.color }}
-                  />
-                </ItemMedia>
-                <ItemContent>
-                  <ItemTitle>{item.name}</ItemTitle>
-                </ItemContent>
-                <div className="flex shrink-0 items-center gap-4">
-                  <span className="text-xs tabular-nums text-muted-foreground">
-                    {share.toFixed(1)}%
-                  </span>
-                  <CurrencyDisplay
-                    value={item.balanceEur}
-                    className="font-medium tabular-nums text-red-500"
-                  />
-                </div>
-              </Item>
-            )
-          })}
-        </ItemGroup>
-        <div className="mt-3 flex items-center justify-between border-t border-border pt-3 text-sm">
-          <span className="text-muted-foreground">{t('dashboard.totalLiabilities')}</span>
-          <CurrencyDisplay value={totalLiabilities} className="font-semibold tabular-nums text-red-500" />
-        </div>
+      <CardContent className="space-y-3">
+        {liabilities.map((loan) => (
+          <div
+            key={loan.accountId}
+            className="flex flex-col gap-1.5 rounded-2xl bg-muted/40 px-4 py-3"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span
+                  className="size-2 shrink-0 rounded-full"
+                  style={{ background: loan.color }}
+                />
+                <span className="truncate text-sm font-medium">{loan.name}</span>
+              </div>
+              <span className="shrink-0 text-sm font-semibold text-destructive">
+                <CurrencyDisplay value={loan.balanceEur} />
+              </span>
+            </div>
+
+            {loan.percentPaid !== null ? (
+              <div className="flex items-center gap-2">
+                <Progress
+                  value={loan.percentPaid}
+                  className="h-1.5 flex-1 [&_[data-slot=progress-indicator]]:bg-primary/60"
+                />
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {Math.round(loan.percentPaid)}%
+                  {loan.monthlyPayment !== null && (
+                    <> · <CurrencyDisplay value={loan.monthlyPayment} />/mo</>
+                  )}
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <span
+                  aria-label="Parameters not configured"
+                  className="flex size-3.5 shrink-0 items-center justify-center rounded-full border border-muted-foreground/30 text-[9px] text-muted-foreground/40"
+                >
+                  i
+                </span>
+                <span className="text-xs italic text-muted-foreground/50">
+                  {t('dashboard.loanParamsUnconfigured')}
+                </span>
+              </div>
+            )}
+          </div>
+        ))}
       </CardContent>
     </Card>
   )

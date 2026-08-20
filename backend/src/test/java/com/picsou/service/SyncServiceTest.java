@@ -11,6 +11,9 @@ import com.picsou.port.BankConnectorPort.InstitutionData;
 import com.picsou.repository.AccountRepository;
 import com.picsou.repository.FamilyMemberRepository;
 import com.picsou.repository.RequisitionRepository;
+import com.picsou.repository.TransactionRepository;
+import com.picsou.service.budget.CategorizationService;
+import com.picsou.service.budget.RecurringDetectionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,6 +41,9 @@ class SyncServiceTest {
     @Mock RequisitionRepository requisitionRepository;
     @Mock FamilyMemberRepository familyMemberRepository;
     @Mock AccountService accountService;
+    @Mock TransactionRepository transactionRepository;
+    @Mock CategorizationService categorizationService;
+    @Mock RecurringDetectionService recurringDetectionService;
     @Mock RequisitionLifecycleWriter requisitionLifecycleWriter;
 
     SyncService syncService;
@@ -55,6 +61,9 @@ class SyncServiceTest {
             requisitionRepository,
             familyMemberRepository,
             accountService,
+            transactionRepository,
+            categorizationService,
+            recurringDetectionService,
             requisitionLifecycleWriter,
             new BankLogoResolver(bankConnector)
         );
@@ -124,7 +133,9 @@ class SyncServiceTest {
         lenient().when(accountService.toResponse(any(Account.class)))
             .thenReturn(new AccountResponse(99L, "Compte Courant", null, "BNP Paribas", "EUR",
                 new BigDecimal("100"), new BigDecimal("100"), null, null, false, "#6366f1", null,
-                "https://logos.example/bnp.png", null, null, null, null, null, null, null));
+                "https://logos.example/bnp.png", null, null, null, null, null, null, null, false, null, null));
+        // Merged in from 1.1.0: completeConnection now ingests transactions per account.
+        when(bankConnector.fetchTransactions(any(), any(), any())).thenReturn(List.of());
 
         syncService.completeConnection("oauth-code", null, memberId);
 
@@ -625,7 +636,7 @@ class SyncServiceTest {
         lenient().when(accountService.toResponse(any(Account.class)))
             .thenReturn(new AccountResponse(1L, "Compte", null, "Revolut", "EUR",
                 new BigDecimal("10"), new BigDecimal("10"), null, null, false, "#6366f1", null, null,
-                null, null, null, null, null, null, null));
+                null, null, null, null, null, null, null, false, null, null));
 
         // Caller context is member 1 (the admin), requisition belongs to member 2.
         syncService.completeConnection("oauth-code", "state-x", 1L);

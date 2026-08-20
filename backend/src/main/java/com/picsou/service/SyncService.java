@@ -8,6 +8,9 @@ import com.picsou.port.BankConnectorPort;
 import com.picsou.repository.AccountRepository;
 import com.picsou.repository.FamilyMemberRepository;
 import com.picsou.repository.RequisitionRepository;
+import com.picsou.repository.TransactionRepository;
+import com.picsou.service.budget.CategorizationService;
+import com.picsou.service.budget.RecurringDetectionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -30,8 +33,14 @@ public class SyncService {
     private final RequisitionRepository requisitionRepository;
     private final FamilyMemberRepository familyMemberRepository;
     private final AccountService accountService;
+    private final TransactionRepository transactionRepository;
+    private final CategorizationService categorizationService;
+    private final RecurringDetectionService recurringDetectionService;
     private final RequisitionLifecycleWriter requisitionLifecycleWriter;
     private final BankLogoResolver bankLogoResolver;
+
+    /** How far back to pull transactions on each sync; dedup makes the overlap harmless. */
+    private static final int TRANSACTION_LOOKBACK_DAYS = 90;
 
     public SyncService(
         BankConnectorPort bankConnector,
@@ -39,6 +48,9 @@ public class SyncService {
         RequisitionRepository requisitionRepository,
         FamilyMemberRepository familyMemberRepository,
         AccountService accountService,
+        TransactionRepository transactionRepository,
+        CategorizationService categorizationService,
+        RecurringDetectionService recurringDetectionService,
         RequisitionLifecycleWriter requisitionLifecycleWriter,
         BankLogoResolver bankLogoResolver
     ) {
@@ -47,8 +59,23 @@ public class SyncService {
         this.requisitionRepository = requisitionRepository;
         this.familyMemberRepository = familyMemberRepository;
         this.accountService = accountService;
+        this.transactionRepository = transactionRepository;
+        this.categorizationService = categorizationService;
+        this.recurringDetectionService = recurringDetectionService;
         this.requisitionLifecycleWriter = requisitionLifecycleWriter;
         this.bankLogoResolver = bankLogoResolver;
+    }
+
+    /**
+     * Re-run recurring detection for a member after a sync, isolating any failure so it never
+     * rolls back the freshly-ingested balances and transactions.
+     */
+    private void detectRecurring(Long memberId) {
+        try {
+            recurringDetectionService.detect(memberId, LocalDate.now());
+        } catch (Exception ex) {
+            log.warn("Recurring detection skipped for member {}: {}", memberId, ex.getMessage());
+        }
     }
 
     /** Step 1: Initiate Enable Banking bank connection for a given institution. */
@@ -135,6 +162,8 @@ public class SyncService {
             requisition.setLastSyncedAt(Instant.now());
             requisitionRepository.save(requisition);
 
+            detectRecurring(member.getId());
+
             log.info("Completed Enable Banking sync for {}: {} accounts linked", requisition.getInstitutionName(), responses.size());
             return responses;
         } catch (RuntimeException ex) {
@@ -201,6 +230,8 @@ public class SyncService {
         req.setStatus(RequisitionStatus.LINKED);
         req.setLastSyncedAt(Instant.now());
         requisitionRepository.save(req);
+
+        detectRecurring(member.getId());
 
         log.info("Retry sync OK for {}: {} accounts linked", req.getInstitutionName(), responses.size());
         return responses;
@@ -274,6 +305,7 @@ public class SyncService {
                 accounts.forEach(data -> upsertAccount(data, req, member));
                 req.setLastSyncedAt(Instant.now());
                 requisitionRepository.save(req);
+                detectRecurring(member.getId());
                 log.info("Auto-resync OK for {}: {} accounts", req.getInstitutionName(), accounts.size());
             } catch (Exception ex) {
                 req.setStatus(RequisitionStatus.FAILED);
@@ -331,6 +363,7 @@ public class SyncService {
             .toList();
         req.setLastSyncedAt(Instant.now());
         requisitionRepository.save(req);
+        detectRecurring(member.getId());
         log.info("Refreshed {} accounts for {}", responses.size(), req.getInstitutionName());
         return responses;
     }
@@ -396,16 +429,38 @@ public class SyncService {
      * Returns {@link Optional#empty()} when the matching account was soft-deleted
      * by the user — we must not resurrect it on the next sync. The bank may keep
      * returning the same external id forever; that's not consent to bring it back.
+     *
+     * <p>Matching strategy (Enable Banking v0.16.4 uid-rotation resilience):
+     * <ol>
+     *   <li>If the account has an IBAN, look up by {@code (iban, memberId)} first — IBAN is
+     *       stable even when the provider uid changes (e.g. Boursorama after EB v0.16.4).
+     *       When matched via IBAN, the stored {@code externalAccountId} is refreshed to the
+     *       current uid so future syncs stay aligned.</li>
+     *   <li>Fall back to {@code (externalAccountId, memberId)} for accounts without an IBAN
+     *       and for providers whose uid never changes.</li>
+     * </ol>
+     * Soft-delete guards follow the same two-step order.
      */
     private Optional<AccountResponse> upsertAccount(BankConnectorPort.AccountData data, Requisition requisition, FamilyMember member) {
-        Optional<Account> existing = accountRepository
-            .findByExternalAccountIdAndMemberId(data.externalId(), member.getId());
+        // Step 1: locate an existing active account (IBAN-first when available)
+        Optional<Account> existing = Optional.empty();
+        if (data.iban() != null) {
+            existing = accountRepository.findByIbanAndMemberId(data.iban(), member.getId());
+        }
+        if (existing.isEmpty()) {
+            existing = accountRepository.findByExternalAccountIdAndMemberId(data.externalId(), member.getId());
+        }
 
-        if (existing.isEmpty() &&
-            accountRepository.existsSoftDeletedByExternalAccountIdAndMemberId(data.externalId(), member.getId())) {
-            log.info("Skipping resurrection of soft-deleted account externalId={} member={}",
-                data.externalId(), member.getId());
-            return Optional.empty();
+        // Step 2: soft-delete guard — refuse to resurrect an account the user removed
+        if (existing.isEmpty()) {
+            boolean softDeleted = (data.iban() != null &&
+                accountRepository.existsSoftDeletedByIbanAndMemberId(data.iban(), member.getId()))
+                || accountRepository.existsSoftDeletedByExternalAccountIdAndMemberId(data.externalId(), member.getId());
+            if (softDeleted) {
+                log.info("Skipping resurrection of soft-deleted account externalId={} iban={} member={}",
+                    data.externalId(), data.iban(), member.getId());
+                return Optional.empty();
+            }
         }
 
         Account account;
@@ -413,6 +468,12 @@ public class SyncService {
             account = existing.get();
             account.setCurrentBalance(data.balance());
             account.setLastSyncedAt(Instant.now());
+            // Refresh uid in case the provider rotated it (EB v0.16.4 Boursorama case)
+            account.setExternalAccountId(data.externalId());
+            if (data.iban() != null) {
+                account.setIban(data.iban());
+            }
+            // Backfill the bank logo on a pre-logo account once the requisition has one.
             if (account.getLogoUrl() == null && requisition.getLogoUrl() != null) {
                 account.setLogoUrl(requisition.getLogoUrl());
             }
@@ -429,6 +490,7 @@ public class SyncService {
                 .currentBalance(data.balance())
                 .lastSyncedAt(Instant.now())
                 .externalAccountId(data.externalId())
+                .iban(data.iban())
                 .isManual(false)
                 .color("#6366f1")
                 .logoUrl(requisition.getLogoUrl())
@@ -439,7 +501,59 @@ public class SyncService {
         account = accountRepository.save(account);
         accountService.upsertSnapshot(account, data.balance(), LocalDate.now());
 
+        ingestTransactions(account, requisition.getRequisitionId(), member);
+
         return Optional.of(accountService.toResponse(account));
+    }
+
+    /**
+     * Pull recent transactions for a synced account, skipping any already stored
+     * (dedup by {@code (account, externalId)}), and auto-categorize each new one via the
+     * member's rules. The account's authoritative balance still comes from the balance
+     * endpoint — we never recompute it from this partial transaction window. Failures here
+     * are logged and swallowed so a transaction hiccup never breaks the balance sync.
+     */
+    private void ingestTransactions(Account account, String sessionId, FamilyMember member) {
+        if (account.getExternalAccountId() == null) {
+            return;
+        }
+        LocalDate from = LocalDate.now().minusDays(TRANSACTION_LOOKBACK_DAYS);
+        List<BankConnectorPort.TransactionData> fetched;
+        try {
+            fetched = bankConnector.fetchTransactions(sessionId, account.getExternalAccountId(), from);
+        } catch (Exception ex) {
+            log.warn("Transaction ingestion skipped for account {}: {}", account.getId(), ex.getMessage());
+            return;
+        }
+
+        // Load the member's rules + categories-by-slug once and reuse across the whole window
+        // (no per-transaction queries); each new transaction is enriched + categorized in memory.
+        CategorizationService.CategorizationContext categorization =
+            categorizationService.loadContext(member.getId());
+
+        int inserted = 0;
+        for (BankConnectorPort.TransactionData data : fetched) {
+            if (data.externalId() != null
+                && transactionRepository.existsByAccountIdAndExternalId(account.getId(), data.externalId())) {
+                continue;
+            }
+            Transaction tx = Transaction.builder()
+                .account(account)
+                .date(data.date())
+                .description(data.description())
+                .amount(data.amount())
+                .counterparty(data.counterparty())
+                .externalId(data.externalId())
+                .nativeCurrency(data.currency() != null ? data.currency() : "EUR")
+                .isManual(false)
+                .build();
+            categorizationService.autoCategorize(tx, categorization);
+            transactionRepository.save(tx);
+            inserted++;
+        }
+        if (inserted > 0) {
+            log.info("Ingested {} new transactions for account {}", inserted, account.getId());
+        }
     }
 
     public record InitiateResponse(String requisitionId, String authLink) {}

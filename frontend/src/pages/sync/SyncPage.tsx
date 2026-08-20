@@ -6,9 +6,11 @@ import { BankSyncTab } from './BankSyncTab'
 import { CryptoExchangeTab } from './CryptoExchangeTab'
 import { CryptoWalletTab } from './CryptoWalletTab'
 import { TradeRepublicTab } from './TradeRepublicTab'
+import { RevolutTab } from './RevolutTab'
 import { IbkrTab } from './IbkrTab'
 import { FinaryTab } from './FinaryTab'
 import { BourseDirectTab } from './BourseDirectTab'
+import { AccountsVisibilityTab } from './AccountsVisibilityTab'
 import { DegiroTab } from './DegiroTab'
 import { AmundiTab } from './AmundiTab'
 import { BoursoTab } from './BoursoTab'
@@ -27,12 +29,14 @@ export function SyncPage() {
           <TabsTrigger value="exchanges">{t('sync.exchanges.title')}</TabsTrigger>
           <TabsTrigger value="wallets">{t('sync.wallets.title')}</TabsTrigger>
           <TabsTrigger value="tr">{t('sync.tr.title')}</TabsTrigger>
+          <TabsTrigger value="revolut">{t('sync.revolut.title')}</TabsTrigger>
           <TabsTrigger value="bourso">{t('sync.bourso.title')}</TabsTrigger>
           <TabsTrigger value="bourse-direct">{t('sync.bourseDirect.title')}</TabsTrigger>
           <TabsTrigger value="degiro">{t('sync.degiro.title')}</TabsTrigger>
           <TabsTrigger value="ibkr">{t('sync.ibkr.title')}</TabsTrigger>
           <TabsTrigger value="amundi">{t('sync.amundi.title')}</TabsTrigger>
           <TabsTrigger value="finary">{t('sync.finary.title')}</TabsTrigger>
+          <TabsTrigger value="visibility">{t('sync.visibility.title')}</TabsTrigger>
         </TabsList>
         <TabsContent value="banks" className="mt-6">
           <BankSyncTab />
@@ -45,6 +49,9 @@ export function SyncPage() {
         </TabsContent>
         <TabsContent value="tr" className="mt-6">
           <TradeRepublicTab />
+        </TabsContent>
+        <TabsContent value="revolut" className="mt-6">
+          <RevolutTab />
         </TabsContent>
         <TabsContent value="bourso" className="mt-6">
           <BoursoTab />
@@ -63,6 +70,9 @@ export function SyncPage() {
         </TabsContent>
         <TabsContent value="finary" className="mt-6">
           <FinaryTab />
+        </TabsContent>
+        <TabsContent value="visibility" className="mt-6">
+          <AccountsVisibilityTab />
         </TabsContent>
       </Tabs>
     </div>

@@ -9,6 +9,7 @@
     "create": "Créer",
     "confirm": "Confirmer",
     "confirmTypePrompt": "Tapez {{phrase}} pour confirmer.",
+    "errorTitle": "Erreur",
     "optional": "optionnel",
     "error": "Une erreur est survenue. Veuillez réessayer.",
     "errors": {
@@ -21,6 +22,7 @@
     "search": "Rechercher",
     "noResults": "Aucun résultat",
     "retry": "Réessayer",
+    "skipToContent": "Aller au contenu principal",
     "back": "Retour",
     "next": "Suivant",
     "close": "Fermer",
@@ -28,6 +30,8 @@
     "no": "Non",
     "today": "Aujourd'hui",
     "currency": "EUR",
+    "locale": "fr-FR",
+    "category": "Catégorie",
     "done": "Terminé"
   },
   "nav": {
@@ -37,6 +41,8 @@
     "accounts.desc": "Soldes & transactions",
     "goals": "Objectifs",
     "goals.desc": "Suivi de vos épargnes",
+    "budget": "Budget",
+    "budget.desc": "Dépenses & cashflow",
     "sync": "Synchronisation",
     "settings": "Paramètres",
     "settings.desc": "Préférences & compte",
@@ -52,7 +58,8 @@
     "analysis": "Analyse",
     "analysis.desc": "Répartition & diversification",
     "hideAmounts": "Masquer les montants",
-    "showAmounts": "Afficher les montants"
+    "showAmounts": "Afficher les montants",
+    "switchLanguage": "Changer la langue"
   },
   "auth": {
     "login": "Connexion",
@@ -102,6 +109,7 @@
     "financialWorth": "Patrimoine financier",
     "syncAccounts": "Synchroniser",
     "invested": "Capital investi",
+    "portfolioPerformance": "performance portefeuille",
     "netWorthChange": "Gain / perte",
     "marketsClosed": "Marchés fermés — aucune donnée intraday disponible",
     "distribution": "Répartition",
@@ -133,6 +141,9 @@
     "viewAll": "Voir tout",
     "totalLiabilities": "Total des dettes",
     "totalAssets": "Total des actifs",
+    "liabilities": "Dettes",
+    "monthlyPayment": "Mensualité totale",
+    "loanParamsUnconfigured": "Paramètres non renseignés",
     "evolution": {
       "net": "Évolution du patrimoine net",
       "gross": "Évolution du patrimoine brut",
@@ -140,6 +151,17 @@
     },
     "liabilitiesTitle": "Passifs",
     "liabilitiesDescription": "Dette restante par compte"
+  },
+  "transactions": {
+    "detail": "Détail de la transaction",
+    "account": "Compte",
+    "filterFrom": "Du",
+    "filterTo": "Au",
+    "allAccounts": "Tous les comptes",
+    "allCategories": "Toutes les catégories",
+    "empty": "Aucune transaction sur cette période.",
+    "error": "Impossible de charger les transactions.",
+    "viewAll": "Voir toutes les transactions"
   },
   "accounts": {
     "title": "Comptes",
@@ -188,8 +210,18 @@
     "logoLedger": "Ledger",
     "total": "Total",
     "currentBalance": "Solde actuel",
+    "tabOverview": "Aperçu",
     "cashBalance": "Liquidités dans le PEA/CTO",
     "snapshots": "Relevés mensuels",
+    "changeCategory": "Changer la catégorie",
+    "importCsvTR": "+ Ajouter CSV (TR)",
+    "importSuccess": "{{count}} transaction importée",
+    "importSuccess_other": "{{count}} transactions importées",
+    "importSuccessWithSkipped": "{{count}} transaction importée ({{skipped}} déjà présente)",
+    "importSuccessWithSkipped_other": "{{count}} transactions importées ({{skipped}} déjà présentes)",
+    "importAlreadyDone": "Aucune nouvelle transaction — le CSV est déjà importé.",
+    "importError": "Erreur lors de l'import : {{message}}",
+    "uncategorized": "Non catégorisé",
     "addSnapshot": "Enregistrer",
     "monthlyHistory": "Solde en fin de mois",
     "evolution": "Évolution des soldes",
@@ -604,6 +636,267 @@
       "goToSettings": "Aller aux paramètres"
     }
   },
+  "budget": {
+    "surtitle": "FINANCES",
+    "title": "Budget & Cashflow",
+    "tab": {
+      "overview": "Aperçu",
+      "envelopes": "Enveloppes",
+      "cashflow": "Cashflow",
+      "allocation": "Allocation",
+      "recurring": "Récurrents",
+      "categorize": "À catégoriser",
+      "transactions": "Transactions",
+      "manage": "Gérer"
+    },
+    "a11y": {
+      "edit": "Modifier {{name}}",
+      "delete": "Supprimer {{name}}",
+      "archive": "Archiver {{name}}",
+      "unarchive": "Restaurer {{name}}",
+      "confirm": "Confirmer {{name}}",
+      "ignore": "Ignorer {{name}}"
+    },
+    "kind": {
+      "income": "Revenu",
+      "expense": "Dépense",
+      "transfer": "Virement"
+    },
+    "cadence": {
+      "weekly": "Hebdomadaire",
+      "biweekly": "Bimensuel",
+      "monthly": "Mensuel",
+      "quarterly": "Trimestriel",
+      "yearly": "Annuel"
+    },
+    "period": {
+      "cycle": "Cycle",
+      "ytd": "Année",
+      "prev": "Période précédente",
+      "next": "Période suivante",
+      "jump": "Aller à…"
+    },
+    "asset": {
+      "current": "Comptes courants",
+      "savings": "Épargne",
+      "investment": "Investissement",
+      "other": "Autre"
+    },
+    "overview": {
+      "netThisCycle": "Solde net du cycle",
+      "incomeVsExpense": "{{income}} € entrées · {{expense}} € sorties",
+      "envelopes": "Enveloppes",
+      "onTrack": "Tout est sous contrôle",
+      "overBudget": "{{count}} enveloppe dépassée",
+      "overBudget_other": "{{count}} enveloppes dépassées",
+      "upcoming30": "À venir (30 j)",
+      "upcomingCount": "{{count}} échéance à venir",
+      "upcomingCount_other": "{{count}} échéances à venir",
+      "investable": "Épargne & invest.",
+      "contributedThisCycle": "{{amount}} € versés ce cycle",
+      "toCategorize": "{{count}} transaction à catégoriser",
+      "toCategorize_other": "{{count}} transactions à catégoriser",
+      "topEnvelopes": "Enveloppes les plus sollicitées",
+      "pastPeriodNote": "Les budgets d'enveloppes et les prochaines échéances reflètent toujours le cycle en cours.",
+      "error": "Impossible de charger l'aperçu."
+    },
+    "cashflow": {
+      "subtitle": "Entrées, sorties et solde net (virements exclus).",
+      "income": "Entrées",
+      "expense": "Sorties",
+      "net": "Solde net",
+      "byCycle": "Par cycle",
+      "empty": "Aucune transaction sur cette période.",
+      "error": "Impossible de charger le cashflow."
+    },
+    "flow": {
+      "subtitle": "Comment circule votre argent.",
+      "diagram": "Flux du cycle",
+      "breakdown": "Où part votre argent",
+      "inflows": "Entrées",
+      "outflows": "Sorties",
+      "empty": "Aucun flux à afficher sur cette période.",
+      "error": "Impossible de charger le diagramme de flux.",
+      "ariaSummary": "Diagramme de flux : {{income}} d'entrées, {{expense}} de sorties, solde net {{net}}.",
+      "dataTableCaption": "Détail des flux : {{income}} d'entrées, {{expense}} de sorties, solde net {{net}}.",
+      "colDirection": "Sens",
+      "colName": "Poste",
+      "colAmount": "Montant",
+      "transactionsCount": "{{count}} transaction",
+      "transactionsCount_other": "{{count}} transactions",
+      "node": {
+        "hub": "Budget",
+        "incomeOther": "Autres revenus",
+        "uncategorized": "Sans catégorie",
+        "moreExpenses": "Autres dépenses",
+        "savings": "Épargne",
+        "drawdown": "Épargne mobilisée"
+      }
+    },
+    "detail": {
+      "back": "Retour aux dépenses",
+      "total": "Total de la période",
+      "subcategories": "Par sous-catégorie",
+      "empty": "Aucune transaction dans cette catégorie sur la période.",
+      "error": "Impossible de charger le détail de la catégorie.",
+      "notFound": "Catégorie introuvable."
+    },
+    "allocation": {
+      "subtitle": "Répartition de votre épargne et de vos investissements.",
+      "stock": "Encours par classe d'actif",
+      "contributions": "Contributions de la période",
+      "totalContributed": "Total versé",
+      "noStock": "Aucun encours à afficher.",
+      "noContributions": "Aucune contribution sur cette période.",
+      "noContributionsHint": "Les virements vers vos comptes d'épargne et d'investissement apparaîtront ici.",
+      "error": "Impossible de charger l'allocation."
+    },
+    "envelope": {
+      "add": "Nouvelle enveloppe",
+      "edit": "Modifier l'enveloppe",
+      "subtitle": "Un plafond mensuel par catégorie de dépense.",
+      "category": "Catégorie",
+      "selectCategory": "Choisir une catégorie",
+      "monthlyLimit": "Plafond mensuel",
+      "formHint": "Définissez le montant maximum à dépenser sur le cycle.",
+      "includesSubcategories": "Sous-catégories incluses",
+      "empty": "Aucune enveloppe",
+      "emptyHint": "Créez une enveloppe pour suivre vos dépenses par catégorie.",
+      "error": "Impossible de charger les enveloppes.",
+      "deleteTitle": "Supprimer l'enveloppe",
+      "deleteDescription": "Supprimer l'enveloppe « {{name}} » ? Les transactions sont conservées."
+    },
+    "recurring": {
+      "detect": "Détecter",
+      "add": "Ajouter",
+      "subtitle": "Abonnements et prélèvements récurrents.",
+      "series": "Séries récurrentes",
+      "upcoming": "Prochaines échéances",
+      "noSeries": "Aucune série récurrente détectée.",
+      "noUpcoming": "Aucune échéance à venir",
+      "noUpcomingHint": "Les prochains prélèvements apparaîtront ici une fois détectés.",
+      "error": "Impossible de charger les récurrents.",
+      "label": "Libellé",
+      "counterparty": "Bénéficiaire",
+      "amount": "Montant",
+      "cadence": "Fréquence",
+      "nextDue": "Prochaine échéance",
+      "category": "Catégorie",
+      "noCategory": "Sans catégorie",
+      "formHint": "Ajoutez manuellement un prélèvement récurrent.",
+      "variable": "Montant variable",
+      "autoConfirmedConfident": "Auto-confirmé · {{percent}} % de confiance",
+      "priceFromTo": "{{from}} → {{to}}",
+      "undo": "Annuler",
+      "status": {
+        "suggested": "Suggéré",
+        "confirmed": "Confirmé",
+        "ignored": "Ignoré"
+      },
+      "runtime": {
+        "stale": "Inactif",
+        "late": "En retard",
+        "dueSoon": "Bientôt dû"
+      },
+      "activity": {
+        "title": "Ce qui a changé",
+        "autoConfirmed": "Auto-confirmé",
+        "priceChange": "Variation de prix",
+        "autoConfirmedDesc": "Détecté et confirmé automatiquement",
+        "priceChangeDesc": "Prix passé de {{from}} à {{to}}",
+        "acknowledge": "OK"
+      }
+    },
+    "categorize": {
+      "subtitle": "Affectez une catégorie aux transactions non classées.",
+      "recategorize": "Recatégoriser",
+      "categorizeAi": "Catégoriser avec l'IA",
+      "aiSuggested": "IA : {{name}} · {{confidence}} %",
+      "selectCategory": "Choisir une catégorie",
+      "learnRule": "Mémoriser une règle",
+      "assign": "Affecter",
+      "empty": "Tout est catégorisé",
+      "emptyHint": "Les nouvelles transactions à classer apparaîtront ici.",
+      "error": "Impossible de charger les transactions à catégoriser.",
+      "aiProgress": "Catégorisation IA… {{processed}}/{{total}}",
+      "aiDone": "IA terminée : {{applied}} appliquées, {{suggested}} suggérées",
+      "createRule": "Créer une règle",
+      "editRule": "Modifier la règle"
+    },
+    "category": {
+      "title": "Catégories",
+      "hint": "Renommez, recoloriez ou archivez vos catégories.",
+      "add": "Ajouter",
+      "edit": "Modifier la catégorie",
+      "name": "Nom",
+      "namePlaceholder": "Ex : Courses",
+      "kind": "Genre",
+      "color": "Couleur",
+      "default": "Par défaut",
+      "subcategory": "Sous-catégorie",
+      "parent": "Catégorie parente",
+      "parentNone": "Aucune (catégorie de premier niveau)",
+      "parentHint": "Rattachez cette catégorie à une parente pour la regrouper comme sous-catégorie.",
+      "parentLocked": "Cette catégorie a déjà des sous-catégories : elle ne peut pas en devenir une.",
+      "formHint": "Le genre détermine si la catégorie compte comme revenu, dépense ou virement.",
+      "error": "Impossible de charger les catégories."
+    },
+    "rule": {
+      "title": "Règles de catégorisation",
+      "hint": "Catégorisez automatiquement les transactions correspondantes.",
+      "add": "Nouvelle règle",
+      "empty": "Aucune règle définie.",
+      "error": "Impossible de charger les règles.",
+      "learned": "Auto",
+      "matchType": "Critère",
+      "pattern": "Modèle",
+      "category": "Catégorie",
+      "formHint": "Toute transaction correspondante sera catégorisée automatiquement.",
+      "match": {
+        "counterparty": "Bénéficiaire",
+        "keyword": "Mot-clé",
+        "keywords_all": "Tous les mots (ET)",
+        "keywords_any": "Au moins un mot (OU)"
+      },
+      "wordPickerTitle": "Sélectionner les mots à faire correspondre",
+      "matchMode": "Mode de correspondance",
+      "matchAll": "Tous les mots (ET)",
+      "matchAny": "Au moins un mot (OU)",
+      "previewLoading": "Chargement de l’aperçu…",
+      "previewCount": "{{count}} transaction sera modifiée",
+      "previewCount_other": "{{count}} transactions seront modifiées",
+      "previewCapped": "Affichage des 200 premières correspondances sur {{count}}",
+      "createRule": "Créer une règle",
+      "editRule": "Modifier la règle",
+      "ruleActive": "Règle : {{pattern}}"
+    },
+    "settings": {
+      "cycleTitle": "Jour de paie",
+      "cycleHint": "Votre cycle budgétaire démarre ce jour-là chaque mois, pas le 1ᵉʳ.",
+      "cycleStartDay": "Jour de début de cycle",
+      "currentCycle": "Cycle en cours : du {{start}} au {{end}}",
+      "logoTitle": "Logos des marques",
+      "logoHint": "Récupère les logos des marques en ligne pour les afficher à la place des monogrammes. Désactivé par défaut, purement cosmétique — n'influence jamais la catégorisation.",
+      "logoFetchLabel": "Afficher les logos en ligne",
+      "aiTitle": "Catégorisation par IA",
+      "aiHint": "Laisse un modèle proposer une catégorie pour les marchands que vos règles et la liste de marques ne reconnaissent pas. Désactivé par défaut ; ne traite que les transactions restées non catégorisées.",
+      "aiEnableLabel": "Activer les suggestions IA",
+      "aiModeLabel": "Ce que l'IA fait de sa réponse",
+      "aiModeOption": {
+        "SUGGEST": "Seulement suggérer",
+        "AUTO_HIGH_CONFIDENCE": "Appliquer si l'IA est sûre",
+        "AUTO_ALL": "Toujours appliquer"
+      },
+      "aiModeHint": {
+        "SUGGEST": "L'IA propose seulement une catégorie dans l'inbox ; rien n'est appliqué tant que vous ne validez pas.",
+        "AUTO_HIGH_CONFIDENCE": "Applique la catégorie automatiquement au-dessus du seuil de confiance ; sinon laisse une suggestion.",
+        "AUTO_ALL": "Applique toujours la meilleure réponse de l'IA. Le plus rapide, mais quelques erreurs seront à corriger."
+      },
+      "aiThresholdLabel": "Seuil de confiance",
+      "aiThresholdHint": "En dessous, l'IA laisse une suggestion au lieu d'appliquer la catégorie.",
+      "error": "Impossible de charger les réglages."
+    }
+  },
   "addAccount": {
     "title": "Ajouter un compte",
     "manual": "Manuel",
@@ -612,6 +905,7 @@
     "exchangeConnected": "Exchange connecté !",
     "walletConnected": "Wallet suivi !",
     "trConnected": "Trade Republic connecté !",
+    "revolutConnected": "Revolut connecté !",
     "syncing": "Synchronisation en cours...",
     "syncingDesc": "Récupération de vos dernières transactions. Cela prend généralement quelques secondes.",
     "desc": {
@@ -619,6 +913,7 @@
       "exchanges": "Binance, Meria...",
       "wallets": "Bitcoin, Ethereum, BNB, Solana...",
       "tr": "Trade Republic",
+      "revolut": "Téléphone + code, synchro à la demande",
       "bourso": "Comptes courants, livrets, PEA et comptes-titres chez BoursoBank",
       "bourseDirect": "Synchroniser vos PEA et CTO",
       "degiro": "Synchroniser votre compte-titres DEGIRO",
@@ -676,6 +971,36 @@
         "pinRequired": "Code PIN requis.",
         "validationFailed": "Données invalides.",
         "unknownError": "Une erreur inattendue s'est produite."
+      }
+    },
+    "revolut": {
+      "title": "Revolut",
+      "phone": "Numéro de téléphone",
+      "passcode": "Code d'accès",
+      "remember": "Mémoriser mes identifiants (chiffrés)",
+      "sync": "Synchroniser Revolut",
+      "syncing": "Synchronisation en cours...",
+      "approveOnPhone": "Approuve la connexion sur ton app Revolut…",
+      "connected": "Connecté",
+      "forget": "Oublier les identifiants",
+      "lastSync": "Dernière synchro",
+      "approvalTimeout": "Approbation non reçue. Réessaie.",
+      "notConnected": "Non connecté",
+      "syncSuccess": "Tes comptes sont à jour.",
+      "phase": {
+        "checkingSession": "Vérification de ta session Revolut…",
+        "loggingIn": "Connexion à Revolut…",
+        "awaitingApproval": "Approuve la connexion sur ton app Revolut… ({{remaining}} s restantes)",
+        "harvesting": "Récupération de tes comptes… ({{count}} trouvés)"
+      },
+      "selection": {
+        "title": "Choisis les comptes à importer",
+        "selectAll": "Tout sélectionner",
+        "confirm": "Importer la sélection",
+        "importing": "Import en cours…",
+        "alreadyImported": "Déjà importé",
+        "transactions": "{{count}} transactions",
+        "allImported": "Tous tes comptes Revolut sont déjà importés."
       }
     },
     "ibkr": {
@@ -736,6 +1061,11 @@
       "lastSync": "Dernière sync",
       "evmHint": "Une seule adresse, toutes les chaînes EVM — Ethereum, BNB Chain, Polygon, Arbitrum, Optimism, Base et Avalanche."
     },
+    "visibility": {
+      "title": "Comptes",
+      "description": "Choisis quels comptes apparaissent dans l'application. Un compte masqué continue d'être synchronisé normalement — il est juste retiré de l'affichage.",
+      "manualGroup": "Manuel"
+    },
     "finary": {
       "title": "Finary",
       "uploadFile": "Importer un fichier Finary (.xlsx)",
@@ -786,10 +1116,12 @@
       "noConnections": "Aucune connexion de synchronisation active",
       "lastSync": "Dernière sync",
       "openFinary": "Ouvrir la page Finary pour synchroniser",
+      "openRevolut": "Ouvrir la page Revolut pour se connecter",
       "sessionExpired": "Session expirée",
       "reconnect": "Se reconnecter depuis l'onglet du fournisseur",
       "trManualInfo": "Trade Republic est la seule banque qui nécessite une reconnexion manuelle. Vous devrez ressaisir votre numéro et PIN à chaque synchronisation.",
-      "trSlowWarning": "La connexion peut prendre quelques instants, c'est normal."
+      "trSlowWarning": "La connexion peut prendre quelques instants, c'est normal.",
+      "revolutManualInfo": "Revolut nécessite une approbation sur votre téléphone. Cliquez sur l'icône pour saisir vos identifiants."
     },
     "bourso": {
       "title": "BoursoBank",
@@ -1109,11 +1441,104 @@
       "sync_trigger": {
         "label": "Synchronisation",
         "desc": "Rafraîchir les connexions bancaires, crypto et courtier existantes"
+      },
+      "budget_categories-read": {
+        "label": "Catégories budgétaires",
+        "desc": "Voir les catégories budgétaires (revenus, dépenses, virements)"
+      },
+      "budget_rules-read": {
+        "label": "Règles de catégorisation",
+        "desc": "Voir les règles de catégorisation automatique des transactions"
+      },
+      "budget_transactions-read": {
+        "label": "Transactions budgétées",
+        "desc": "Voir les transactions et leur catégorie"
+      },
+      "budget_recurring-read": {
+        "label": "Abonnements récurrents",
+        "desc": "Voir les abonnements, prélèvements et salaires détectés"
+      },
+      "budget_envelopes-read": {
+        "label": "Enveloppes budgétaires",
+        "desc": "Voir les enveloppes budgétaires et leur progression"
+      },
+      "budget_dashboard-read": {
+        "label": "Tableau de bord budget",
+        "desc": "Voir le flux de trésorerie, le top des catégories et les abonnements à venir"
+      },
+      "oauth2_discover": {
+        "label": "Découverte OAuth2",
+        "desc": "Consulter les informations publiques du serveur d'autorisation"
+      },
+      "oauth2_session-status": {
+        "label": "Statut de session",
+        "desc": "Consulter le statut et les permissions de la session en cours"
+      },
+      "budget_categories-write": {
+        "label": "Catégories budgétaires",
+        "desc": "Créer, modifier et archiver des catégories budgétaires"
+      },
+      "budget_rules-write": {
+        "label": "Règles de catégorisation",
+        "desc": "Créer, modifier et supprimer des règles de catégorisation"
+      },
+      "budget_transactions-write": {
+        "label": "Transactions budgétées",
+        "desc": "Modifier la catégorie des transactions"
+      },
+      "budget_envelopes-write": {
+        "label": "Enveloppes budgétaires",
+        "desc": "Créer, modifier et supprimer des enveloppes budgétaires"
       }
     }
   },
+  "oauthConsent": {
+    "title": "Autoriser {{app}} à accéder à tes données Picsou ?",
+    "titleGeneric": "Connecter une application",
+    "description": "Vérifie les permissions ci-dessous avant d'autoriser cette application à se connecter. Tu peux révoquer l'accès à tout moment depuis les Réglages.",
+    "loading": "Chargement de la demande…",
+    "scopesIntro": "Cette application demande les permissions suivantes :",
+    "noScopes": "Cette application ne demande aucune permission.",
+    "missingParams": "Ce lien ne contient pas les informations nécessaires. Relance la connexion depuis l'application.",
+    "error": "Impossible de charger cette demande de connexion. Elle a peut-être expiré — relance-la depuis l'application.",
+    "approve": "Autoriser",
+    "deny": "Refuser"
+  },
+  "connectedApps": {
+    "sectionTitle": "Applications connectées",
+    "sectionDescription": "Applications tierces autorisées à accéder à tes données via MCP par OAuth",
+    "loading": "Chargement…",
+    "empty": "Aucune application connectée.",
+    "issued": "Connectée {{value}}",
+    "lastUsed": "Dernière utilisation {{value}}",
+    "lastUsedNever": "Jamais utilisée",
+    "revoke": "Révoquer",
+    "revokeTitle": "Révoquer l'accès de cette application ?",
+    "revokeDescription": "Cette application perd immédiatement l'accès à tes données. Tu pourras la reconnecter plus tard depuis l'application.",
+    "error": "Impossible de révoquer l'accès. Réessaye."
+  },
   "admin": {
     "title": "Administration",
+    "ai": {
+      "title": "Catégorisation IA",
+      "description": "Fournisseur d'IA optionnel utilisé pour catégoriser les transactions que les règles déterministes laissent non catégorisées.",
+      "provider": "Fournisseur",
+      "providerNone": "Désactivé",
+      "providerOpenAi": "OpenAI / compatible",
+      "model": "Modèle",
+      "baseUrl": "URL de base",
+      "apiKey": "Clé API",
+      "apiKeyHintPresent": "Une clé est déjà enregistrée — laissez vide pour la conserver.",
+      "apiKeyRequired": "Une clé API est requise lors du changement de fournisseur.",
+      "disabledHint": "La catégorisation IA est désactivée. Choisissez un fournisseur pour l'activer.",
+      "test": "Tester la connexion",
+      "testing": "Test en cours…",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "saved": "Enregistré",
+      "maxConcurrency": "Requêtes en parallèle",
+      "maxConcurrencyHint": "Nombre d'appels IA simultanés (1–16). Plus bas pour Ollama local."
+    },
     "security": {
       "title": "Sécurité",
       "description": "Origines CORS autorisées et sécurité des cookies",
@@ -1203,6 +1628,23 @@
       "copied": "Copié !",
       "noMembers": "Aucun membre",
       "loading": "Chargement..."
+    },
+    "aiActivity": {
+      "title": "Activité IA",
+      "description": "Inspectez les appels de catégorisation IA récents — prompts et consommation de tokens.",
+      "view": "Voir les tâches IA",
+      "summary": "{{calls}} appels · {{tokens}} tokens au total",
+      "colTime": "Heure",
+      "colMerchant": "Marchand",
+      "colModel": "Modèle",
+      "colTokens": "Tokens",
+      "colStatus": "Statut",
+      "prompt": "Prompt",
+      "response": "Réponse",
+      "prev": "Précédent",
+      "next": "Suivant",
+      "empty": "Aucun appel IA enregistré pour l'instant.",
+      "loading": "Chargement…"
     }
   },
   "error": {
@@ -1347,6 +1789,10 @@
           "title": "Trade Republic",
           "description": "Synchronisez votre portefeuille Trade Republic avec vos identifiants. Vous les ajouterez au moment de créer le compte."
         },
+        "revolut": {
+          "title": "Revolut",
+          "description": "Synchronisez tous vos actifs Revolut (comptes, pockets, vaults) avec votre numéro + code d'accès et une approbation sur votre mobile."
+        },
         "finary": {
           "title": "Finary",
           "description": "Importez vos holdings et synchronisez avec votre compte Finary. Le TOTP est géré à l'ajout."
@@ -1463,6 +1909,14 @@
       "cta": "C'est compris",
       "skip": "Ne pas activer Trade Republic"
     },
+    "revolut": {
+      "surtitle": "REVOLUT",
+      "title": "Revolut est prêt.",
+      "body": "Rien à configurer ici — tu connecteras Revolut avec ton numéro et ton code d'accès, puis une approbation depuis ton app mobile, au moment d'ajouter le compte.",
+      "tip": "Une fois l'installation finie, allez dans Comptes → Ajouter un compte → Revolut.",
+      "cta": "C'est compris",
+      "skip": "Ne pas activer Revolut"
+    },
     "finary": {
       "title": "Finary est prêt.",
       "body": "Rien à configurer maintenant — vous vous connecterez avec votre compte Finary au moment de l'ajouter dans Picsou. Le TOTP est géré à l'ajout si votre compte en requiert un.",
@@ -1492,6 +1946,43 @@
       "loginFallback": "Aller à la connexion",
       "loggingIn": "Connexion en cours..."
     }
+  },
+  "pockets": {
+    "subAccountsCount": "{{count}} pocket",
+    "subAccountsCount_other": "{{count}} pockets"
+  },
+  "savings": {
+    "configSection": "Configuration livret",
+    "product": "Produit",
+    "products": {
+      "LIVRET_A": "Livret A",
+      "LDDS": "LDDS",
+      "LEP": "LEP",
+      "COMMERCIAL": "Livret bancaire"
+    },
+    "annualRate": "Taux annuel (%)",
+    "rateBasis": "Base du taux",
+    "gross": "Brut",
+    "net": "Net",
+    "taxRate": "Prélèvement fiscal (%)",
+    "taxRateHint": "PFU : 30 % (flat tax)",
+    "ceiling": "Plafond légal (€)",
+    "ceilingOptional": "Optionnel",
+    "saveConfig": "Enregistrer",
+    "deleteConfig": "Supprimer la configuration",
+    "deleteConfigConfirm": "Supprimer la configuration livret ?",
+    "configSaved": "Configuration enregistrée",
+    "regulatedNet": "Produit réglementé — les intérêts sont nets d'impôt par la loi",
+    "projectionTitle": "Intérêts estimés {{year}}",
+    "projectionYtd": "Depuis le 1er janvier",
+    "projectionFullYear": "Estimation pleine année",
+    "projectionNextCapitalization": "Prochaine capitalisation",
+    "projectionDisclaimer": "Estimation uniquement. Le crédit annuel de la banque fait foi.",
+    "projectionBasis": "Taux {{basis}}",
+    "suggestionsBanner": "{{count}} livret à configurer",
+    "suggestionsBanner_other": "{{count}} livrets à configurer",
+    "configureSavings": "Configurer",
+    "uncertain": "Classification incertaine — à vérifier"
   },
   "import": {
     "importCsv": "Importer CSV",

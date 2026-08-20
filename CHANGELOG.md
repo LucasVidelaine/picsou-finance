@@ -7,8 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-06-09
+
+Minor release: a complete **Budget & Cashflow** module — zero-config and "Apple-like". Fed by
+Enable Banking transaction sync with a full manual fallback (it works with no synced bank at all),
+it categorizes every transaction automatically by *brand* against an embedded, offline knowledge
+base — before the user tags a single thing — and presents spending through a clean nested-route
+information architecture.
+
 ### Added
 
+- **Zero-config brand categorization.** An embedded, **offline** merchant knowledge base (137
+  common FR/EU brands) categorizes synced transactions automatically, from the very first sync,
+  with no setup and no ML or external service. It slots in as a pure fallback behind the existing
+  rule engine, so the precedence **manual choice > learned rule > brand KB > uncategorized** is
+  never inverted and no per-member rows are written. A KB version bump (`kb_version`) re-categorizes
+  in place without ever overriding a user's choice.
+- **Clean merchant names everywhere.** A pure `MerchantNormalizer` strips payment-processor wrappers
+  (`PAYPAL *…`, `SUMUP *…`), card/reference digits, and date noise into a canonical `merchant_label`,
+  stamped on every transaction whether or not it ends up categorized.
+- **Merchant avatars.** `MerchantAvatar` renders an initial-monogram with a deterministic, offline
+  colour in every transaction list — no network by default.
+- **Cashflow flow diagram.** Income sources → a central hub → spending categories, drawn as a
+  **Sankey diagram** on ≥ `md` viewports and as compact **Flow Bars** on phones, internal transfers
+  excluded. A per-category **drill** lists the transactions (and, for a parent, a per-child rollup).
+- **Sub-categories.** Categories now form a one-level **tree** (`parent_id` + a stable `slug`).
+  Aggregation stays leaf-only so a euro is never counted under both a parent and a child; a parent
+  envelope rolls up its whole subtree, guarded against parent/child double-budgeting.
+- **Recurring v2 with silent auto-confirm.** Detection keys on the canonical merchant identity (not
+  the drifting raw counterparty), scores a confidence, and **silently auto-confirms** high-confidence
+  series (≥ 3 regular occurrences, fixed amount, confidence ≥ 0.80). The safety net: a **price-change
+  alert**, an **activity feed** of "what changed", and **per-item undo** — silent is never
+  unexplained. `transaction.recurring_series_id` is now populated, linking each charge to its series.
+- **New information architecture (`/budget/*`).** The single tabbed page became a `BudgetLayout` with
+  nested routes — Overview, Spending (+ drill), Subscriptions, Envelopes, Settings — a segmented
+  sub-nav on desktop and a bottom bar on mobile. **Review is contextual**: a banner on the Overview
+  when there are items to correct, not a permanent tab.
+- **Opt-in brand logos.** Off by default. When enabled, a server-side proxy
+  (`GET /api/merchants/{id}/logo`) fetches logos from DuckDuckGo's keyless icon service behind a
+  port/adapter, with an in-memory TTL cache, a per-IP rate limit, and a per-member gate; the
+  monogram is always the fallback, and logos never feed categorization.
 - **The French regulated passbooks each get their own account type.** Livret A,
   LDDS, Livret Jeune, PEL and CEL sit alongside the existing LEP instead of all
   collapsing into the generic "Livret d'épargne", so a household holding several
@@ -164,6 +202,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The budget section's single 7-tab page was replaced by the nested-route IA above, and recurring
+  detection was rewritten around canonical merchant identity (it previously drifted on the raw
+  bank counterparty and never auto-acted).
 - **HSTS is now opt-in in Docker (`HSTS_ENABLED`, default off).** Nginx
   previously sent `Strict-Transport-Security` unconditionally, including on
   plain-HTTP deployments. Combined with a locally-issued certificate that is a
@@ -261,7 +302,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **anchored** to the rotation that opened it — a previous-token acceptance does
   not advance it — so every tab in the burst is tolerated (not just the first
   two) and replaying the previous token cannot slide the window forward. A token
-  presented after the window still trips theft detection (migration `V56`).
+  presented after the window still trips theft detection (migration `V58`).
 - **Bourse Direct positions no longer appear at €0 when an ISIN has no live
   quote.** Dashboard totals now reuse the same atomic account valuation as
   account cards and history. A guarded migration also restores per-position EUR
@@ -340,6 +381,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   thrown — Clerk auth and the low-level retry path to 200 chars, the Finary
   data-API body to 500 (enough to keep its actionable message, still capped).
   Defense-in-depth against financial PII and third-party secrets landing in logs.
+
+### Notes
+
+- See [`docs/features/budget.md`](docs/features/budget.md) and the ADRs
+  [merchant KB & budget IA](docs/decisions/2026-06-09-merchant-kb-and-budget-ia.md) (this redesign)
+  and [budget cycle & categorization](docs/decisions/2026-06-02-budget-cycle-and-categorization.md)
+  (the original foundation).
+- Categorization stays **100% offline** — no ML, no third-party categorization API (privacy).
+- Custom reports remain out of scope for this release. (The embedded MCP server arrived on the
+  1.0.x line and is carried into this release — see [`docs/features/mcp-server.md`](docs/features/mcp-server.md).)
+
+### Database migrations
+
+- **V33** — budget foundation (categories, rules, `budget_settings`)
+- **V34** — envelopes / budgets
+- **V35** — recurring series
+- **V36 / V37** — inherited from the 1.0.x line (`transaction.name`, then access-keys + embedded
+  MCP server); see [1.0.7] below. The budget branch reserved V33–V35, so these slot in above it.
+- **V38** — budget categorization foundation (`category.parent_id`/`slug`,
+  `transaction.merchant_label`, `budget_settings.kb_version`/`logo_fetch_enabled`)
+- **V39** — merchant knowledge base (`merchant_brand`, `merchant_alias`,
+  `transaction.merchant_brand_id`, 137-brand seed)
+- **V40** — recurring v2 (`confidence`, amount range, `is_variable`, `previous_amount`,
+  `price_changed_at`; `(member_id, lower(label))` unique index)
 
 ## [1.0.13] — 2026-07-07
 

@@ -34,6 +34,11 @@ public class SetupService {
     public static final String KEY_ENABLEBANKING_KEY_ID = "enablebanking.key-id";
     public static final String KEY_ENABLEBANKING_REDIRECT_URI = "enablebanking.redirect-uri";
     public static final String KEY_BOURSO_AUTH_URL = "bourso-auth.url";
+    public static final String KEY_AI_PROVIDER = "ai.provider";
+    public static final String KEY_AI_MODEL = "ai.model";
+    public static final String KEY_AI_BASE_URL = "ai.base-url";
+    public static final String KEY_AI_API_KEY = "ai.api-key";
+    public static final String KEY_AI_MAX_CONCURRENCY = "ai.max-concurrency";
     public static final List<String> INTEGRATIONS = List.of(
         "enablebanking", "boursobank", "boursedirect", "traderepublic", "finary", "crypto"
     );
@@ -221,6 +226,20 @@ public class SetupService {
         upsert(KEY_ENABLEBANKING_KEY_ID, applicationId);
         upsert(KEY_ENABLEBANKING_REDIRECT_URI, redirectUri);
         log.info("setup.integration.enablebanking.configured");
+    }
+
+    @Transactional
+    public void writeAiConfig(String provider, String model, String baseUrl, String encryptedKeyOrNull, Integer maxConcurrency) {
+        upsert(KEY_AI_PROVIDER, provider == null ? "none" : provider);
+        upsert(KEY_AI_MODEL, model == null ? "" : model);
+        upsert(KEY_AI_BASE_URL, baseUrl == null ? "" : baseUrl);
+        if (encryptedKeyOrNull != null) {
+            upsert(KEY_AI_API_KEY, encryptedKeyOrNull);
+        }
+        if (maxConcurrency != null) {
+            upsert(KEY_AI_MAX_CONCURRENCY, Integer.toString(maxConcurrency));
+        }
+        log.info("setup.ai.configured provider={}", provider);
     }
 
     @Transactional

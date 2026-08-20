@@ -99,7 +99,7 @@ so without the key a sort chosen on one portfolio would silently carry over to t
 
 ### Opening date
 
-`account.opened_at` (V89) records when a wrapper was opened, as the member states it. The account
+`account.opened_at` (V91) records when a wrapper was opened, as the member states it. The account
 form offers it for the types whose taxation turns on the plan's age — `PEA` and `ASSURANCE_VIE`,
 listed in `OPENING_DATE_TYPES` — and the xlsx export prints it under the account's type.
 
@@ -201,7 +201,7 @@ It also injects each account's current balance at today's date if no snapshot ex
 ### Key files
 
 - `frontend/src/components/shared/AccountForm.tsx` — `OPENING_DATE_TYPES` and the date field
-- `backend/src/main/resources/db/migration/V89__account_opened_at.sql`
+- `backend/src/main/resources/db/migration/V91__account_opened_at.sql`
 - `frontend/src/pages/accounts/AccountsPage.tsx` — page with summary card, PnL chart, and grid
 - `frontend/src/components/shared/AccountCard.tsx` — one card; `AccountAvatar` / `PropertyAvatar`
 - `frontend/src/lib/property-icons.ts` — `PROPERTY_KIND_ICONS`, shared with `AddPropertyModal`

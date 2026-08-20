@@ -1,4 +1,4 @@
-import { useContext, useState, useRef } from 'react'
+import { useContext, useState, useRef, useEffect } from 'react'
 import { OTPInputContext } from 'input-otp'
 import { useTranslation } from 'react-i18next'
 import {
@@ -35,6 +35,10 @@ import {
   useInitiateBankSync,
   useInitiateTrAuth,
   useCompleteTrAuth,
+  useRevolutStatus,
+  useStartRevolutSync,
+  useSyncProgress,
+  useConfirmRevolutSync,
   useAddCryptoExchange,
   useAddCryptoWallet,
   useFinaryConnectionStatus,
@@ -46,12 +50,15 @@ import {
   useCheckFinaryTotp,
 } from '@/features/sync/hooks'
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
+import { RevolutSelectionCard } from '@/components/sync/RevolutSelectionCard'
+import { revolutPhaseLabel } from '@/features/sync/revolut-phase'
 import {
   Landmark,
   HousePlus,
   ArrowLeftRight,
   Wallet,
   Smartphone,
+  CreditCard,
   FileSpreadsheet,
   PenLine,
   ArrowRight,
@@ -64,10 +71,14 @@ import {
   Upload,
   ShieldCheck,
   RefreshCw,
+  Lock,
+  AlertTriangle,
   BriefcaseBusiness,
   TrendingUp,
   PiggyBank,
 } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
+import { formatApiError } from '@/lib/errors'
 import type { ExchangeType, ChainType, AccountRequest, FinaryPreviewResponse, FinaryAccountMapping, FinaryMappingAction, FinaryImportResultResponse, AccountType } from '@/types/api'
 import { SUPPORTED_CHAINS, SUPPORTED_EXCHANGES, exchangeRequiresApiSecret } from '@/types/api'
 
@@ -81,7 +92,7 @@ interface AddAccountModalProps {
 }
 
 type WizardStep =
-  | 'selector' | 'banks' | 'exchanges' | 'wallets' | 'tr' | 'bourso'
+  | 'selector' | 'banks' | 'exchanges' | 'wallets' | 'tr' | 'revolut' | 'bourso'
   | 'bourseDirect' | 'degiro' | 'amundi' | 'finary' | 'property' | 'manual'
 
 /**
@@ -119,6 +130,7 @@ const SOURCES: { key: WizardStep; icon: typeof Landmark; labelKey: string; descK
   { key: 'exchanges', icon: ArrowLeftRight, labelKey: 'sync.exchanges.title', descKey: 'addAccount.desc.exchanges' },
   { key: 'wallets', icon: Wallet, labelKey: 'sync.wallets.title', descKey: 'addAccount.desc.wallets' },
   { key: 'tr', icon: Smartphone, labelKey: 'sync.tr.title', descKey: 'addAccount.desc.tr' },
+  { key: 'revolut', icon: CreditCard, labelKey: 'sync.revolut.title', descKey: 'addAccount.desc.revolut' },
   { key: 'bourso', icon: Landmark, labelKey: 'sync.bourso.title', descKey: 'addAccount.desc.bourso' },
   { key: 'bourseDirect', icon: BriefcaseBusiness, labelKey: 'sync.bourseDirect.title', descKey: 'addAccount.desc.bourseDirect' },
   { key: 'degiro', icon: TrendingUp, labelKey: 'sync.degiro.title', descKey: 'addAccount.desc.degiro' },
@@ -260,6 +272,7 @@ export function AddAccountModal({ open, onOpenChange }: AddAccountModalProps) {
               {step === 'exchanges' && <ExchangeWizard onDone={handleDone} onBack={() => setStep('selector')} />}
               {step === 'wallets' && <WalletWizard onDone={handleDone} onBack={() => setStep('selector')} />}
               {step === 'tr' && <TradeRepublicWizard onDone={handleDone} onBack={() => setStep('selector')} />}
+              {step === 'revolut' && <RevolutWizard onDone={handleDone} onBack={() => setStep('selector')} />}
               {step === 'bourso' && (
                 <>
                   <BackButton onClick={() => setStep('selector')} />
@@ -830,6 +843,178 @@ function TradeRepublicWizard({ onBack }: { onDone: () => void; onBack: () => voi
               {t('sync.tr.connect')}
             </Button>
           </form>
+        )}
+      </div>
+    </>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Wizard: Revolut (on-demand phone+passcode sync — mirrors TradeRepublicWizard)
+// ---------------------------------------------------------------------------
+
+function RevolutWizard({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
+  const { t } = useTranslation()
+  const [phoneNumber, setPhoneNumber] = useState('')
+  const [passcode, setPasscode] = useState('')
+  const [remember, setRemember] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  // Whether a discovery job is currently running — gates both the poll and the UI (mirrors RevolutTab).
+  const [isSyncing, setIsSyncing] = useState(false)
+  // Set once a discovery completes successfully; distinguishes a fresh mount (no result yet,
+  // possibly stale cached progress from an earlier discovery elsewhere) from an actual result.
+  const [resultReady, setResultReady] = useState(false)
+
+  const { data: status } = useRevolutStatus()
+  const startSync = useStartRevolutSync()
+  const progress = useSyncProgress('revolut', isSyncing)
+  const confirmSync = useConfirmRevolutSync()
+
+  const remembered = status?.remembered ?? false
+  const busy = isSyncing || startSync.isPending
+
+  // Detect the running → done transition (mirrors RevolutTab) to stop polling and reveal
+  // the selection step once discovery is over.
+  const prevRunningRef = useRef<boolean | undefined>(undefined)
+  useEffect(() => {
+    const running = progress.data?.running
+    if (prevRunningRef.current === true && running === false) {
+      setIsSyncing(false)
+      if (progress.data?.error) {
+        // Reacting to the running → done transition detected above, not deriving render state.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setErrorMsg(progress.data.error)
+      } else {
+        setResultReady(true)
+      }
+    }
+    prevRunningRef.current = running
+    // progress.data is read through the running dep on purpose (see RevolutTab).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [progress.data?.running])
+
+  function startDiscovery(body: { phoneNumber?: string; passcode?: string }) {
+    setErrorMsg(null)
+    setResultReady(false)
+    startSync.mutate(body, {
+      onSuccess: () => setIsSyncing(true),
+      onError: (err: unknown) => setErrorMsg(formatApiError(err, t)),
+    })
+  }
+
+  function handleQuickSync() {
+    startDiscovery({})
+  }
+
+  function handleFormSync(e: React.FormEvent) {
+    e.preventDefault()
+    if (!phoneNumber || passcode.length !== 6) return
+    startDiscovery({ phoneNumber, passcode })
+  }
+
+  function handleConfirm(selectedExternalIds: string[]) {
+    confirmSync.mutate(
+      { selectedExternalIds, remember, voluntary: true },
+      {
+        onSuccess: onDone,
+        onError: (err: unknown) => setErrorMsg(formatApiError(err, t)),
+      },
+    )
+  }
+
+  // Add-account is purely additive: only offer accounts not already imported.
+  const newAccounts = (progress.data?.discovered ?? []).filter((d) => !d.alreadyImported)
+
+  if (resultReady && newAccounts.length === 0) {
+    return (
+      <>
+        <BackButton onClick={onBack} />
+        <SuccessState message={t('sync.revolut.selection.allImported')} />
+      </>
+    )
+  }
+
+  return (
+    <>
+      <BackButton onClick={onBack} />
+      <div className="space-y-4">
+        {errorMsg && (
+          <div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <AlertTriangle className="size-4 shrink-0" />
+            <span className="flex-1">{errorMsg}</span>
+            <Button variant="ghost" size="sm" onClick={() => setErrorMsg(null)}>x</Button>
+          </div>
+        )}
+
+        {isSyncing && (
+          <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin shrink-0" />
+            {revolutPhaseLabel(t, progress.data)}
+          </div>
+        )}
+
+        {resultReady && newAccounts.length > 0 && (
+          <RevolutSelectionCard
+            discovered={newAccounts}
+            confirming={confirmSync.isPending}
+            onConfirm={handleConfirm}
+          />
+        )}
+
+        {!resultReady && (
+          remembered ? (
+            <Button onClick={handleQuickSync} disabled={busy} className="w-full">
+              {busy ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+              {busy ? t('sync.revolut.syncing') : t('sync.revolut.sync')}
+            </Button>
+          ) : (
+            <form onSubmit={handleFormSync} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="revolut-phone">
+                  <Smartphone className="size-4 inline-block mr-1" />
+                  {t('sync.revolut.phone')}
+                </Label>
+                <Input
+                  id="revolut-phone"
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  required
+                  disabled={busy}
+                  placeholder="+33..."
+                  autoFocus
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="revolut-passcode">
+                  <Lock className="size-4 inline-block mr-1" />
+                  {t('sync.revolut.passcode')}
+                </Label>
+                <InputOTP maxLength={6} value={passcode} onChange={setPasscode} disabled={busy}>
+                  <InputOTPGroup>
+                    {[0, 1, 2, 3, 4, 5].map((i) => (
+                      <MaskedOTPSlot key={i} index={i} />
+                    ))}
+                  </InputOTPGroup>
+                </InputOTP>
+              </div>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <Checkbox
+                  checked={remember}
+                  onCheckedChange={(checked) => setRemember(checked === true)}
+                  disabled={busy}
+                />
+                <span className="text-sm text-muted-foreground">{t('sync.revolut.remember')}</span>
+              </label>
+
+              <Button type="submit" disabled={busy} className="w-full">
+                {busy && <Loader2 className="size-4 animate-spin" />}
+                {busy ? t('sync.revolut.syncing') : t('sync.revolut.sync')}
+              </Button>
+            </form>
+          )
         )}
       </div>
     </>

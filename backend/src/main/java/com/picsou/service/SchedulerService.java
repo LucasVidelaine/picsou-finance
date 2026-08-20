@@ -36,6 +36,7 @@ public class SchedulerService {
     private final SyncService syncService;
     private final TradeRepublicSyncService trSyncService;
     private final BoursoSyncService boursoSyncService;
+    private final RevolutSyncService revolutSyncService;
     private final BourseDirectSyncService bourseDirectSyncService;
     private final AmundiSyncService amundiSyncService;
     /**
@@ -63,6 +64,7 @@ public class SchedulerService {
         SyncService syncService,
         TradeRepublicSyncService trSyncService,
         BoursoSyncService boursoSyncService,
+        RevolutSyncService revolutSyncService,
         BourseDirectSyncService bourseDirectSyncService,
         AmundiSyncService amundiSyncService,
         PriceService priceService,
@@ -80,6 +82,7 @@ public class SchedulerService {
         this.syncService = syncService;
         this.trSyncService = trSyncService;
         this.boursoSyncService = boursoSyncService;
+        this.revolutSyncService = revolutSyncService;
         this.bourseDirectSyncService = bourseDirectSyncService;
         this.amundiSyncService = amundiSyncService;
         this.priceService = priceService;
@@ -130,6 +133,11 @@ public class SchedulerService {
         for (FamilyMember member : members) {
             Long memberId = member.getId();
             log.info("Syncing member {}", memberId);
+
+            // Revolut sidecar is the primary source for Revolut assets; it runs first so it owns
+            // the IBAN row before Enable Banking syncs (fallback -- matches by IBAN and only
+            // refreshes balance/uid, never overwriting provenance -- see SyncService.upsertAccount).
+            revolutSyncService.resyncIfSessionActive(memberId);
 
             try {
                 syncService.resyncAll(memberId);

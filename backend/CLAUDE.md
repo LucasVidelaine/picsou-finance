@@ -11,9 +11,12 @@ mvn test -Dtest=GoalServiceTest                       # Run a single test class
 mvn package -DskipTests                               # Build JAR
 ```
 
-Tests use H2 in-memory — no external database needed. The one exception is the Flyway
-migration tests, which need real PostgreSQL (Testcontainers, Docker Engine ≥ 25.0); they
-skip themselves when Docker is unreachable, so the rest of the suite still runs.
+Most tests are pure Mockito unit tests — no database needed. Several tests spin up a real
+PostgreSQL 16 via Testcontainers (Docker Engine ≥ 25.0) where H2 can't reproduce the behavior:
+`BudgetSeedWriteOnReadPostgresTest` (budget seed-on-read in a read-only transaction),
+`OAuth2SchemaMigrationTest` / `WalletEvmMigrationTest` (Flyway migration fidelity), and the
+OAuth2/MCP authorization-server suite (`AuthorizationServerConfigTest` and friends). They all
+self-skip when no Docker daemon is present, so the rest of the suite still runs.
 
 That skip is invisible in a green build, so CI sets `PICSOU_REQUIRE_DOCKER_TESTS=true`,
 which turns "no Docker" into a hard failure instead — a red build there means the daemon
@@ -32,7 +35,12 @@ com.picsou/
 ├── port/         Abstractions for external providers
 ├── adapter/      Port implementations (Enable Banking, CoinGecko, Yahoo Finance)
 ├── config/       Spring beans: security, JWT, rate limiting, properties
-└── exception/    GlobalExceptionHandler + custom exceptions
+├── exception/    GlobalExceptionHandler + custom exceptions
+├── imports/      CSV transaction import (dialect detection, row mapping, parsing)
+├── finary/       Finary API sync + persistence helpers
+├── export/       Transaction export
+├── mcp/          Embedded MCP server (tools, scopes, OAuth)
+└── validation/   Custom bean-validation constraints
 ```
 
 ## Key patterns
@@ -55,4 +63,8 @@ com.picsou/
 
 ## Testing
 
-Mockito unit tests (`@ExtendWith(MockitoExtension.class)`), `@DataJpaTest` with H2 for integration. Full conventions: see [`docs/conventions/testing.md`](../docs/conventions/testing.md).
+Mockito unit tests (`@ExtendWith(MockitoExtension.class)`) for business logic. For the one case
+where database fidelity matters — the budget seed-on-read in a read-only transaction — a
+Testcontainers-backed `@SpringBootTest` runs against real PostgreSQL, because H2 silently allows
+INSERTs in a read-only transaction whereas PostgreSQL rejects them (SQLSTATE 25006). Full
+conventions: see [`docs/conventions/testing.md`](../docs/conventions/testing.md).
